@@ -1,0 +1,216 @@
+// Firestore Security Rules for Flowbooks
+// Copy and paste these rules into your Firebase Console -> Firestore Database -> Rules
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Users collection - users can only read/write their own document
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+
+      // User settings subcollection
+      match /settings/{settingId} {
+        allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      }
+    }
+
+    // Master Account Types collection - read-only for authenticated users, write only on first initialization
+    match /accountTypes/{typeId} {
+      // Allow read for all authenticated users (global/shared data)
+      allow read: if isAuthenticated();
+
+      // Allow write only if the document doesn't exist (initialization)
+      allow create: if isAuthenticated();
+
+      // Prevent updates and deletes to master data
+      allow update, delete: if false;
+    }
+
+    // Companies collection
+    match /companies/{companyId} {
+      // Allow create if authenticated and setting self as owner
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+
+      // Allow read if user is the owner (for queries with where ownerId == uid)
+      allow read: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+
+      // Allow update/delete only by owner
+      allow update, delete: if isAuthenticated() && resource.data.ownerId == request.auth.uid;
+
+      // All subcollections - allow access if user owns the parent company
+      match /customers/{customerId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /vendors/{vendorId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /employees/{employeeId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /invoices/{invoiceId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /bills/{billId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /creditNotes/{creditNoteId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /debitNotes/{debitNoteId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /creditNoteApplications/{applicationId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /transactions/{transactionId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /bankTransactions/{transactionId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /accounts/{accountId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /bankAccounts/{accountId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /chartOfAccounts/{accountId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /accountSubtypes/{subtypeId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /journalEntries/{entryId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /quotes/{quoteId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /purchaseOrders/{poId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /recurringTransactions/{recurringId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /recurringTransactionLogs/{logId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /bankReconciliations/{recId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /payrollRuns/{runId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /salarySlips/{slipId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /messages/{messageId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      match /settings/{settingId} {
+        allow read, write: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+      }
+
+      // AI Conversation Memory - allow access if user owns the conversation
+      match /conversations/{conversationId} {
+        // Allow read/list for authenticated users (client enforces userId filtering)
+        allow read: if isAuthenticated();
+
+        // Allow create if setting self as userId
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+
+        // Allow update/delete if user owns the conversation
+        allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      }
+
+      match /chatMessages/{messageId} {
+        // Allow read if authenticated and user owns the parent company
+        allow read: if isAuthenticated() &&
+          get(/databases/$(database)/documents/companies/$(companyId)).data.ownerId == request.auth.uid;
+
+        // Allow create if authenticated and setting correct ownerId
+        allow create: if isAuthenticated() &&
+          request.resource.data.ownerId == request.auth.uid;
+
+        // Allow update/delete if authenticated and owns the message
+        allow update, delete: if isAuthenticated() &&
+          resource.data.ownerId == request.auth.uid;
+      }
+
+      // Chat sessions collection
+      match /chats/{chatId} {
+        // Allow read if authenticated and user owns the chat
+        allow read: if isAuthenticated() &&
+          resource.data.ownerId == request.auth.uid;
+
+        // Allow create if authenticated and setting self as owner
+        allow create: if isAuthenticated() &&
+          request.resource.data.ownerId == request.auth.uid;
+
+        // Allow update/delete if authenticated and owns the chat
+        allow update, delete: if isAuthenticated() &&
+          resource.data.ownerId == request.auth.uid;
+
+        // Messages subcollection within chats
+        match /messages/{messageId} {
+          // Allow read/write if user owns the parent chat
+          allow read, write: if isAuthenticated() &&
+            get(/databases/$(database)/documents/companies/$(companyId)/chats/$(chatId)).data.ownerId == request.auth.uid;
+        }
+      }
+    }
+  }
+}

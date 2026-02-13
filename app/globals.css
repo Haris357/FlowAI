@@ -1,0 +1,162 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * Flowbooks Brand Colors (Claude-inspired)
+ * Primary: #D97757 (Terracotta)
+ * Secondary: #C4694D (Warm Brown)
+ *
+ * To change the theme, update the colors below
+ */
+
+:root {
+  /* Brand Colors */
+  --brand-primary: #D97757;
+  --brand-secondary: #C4694D;
+
+  /* Brand Color Scale (change these to update theme everywhere) */
+  --brand-50: #FEF4F0;
+  --brand-100: #FDDCCC;
+  --brand-200: #F9BC9F;
+  --brand-300: #F09B73;
+  --brand-400: #E27F52;
+  --brand-500: #D97757;
+  --brand-600: #C4694D;
+  --brand-700: #A85A42;
+  --brand-800: #8B4A37;
+  --brand-900: #6E3B2D;
+
+  /* Gradient */
+  --brand-gradient: linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%);
+  --brand-gradient-reverse: linear-gradient(135deg, var(--brand-600) 0%, var(--brand-500) 100%);
+
+  --foreground-rgb: 26, 25, 21;
+  --background-start-rgb: 250, 249, 247;
+  --background-end-rgb: 255, 255, 255;
+  --framer-font-family: "Inter", "Inter Placeholder", sans-serif;
+  --framer-font-weight: 700;
+  --framer-letter-spacing: -2.1px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 238, 236, 232;
+    --background-start-rgb: 26, 25, 21;
+    --background-end-rgb: 26, 25, 21;
+  }
+}
+
+@layer base {
+  :root {
+    --background: 40 14% 98%;
+    --foreground: 40 10% 8%;
+    --card: 0 0% 100%;
+    --card-foreground: 40 10% 8%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 40 10% 8%;
+
+    /* Primary - Terracotta #D97757 */
+    --primary: 16 60% 63%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Warm Brown #C4694D */
+    --secondary: 16 48% 53%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 36 14% 96%;
+    --muted-foreground: 30 6% 40%;
+    --accent: 16 60% 63%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 36 12% 88%;
+    --input: 36 12% 88%;
+    --ring: 16 60% 63%;
+
+    /* Chart colors using brand palette */
+    --chart-1: 16 60% 63%;
+    --chart-2: 16 48% 53%;
+    --chart-3: 16 60% 46%;
+    --chart-4: 16 48% 63%;
+    --chart-5: 16 60% 73%;
+
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 40 10% 8%;
+    --foreground: 36 14% 93%;
+    --card: 40 6% 13%;
+    --card-foreground: 36 14% 93%;
+    --popover: 40 6% 13%;
+    --popover-foreground: 36 14% 93%;
+
+    /* Primary - Terracotta (consistent in dark mode) */
+    --primary: 16 60% 63%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Warm Brown */
+    --secondary: 16 48% 53%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 40 6% 15%;
+    --muted-foreground: 30 6% 63%;
+    --accent: 16 60% 63%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 40 6% 18%;
+    --input: 40 6% 18%;
+    --ring: 16 60% 63%;
+
+    /* Chart colors for dark mode */
+    --chart-1: 16 60% 63%;
+    --chart-2: 16 48% 53%;
+    --chart-3: 16 60% 46%;
+    --chart-4: 16 48% 63%;
+    --chart-5: 16 60% 73%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-inter), "Inter", sans-serif;
+    font-weight: 400;
+    letter-spacing: -0.02em;
+  }
+
+  h1, h2, h3, h4, h5, h6, strong, b {
+    font-weight: 700;
+    letter-spacing: -0.04em;
+  }
+}
+
+/* Brand gradient utilities */
+.brand-gradient {
+  background: var(--brand-gradient);
+}
+
+.brand-gradient-reverse {
+  background: var(--brand-gradient-reverse);
+}
+
+.brand-gradient-text {
+  background: var(--brand-gradient);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Subtle gradient backgrounds */
+.brand-gradient-subtle {
+  background: linear-gradient(135deg, rgba(217, 119, 87, 0.1) 0%, rgba(196, 105, 77, 0.1) 100%);
+}
+
+.brand-gradient-subtle-hover:hover {
+  background: linear-gradient(135deg, rgba(217, 119, 87, 0.15) 0%, rgba(196, 105, 77, 0.15) 100%);
+}
