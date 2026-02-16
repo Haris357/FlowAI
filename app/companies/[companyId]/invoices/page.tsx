@@ -45,7 +45,7 @@ import { getInvoices, createInvoice, updateInvoice, deleteInvoice, generateInvoi
 import { getCustomers } from '@/services/customers';
 import { Invoice, InvoiceItem, Customer } from '@/types';
 import { LoadingSpinner, EmptyState, ConfirmDialog, PageBreadcrumbs, FormTableSkeleton } from '@/components/common';
-import { Search, FileText, ChevronLeft, ChevronRight, DollarSign, Plus, Edit2, Trash2, X, Calculator, BarChart3, Eye, MoreVertical } from 'lucide-react';
+import { Search, FileText, ChevronLeft, ChevronRight, DollarSign, Plus, Edit2, Trash2, X, Calculator, BarChart3, Eye, MoreVertical, Send, Download } from 'lucide-react';
 import StatusChangeModal from '@/components/StatusChangeModal';
 import FormEntityDetailModal from '@/components/FormEntityDetailModal';
 import { useSettingsCategory, useFormatting } from '@/hooks';
@@ -107,6 +107,9 @@ export default function InvoicesPage() {
   // Detail modal
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [detailInvoice, setDetailInvoice] = useState<Invoice | null>(null);
+
+  // Sending state
+  const [sendingInvoiceId, setSendingInvoiceId] = useState<string | null>(null);
 
   // Form state
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
@@ -396,6 +399,38 @@ export default function InvoicesPage() {
   const handleDeleteClick = (invoice: Invoice) => {
     setInvoiceToDelete(invoice);
     setDeleteDialogOpen(true);
+  };
+
+  // Handle send invoice
+  const handleSendInvoice = async (invoice: Invoice) => {
+    if (!company?.id) return;
+    setSendingInvoiceId(invoice.id);
+    try {
+      const res = await fetch('/api/invoices/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: company.id, invoiceId: invoice.id }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        toast.error(result.error || 'Failed to send invoice');
+        return;
+      }
+      toast.success(`Invoice ${invoice.invoiceNumber} sent to ${invoice.customerEmail}`);
+      const data = await getInvoices(company.id);
+      setInvoices(data);
+    } catch (error) {
+      console.error('Error sending invoice:', error);
+      toast.error('Failed to send invoice');
+    } finally {
+      setSendingInvoiceId(null);
+    }
+  };
+
+  // Handle PDF download
+  const handleDownloadPDF = (invoice: Invoice) => {
+    if (!company?.id) return;
+    window.open(`/api/invoices/pdf?companyId=${company.id}&invoiceId=${invoice.id}`, '_blank');
   };
 
   const handleDeleteConfirm = async () => {
@@ -698,10 +733,23 @@ export default function InvoicesPage() {
                             >
                               <MoreVertical size={18} />
                             </MenuButton>
-                            <Menu placement="bottom-end" sx={{ zIndex: 1300, minWidth: 160 }}>
+                            <Menu placement="bottom-end" sx={{ zIndex: 1300, minWidth: 180 }}>
                               <MenuItem onClick={() => { setDetailInvoice(invoice); setDetailModalOpen(true); }}>
                                 <ListItemDecorator><Eye size={16} /></ListItemDecorator>
                                 View Details
+                              </MenuItem>
+                              {invoice.status === 'draft' && invoice.customerEmail && (
+                                <MenuItem
+                                  onClick={() => handleSendInvoice(invoice)}
+                                  disabled={sendingInvoiceId === invoice.id}
+                                >
+                                  <ListItemDecorator><Send size={16} /></ListItemDecorator>
+                                  {sendingInvoiceId === invoice.id ? 'Sending...' : 'Send Invoice'}
+                                </MenuItem>
+                              )}
+                              <MenuItem onClick={() => handleDownloadPDF(invoice)}>
+                                <ListItemDecorator><Download size={16} /></ListItemDecorator>
+                                Download PDF
                               </MenuItem>
                               {canEditStatus('invoice', invoice.status).allowed && (
                                 <MenuItem onClick={() => handleEdit(invoice)}>
@@ -1052,10 +1100,34 @@ export default function InvoicesPage() {
           entityName={statusModalInvoice.invoiceNumber}
           currentStatus={statusModalInvoice.status}
           onStatusChange={async (id, newStatus) => {
-            await updateInvoiceStatus(company!.id, id, newStatus);
+            // If changing to "sent", send the invoice via email instead of just updating status
+            if (newStatus === 'sent' && statusModalInvoice?.customerEmail) {
+              setSendingInvoiceId(id);
+              try {
+                const res = await fetch('/api/invoices/send', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ companyId: company!.id, invoiceId: id }),
+                });
+                const result = await res.json();
+                if (!res.ok) {
+                  toast.error(result.error || 'Failed to send invoice');
+                  return;
+                }
+                toast.success(`Invoice sent to ${statusModalInvoice.customerEmail}`);
+              } catch (error) {
+                console.error('Error sending invoice:', error);
+                toast.error('Failed to send invoice');
+                return;
+              } finally {
+                setSendingInvoiceId(null);
+              }
+            } else {
+              await updateInvoiceStatus(company!.id, id, newStatus);
+              toast.success(`Status updated to ${formatStatus('invoice', newStatus)}`);
+            }
             const data = await getInvoices(company!.id);
             setInvoices(data);
-            toast.success(`Status updated to ${formatStatus('invoice', newStatus)}`);
           }}
         />
       )}

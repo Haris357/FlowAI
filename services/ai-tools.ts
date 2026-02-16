@@ -35,6 +35,8 @@ import { getBankAccounts, createBankAccount, updateBankAccount, deleteBankAccoun
 import { getSalarySlips, generateSalarySlip, updateSalarySlipStatus } from './salarySlips';
 import { getActiveEmployees } from './employees';
 import { getVendors } from './vendors';
+import { getAccountPreferences } from './preferences';
+import { Account, AccountPreferences } from '@/types';
 
 // ==========================================
 // TYPES
@@ -52,6 +54,58 @@ export interface ToolResult {
 export interface ToolContext {
   companyId: string;
   userId: string;
+}
+
+// ==========================================
+// ACCOUNT PREFERENCES HELPER
+// ==========================================
+
+// Cache preferences per request to avoid multiple Firestore reads
+let _prefCache: { companyId: string; prefs: AccountPreferences } | null = null;
+
+async function getCachedPreferences(companyId: string): Promise<AccountPreferences> {
+  if (_prefCache && _prefCache.companyId === companyId) return _prefCache.prefs;
+  const prefs = await getAccountPreferences(companyId);
+  _prefCache = { companyId, prefs };
+  return prefs;
+}
+
+/**
+ * Resolve preferred account from preferences, with fallback to type/subtype matching
+ */
+async function resolvePreferredAccount(
+  companyId: string,
+  accounts: Account[],
+  preferenceIdKey: keyof AccountPreferences,
+  fallbackTypeCode: string,
+  fallbackSubtypeCode?: string,
+  fallbackNameMatch?: string
+): Promise<Account | undefined> {
+  const prefs = await getCachedPreferences(companyId);
+  const preferredId = prefs[preferenceIdKey] as string | undefined;
+
+  if (preferredId) {
+    const preferred = accounts.find(a => a.id === preferredId && a.isActive);
+    if (preferred) return preferred;
+  }
+
+  // Fallback: try subtype match first
+  if (fallbackSubtypeCode) {
+    const match = accounts.find(a => a.isActive && a.typeCode === fallbackTypeCode && a.subtypeCode === fallbackSubtypeCode);
+    if (match) return match;
+  }
+
+  // Fallback: try name match
+  if (fallbackNameMatch) {
+    const match = accounts.find(a =>
+      a.isActive && a.typeCode === fallbackTypeCode &&
+      a.name.toLowerCase().includes(fallbackNameMatch.toLowerCase())
+    );
+    if (match) return match;
+  }
+
+  // Final fallback: any active account of the type
+  return accounts.find(a => a.isActive && a.typeCode === fallbackTypeCode);
 }
 
 // ==========================================
@@ -148,6 +202,9 @@ export async function executeAITool(
   context: ToolContext
 ): Promise<ToolResult> {
   const { companyId, userId } = context;
+
+  // Clear preferences cache for fresh data each tool execution
+  _prefCache = null;
 
   try {
     switch (toolName) {
@@ -310,6 +367,10 @@ export async function executeAITool(
         return await generateSalarySlipAI(args, companyId);
       case 'list_salary_slips':
         return await listSalarySlipsAI(args, companyId);
+
+      // Send Invoice via Email
+      case 'send_invoice':
+        return await sendInvoiceViaEmail(args, companyId);
 
       // Status Management Operations
       case 'change_invoice_status':
@@ -872,7 +933,7 @@ async function createInvoice(args: Record<string, any>, companyId: string): Prom
         entity: { id: invoiceId, ...invoiceData },
       },
       actions: [
-        { type: 'send', label: 'Send Invoice', entityType: 'invoice', entityId: invoiceId, toolCall: 'change_invoice_status' },
+        { type: 'send', label: 'Send Invoice', entityType: 'invoice', entityId: invoiceId, toolCall: 'send_invoice' },
         { type: 'view', label: 'View Invoice', entityType: 'invoice', entityId: invoiceId, data: { id: invoiceId, ...invoiceData } },
         { type: 'download', label: 'Download PDF', entityType: 'invoice', entityId: invoiceId },
       ],
@@ -1028,21 +1089,10 @@ async function deleteInvoice(args: Record<string, any>, companyId: string): Prom
 
 async function recordExpense(args: Record<string, any>, companyId: string): Promise<ToolResult> {
   try {
-    // Get all accounts to find appropriate cash and expense accounts
     const accounts = await getAccounts(companyId);
 
-    // Find cash/bank account (prefer one that matches the payment method or is a cash account)
-    let cashAccount = accounts.find(a =>
-      a.isActive &&
-      a.typeCode === 'asset' &&
-      a.subtypeCode === 'cash'
-    );
-
-    if (!cashAccount) {
-      // Fallback to any active asset account
-      cashAccount = accounts.find(a => a.isActive && a.typeCode === 'asset');
-    }
-
+    // Use preferred cash account, fallback to asset/cash subtype, then any asset
+    const cashAccount = await resolvePreferredAccount(companyId, accounts, 'defaultCashAccountId', 'asset', 'cash');
     if (!cashAccount) {
       return {
         success: false,
@@ -1051,18 +1101,8 @@ async function recordExpense(args: Record<string, any>, companyId: string): Prom
       };
     }
 
-    // Find expense account (prefer one matching the category)
-    let expenseAccount = accounts.find(a =>
-      a.isActive &&
-      a.typeCode === 'expense' &&
-      (args.category ? a.name.toLowerCase().includes(args.category.toLowerCase()) : true)
-    );
-
-    if (!expenseAccount) {
-      // Fallback to any active expense account
-      expenseAccount = accounts.find(a => a.isActive && a.typeCode === 'expense');
-    }
-
+    // Use preferred expense account, fallback to category name match, then any expense
+    const expenseAccount = await resolvePreferredAccount(companyId, accounts, 'defaultExpenseAccountId', 'expense', undefined, args.category);
     if (!expenseAccount) {
       return {
         success: false,
@@ -1129,18 +1169,8 @@ async function recordPaymentReceived(args: Record<string, any>, companyId: strin
     // Get all accounts to find appropriate cash and revenue accounts
     const accounts = await getAccounts(companyId);
 
-    // Find cash/bank account
-    let cashAccount = accounts.find(a =>
-      a.isActive &&
-      a.typeCode === 'asset' &&
-      a.subtypeCode === 'cash'
-    );
-
-    if (!cashAccount) {
-      // Fallback to any active asset account
-      cashAccount = accounts.find(a => a.isActive && a.typeCode === 'asset');
-    }
-
+    // Use preferred cash account, fallback to asset/cash subtype, then any asset
+    const cashAccount = await resolvePreferredAccount(companyId, accounts, 'defaultCashAccountId', 'asset', 'cash');
     if (!cashAccount) {
       return {
         success: false,
@@ -1149,12 +1179,8 @@ async function recordPaymentReceived(args: Record<string, any>, companyId: strin
       };
     }
 
-    // Find revenue account
-    let revenueAccount = accounts.find(a =>
-      a.isActive &&
-      a.typeCode === 'revenue'
-    );
-
+    // Use preferred revenue account, fallback to any revenue
+    const revenueAccount = await resolvePreferredAccount(companyId, accounts, 'defaultRevenueAccountId', 'revenue');
     if (!revenueAccount) {
       return {
         success: false,
@@ -1221,11 +1247,10 @@ async function recordPaymentMade(args: Record<string, any>, companyId: string): 
   try {
     const accounts = await getAccounts(companyId);
 
-    let cashAccount = accounts.find(a => a.isActive && a.typeCode === 'asset' && a.subtypeCode === 'cash');
-    if (!cashAccount) cashAccount = accounts.find(a => a.isActive && a.typeCode === 'asset');
+    const cashAccount = await resolvePreferredAccount(companyId, accounts, 'defaultCashAccountId', 'asset', 'cash');
     if (!cashAccount) return { success: false, message: 'No active cash or asset account found. Please create one in Chart of Accounts.' };
 
-    let expenseAccount = accounts.find(a => a.isActive && a.typeCode === 'expense');
+    const expenseAccount = await resolvePreferredAccount(companyId, accounts, 'defaultExpenseAccountId', 'expense');
     if (!expenseAccount) return { success: false, message: 'No active expense account found. Please create one in Chart of Accounts.' };
 
     const amount = Math.abs(Number(args.amount));
@@ -1725,18 +1750,8 @@ async function createBill(args: Record<string, any>, companyId: string): Promise
     // Get all accounts to find appropriate payable and expense accounts
     const accounts = await getAccounts(companyId);
 
-    // Find Accounts Payable account
-    let payableAccount = accounts.find(a =>
-      a.isActive &&
-      a.typeCode === 'liability' &&
-      a.subtypeCode === 'accounts_payable'
-    );
-
-    if (!payableAccount) {
-      // Fallback to any active liability account
-      payableAccount = accounts.find(a => a.isActive && a.typeCode === 'liability');
-    }
-
+    // Use preferred payable account, fallback to liability/accounts_payable, then any liability
+    const payableAccount = await resolvePreferredAccount(companyId, accounts, 'defaultPayableAccountId', 'liability', 'accounts_payable');
     if (!payableAccount) {
       return {
         success: false,
@@ -1745,18 +1760,8 @@ async function createBill(args: Record<string, any>, companyId: string): Promise
       };
     }
 
-    // Find Expense account (prefer one matching category if provided)
-    let expenseAccount = accounts.find(a =>
-      a.isActive &&
-      a.typeCode === 'expense' &&
-      (args.category ? a.name.toLowerCase().includes(args.category.toLowerCase()) : true)
-    );
-
-    if (!expenseAccount) {
-      // Fallback to any active expense account
-      expenseAccount = accounts.find(a => a.isActive && a.typeCode === 'expense');
-    }
-
+    // Use preferred expense account, fallback to category name match, then any expense
+    const expenseAccount = await resolvePreferredAccount(companyId, accounts, 'defaultExpenseAccountId', 'expense', undefined, args.category);
     if (!expenseAccount) {
       return {
         success: false,
@@ -2330,7 +2335,7 @@ async function createRecurringTransactionAI(args: Record<string, any>, companyId
     } else {
       // Simple transaction — needs accountId, accountName, transactionType
       const accounts = await getAccounts(companyId);
-      let account = accounts.find(a => a.isActive && a.typeCode === 'expense');
+      let account = await resolvePreferredAccount(companyId, accounts, 'defaultExpenseAccountId', 'expense');
       if (!account) account = accounts.find(a => a.isActive);
 
       rtId = await createRecurringSimpleTransaction(companyId, {
@@ -2502,13 +2507,14 @@ async function createBankAccountAI(args: Record<string, any>, companyId: string)
   try {
     const openingBalance = Number(args.balance) || 0;
 
-    // Find a linked chart-of-accounts entry for this bank account
+    // Use preferred linked asset account, fallback to asset/cash or current_asset
     const accounts = await getAccounts(companyId);
-    let linkedAccount = accounts.find(a => a.isActive && a.typeCode === 'asset' && (a.subtypeCode === 'cash' || a.subtypeCode === 'current_asset'));
+    let linkedAccount = await resolvePreferredAccount(companyId, accounts, 'defaultLinkedAssetAccountId', 'asset', 'cash');
+    if (!linkedAccount) linkedAccount = accounts.find(a => a.isActive && a.typeCode === 'asset' && a.subtypeCode === 'current_asset');
     if (!linkedAccount) linkedAccount = accounts.find(a => a.isActive && a.typeCode === 'asset');
 
-    // Find opening balance equity account for the journal entry
-    let obAccount = accounts.find(a => a.isActive && a.typeCode === 'equity');
+    // Use preferred equity account, fallback to any equity
+    const obAccount = await resolvePreferredAccount(companyId, accounts, 'defaultEquityAccountId', 'equity');
 
     const accountId = await createBankAccount(companyId, {
       bankName: args.bankName || '',
@@ -2711,6 +2717,93 @@ async function listSalarySlipsAI(args: Record<string, any>, companyId: string): 
 }
 
 // ==========================================
+// SEND INVOICE VIA EMAIL
+// ==========================================
+
+async function sendInvoiceViaEmail(args: Record<string, any>, companyId: string): Promise<ToolResult> {
+  try {
+    const validation = validateRequired(args, ['invoiceId']);
+    if (validation) return validation;
+
+    const { invoiceId } = args;
+
+    // Find invoice by number or ID
+    const invoicesRef = collection(db, `companies/${companyId}/invoices`);
+    const q = query(invoicesRef, where('invoiceNumber', '==', invoiceId));
+    let snapshot = await getDocs(q);
+
+    if (snapshot.empty) {
+      try {
+        const docRef = doc(db, `companies/${companyId}/invoices`, invoiceId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          snapshot = { docs: [docSnap], empty: false } as any;
+        }
+      } catch (e) { /* invalid doc ID */ }
+    }
+
+    if (snapshot.empty) {
+      return { success: false, message: `Couldn't find invoice "${invoiceId}". Please check the invoice number.` };
+    }
+
+    const invoiceDoc = snapshot.docs[0];
+    const invoice: any = { id: invoiceDoc.id, ...invoiceDoc.data() };
+
+    if (invoice.status !== 'draft') {
+      return {
+        success: false,
+        message: `Invoice **${invoice.invoiceNumber}** is already **${invoice.status}**. Only draft invoices can be sent via email.`,
+      };
+    }
+
+    if (!invoice.customerEmail) {
+      return {
+        success: false,
+        message: `Invoice **${invoice.invoiceNumber}** has no customer email. Please update the customer's email first.`,
+      };
+    }
+
+    // Call the send API
+    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const response = await fetch(`${baseUrl}/api/invoices/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId, invoiceId: invoiceDoc.id }),
+    });
+
+    const result = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        message: result.error || 'Failed to send invoice email.',
+      };
+    }
+
+    return {
+      success: true,
+      message: `✓ Invoice **${invoice.invoiceNumber}** has been sent to **${invoice.customerEmail}**.\n\nThe invoice PDF was attached to the email. Status changed to **Sent** and accounting entries (Debit AR, Credit Revenue) have been created.`,
+      data: {
+        type: 'entity',
+        entityType: 'invoice',
+        entity: { ...invoice, status: 'sent' },
+      },
+      actions: [
+        {
+          type: 'view',
+          label: 'View Invoice',
+          entityType: 'invoice',
+          entityId: invoiceDoc.id,
+          data: { ...invoice, status: 'sent' },
+        },
+      ],
+    };
+  } catch (error: any) {
+    return handleError(error, 'Send invoice');
+  }
+}
+
+// ==========================================
 // STATUS MANAGEMENT OPERATIONS
 // ==========================================
 
@@ -2767,6 +2860,11 @@ async function changeInvoiceStatus(args: Record<string, any>, companyId: string)
         message: `Invoice **${invoiceId}** is currently **${formatStatus('invoice', currentStatus)}**.\n\nYou can change it to:\n${statusList}`,
         followUp: 'Which status would you like to set?',
       };
+    }
+
+    // If changing to "sent", use the send invoice flow to also email the customer
+    if (newStatus === 'sent' && currentStatus === 'draft') {
+      return await sendInvoiceViaEmail({ invoiceId }, companyId);
     }
 
     // Update the status

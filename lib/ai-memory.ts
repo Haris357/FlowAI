@@ -57,12 +57,12 @@ export interface ConversationMemory {
 
 export const MEMORY_CONFIG = {
   // Context window management (GPT-4o-mini: 128K context)
-  CONTEXT_BUDGET: 12000,         // Max tokens to send as context (~10% of 128K, keeps cost low)
-  SLIDING_WINDOW: 30,            // Keep last 30 messages in full
-  COMPACT_TRIGGER_MESSAGES: 40,  // Compact when exceeding 40 messages
-  COMPACT_TRIGGER_TOKENS: 15000, // Compact when exceeding 15K estimated tokens
-  MESSAGES_TO_KEEP: 15,          // Keep last 15 messages after compaction
-  MAX_SUMMARY_TOKENS: 500,       // Summary should stay under 500 tokens
+  CONTEXT_BUDGET: 20000,         // Max tokens to send as context
+  SLIDING_WINDOW: 50,            // Keep last 50 messages in full
+  COMPACT_TRIGGER_MESSAGES: 60,  // Compact when exceeding 60 messages
+  COMPACT_TRIGGER_TOKENS: 25000, // Compact when exceeding 25K estimated tokens
+  MESSAGES_TO_KEEP: 30,          // Keep last 30 messages after compaction
+  MAX_SUMMARY_TOKENS: 1000,      // Summary up to 1000 tokens for richer context
 } as const;
 
 // ==========================================
@@ -228,8 +228,8 @@ async function generateSummary(
     .join('\n\n');
 
   const summaryPrompt = existingSummary
-    ? `Previous summary:\n${existingSummary}\n\nNew messages:\n${messagesText}\n\nCombine into a concise summary. Focus on: business context, entities referenced (customers, invoices, accounts), user preferences, and pending tasks.`
-    : `Summarize this conversation concisely. Focus on: business context, entities referenced, user preferences, and pending tasks.\n\nConversation:\n${messagesText}`;
+    ? `Previous summary:\n${existingSummary}\n\nNew messages:\n${messagesText}\n\nCombine into a comprehensive updated summary. You MUST preserve ALL details from the previous summary and add new information.`
+    : `Create a detailed summary of this conversation.\n\nConversation:\n${messagesText}`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -243,7 +243,15 @@ async function generateSummary(
         max_tokens: MEMORY_CONFIG.MAX_SUMMARY_TOKENS,
         temperature: 0.2,
         messages: [
-          { role: 'system', content: 'Create a concise conversation summary for an AI accounting assistant. Include: entity names/IDs mentioned, actions taken, user preferences discovered, and any pending requests. Be factual and brief.' },
+          { role: 'system', content: `Create a detailed conversation summary for an AI accounting assistant. You MUST capture ALL of the following:
+1. CUSTOMER/VENDOR NAMES: Every name mentioned and their relationship (e.g., "Jonas - script writing client")
+2. PRICING & RATES: All pricing structures, per-unit rates, discount rules (e.g., "$0.025/word for 3000+ word scripts")
+3. SERVICES & ITEMS: What services/products were discussed, with quantities and amounts
+4. ACTIONS TAKEN: What was created, updated, deleted (with IDs if available)
+5. PENDING TASKS: Any incomplete requests or tasks the user mentioned but haven't been completed
+6. USER PREFERENCES: Patterns in how the user works, preferred payment methods, recurring clients
+7. BUSINESS RULES: Any business rules the user stated (e.g., pricing tiers, payment terms)
+Be thorough — if you omit a detail, the AI will permanently forget it.` },
           { role: 'user', content: summaryPrompt },
         ],
       }),

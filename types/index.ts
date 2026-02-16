@@ -42,6 +42,36 @@ export interface Company {
   updatedAt: Timestamp;
 }
 
+// Account Preferences (per company default accounts for operations)
+export interface AccountPreferences {
+  // Transaction defaults
+  defaultCashAccountId?: string;
+  defaultCashAccountName?: string;
+  defaultRevenueAccountId?: string;
+  defaultRevenueAccountName?: string;
+  defaultExpenseAccountId?: string;
+  defaultExpenseAccountName?: string;
+  // Invoice/Bill defaults
+  defaultReceivableAccountId?: string;
+  defaultReceivableAccountName?: string;
+  defaultPayableAccountId?: string;
+  defaultPayableAccountName?: string;
+  // Payroll defaults
+  defaultSalaryExpenseAccountId?: string;
+  defaultSalaryExpenseAccountName?: string;
+  defaultTaxPayableAccountId?: string;
+  defaultTaxPayableAccountName?: string;
+  defaultPFPayableAccountId?: string;
+  defaultPFPayableAccountName?: string;
+  defaultSalaryBankAccountId?: string;
+  defaultSalaryBankAccountName?: string;
+  // Bank account defaults
+  defaultLinkedAssetAccountId?: string;
+  defaultLinkedAssetAccountName?: string;
+  defaultEquityAccountId?: string;
+  defaultEquityAccountName?: string;
+}
+
 export interface CompanyUser {
   id: string;
   userId: string;

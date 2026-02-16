@@ -21,10 +21,26 @@ import { MEMORY_CONFIG } from './ai-memory';
 
 export async function getConversationMemory(
   companyId: string,
-  userId: string
+  userId: string,
+  chatId?: string
 ): Promise<any | null> {
   try {
     const conversationsRef = adminDb.collection(`companies/${companyId}/conversations`);
+
+    // If chatId provided, look for conversation tied to this specific chat session
+    if (chatId) {
+      const chatSnapshot = await conversationsRef
+        .where('chatId', '==', chatId)
+        .limit(1)
+        .get();
+
+      if (!chatSnapshot.empty) {
+        const doc = chatSnapshot.docs[0];
+        return { id: doc.id, ...doc.data() };
+      }
+    }
+
+    // Fallback: get most recent conversation for this user
     const snapshot = await conversationsRef
       .where('userId', '==', userId)
       .orderBy('lastActivity', 'desc')
@@ -44,7 +60,8 @@ export async function getConversationMemory(
 export async function createConversationMemory(
   companyId: string,
   userId: string,
-  initialMessage?: any
+  initialMessage?: any,
+  chatId?: string
 ): Promise<string> {
   const conversationsRef = adminDb.collection(`companies/${companyId}/conversations`);
   const messages = initialMessage ? [initialMessage] : [];
@@ -53,6 +70,7 @@ export async function createConversationMemory(
   const docRef = await conversationsRef.add({
     companyId,
     userId,
+    chatId: chatId || null,
     messages,
     totalTokens,
     messageCount: messages.length,
@@ -143,8 +161,8 @@ async function generateSummary(
     .join('\n\n');
 
   const summaryPrompt = existingSummary
-    ? `Previous summary:\n${existingSummary}\n\nNew messages:\n${messagesText}\n\nCombine into a concise summary. Focus on: business context, entities referenced (customers, invoices, accounts), user preferences, and pending tasks.`
-    : `Summarize this conversation concisely. Focus on: business context, entities referenced, user preferences, and pending tasks.\n\nConversation:\n${messagesText}`;
+    ? `Previous summary:\n${existingSummary}\n\nNew messages:\n${messagesText}\n\nCombine into a comprehensive updated summary. You MUST preserve ALL details from the previous summary and add new information.`
+    : `Create a detailed summary of this conversation.\n\nConversation:\n${messagesText}`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -158,7 +176,15 @@ async function generateSummary(
         max_tokens: MEMORY_CONFIG.MAX_SUMMARY_TOKENS,
         temperature: 0.2,
         messages: [
-          { role: 'system', content: 'Create a concise conversation summary for an AI accounting assistant. Include: entity names/IDs mentioned, actions taken, user preferences discovered, and any pending requests. Be factual and brief.' },
+          { role: 'system', content: `Create a detailed conversation summary for an AI accounting assistant. You MUST capture ALL of the following:
+1. CUSTOMER/VENDOR NAMES: Every name mentioned and their relationship (e.g., "Jonas - script writing client")
+2. PRICING & RATES: All pricing structures, per-unit rates, discount rules (e.g., "$0.025/word for 3000+ word scripts")
+3. SERVICES & ITEMS: What services/products were discussed, with quantities and amounts
+4. ACTIONS TAKEN: What was created, updated, deleted (with IDs if available)
+5. PENDING TASKS: Any incomplete requests or tasks the user mentioned but haven't been completed
+6. USER PREFERENCES: Patterns in how the user works, preferred payment methods, recurring clients
+7. BUSINESS RULES: Any business rules the user stated (e.g., pricing tiers, payment terms)
+Be thorough — if you omit a detail, the AI will permanently forget it.` },
           { role: 'user', content: summaryPrompt },
         ],
       }),

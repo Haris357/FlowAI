@@ -11,6 +11,12 @@ import {
   compactConversation,
   estimateTokens,
 } from '@/lib/ai-memory-admin';
+import {
+  getUserBusinessContext,
+  updateUserBusinessContext,
+  extractBusinessContext,
+  buildBusinessContextPrompt,
+} from '@/services/userContext';
 
 // ==========================================
 // CONFIGURATION
@@ -43,6 +49,95 @@ interface ConversationMessage {
   tokens: number;
 }
 
+/**
+ * Detect if the assistant was waiting for user input and inject a context reminder.
+ * This helps the AI connect short follow-up answers to pending questions.
+ */
+function buildContextReminder(
+  history: Array<{ role: 'user' | 'assistant'; content: string }>,
+  currentMessage: string
+): Array<{ role: 'system'; content: string }> {
+  if (history.length < 2) return [];
+
+  // Find the last assistant message
+  let lastAssistantMsg = '';
+  for (let i = history.length - 1; i >= 0; i--) {
+    if (history[i].role === 'assistant') {
+      lastAssistantMsg = history[i].content;
+      break;
+    }
+  }
+
+  if (!lastAssistantMsg) return [];
+
+  // Check if the assistant was asking a question or requesting info
+  const wasAsking = lastAssistantMsg.includes('?') ||
+    /please provide|could you|what('s| is| are)|who('s| is)|which|i need|tell me/i.test(lastAssistantMsg);
+
+  if (!wasAsking) return [];
+
+  // Short user messages are very likely direct answers to the question
+  const isShortReply = currentMessage.trim().split(/\s+/).length <= 10;
+
+  if (isShortReply) {
+    return [{
+      role: 'system' as const,
+      content: `[CONTEXT REMINDER: The assistant just asked the user a question. The user's current message "${currentMessage}" is their answer to that question. Connect this answer to the pending task and proceed. Do NOT treat it as a new unrelated request. If you now have enough information, execute the action immediately.]`,
+    }];
+  }
+
+  return [{
+    role: 'system' as const,
+    content: `[CONTEXT REMINDER: The assistant previously asked the user for information. The user's response likely contains answers to those questions. Extract the relevant details and combine them with previously gathered information to complete the pending task.]`,
+  }];
+}
+
+// ==========================================
+// INPUT SANITIZATION
+// ==========================================
+
+/** Fix common email typos like ",com" → ".com" */
+function sanitizeEmail(email: string): string {
+  if (!email || typeof email !== 'string') return email;
+  let fixed = email.trim().toLowerCase();
+  // Fix comma-for-dot typos in TLD: ,com ,org ,net ,io ,co
+  fixed = fixed.replace(/,(com|org|net|io|co|edu|gov|info)$/i, '.$1');
+  // Fix common domain typos
+  fixed = fixed.replace(/@gmial\./i, '@gmail.');
+  fixed = fixed.replace(/@gmai\./i, '@gmail.');
+  fixed = fixed.replace(/@gamil\./i, '@gmail.');
+  fixed = fixed.replace(/@gnail\./i, '@gmail.');
+  fixed = fixed.replace(/@yaho\./i, '@yahoo.');
+  fixed = fixed.replace(/@yahooo\./i, '@yahoo.');
+  fixed = fixed.replace(/@hotmal\./i, '@hotmail.');
+  fixed = fixed.replace(/@outloo\./i, '@outlook.');
+  // Fix .con → .com, .cmo → .com
+  fixed = fixed.replace(/\.con$/i, '.com');
+  fixed = fixed.replace(/\.cmo$/i, '.com');
+  fixed = fixed.replace(/\.ocm$/i, '.com');
+  return fixed;
+}
+
+/** Sanitize all email-like fields in tool call arguments */
+function sanitizeToolArgs(args: Record<string, any>): Record<string, any> {
+  const emailFields = ['email', 'customerEmail', 'vendorEmail'];
+  const sanitized = { ...args };
+  for (const field of emailFields) {
+    if (sanitized[field] && typeof sanitized[field] === 'string') {
+      sanitized[field] = sanitizeEmail(sanitized[field]);
+    }
+  }
+  // Also sanitize nested updates object
+  if (sanitized.updates && typeof sanitized.updates === 'object') {
+    for (const field of emailFields) {
+      if (sanitized.updates[field] && typeof sanitized.updates[field] === 'string') {
+        sanitized.updates[field] = sanitizeEmail(sanitized.updates[field]);
+      }
+    }
+  }
+  return sanitized;
+}
+
 function calculateCost(promptTokens: number, completionTokens: number, model: string): number {
   const pricing = MODEL_PRICING[model] || MODEL_PRICING[DEFAULT_MODEL];
   return (promptTokens * pricing.input + completionTokens * pricing.output) / 1_000_000;
@@ -50,7 +145,7 @@ function calculateCost(promptTokens: number, completionTokens: number, model: st
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, companyId, userId, model: requestModel } = await request.json();
+    const { message, companyId, userId, chatId, model: requestModel } = await request.json();
 
     if (!message || !companyId || !userId) {
       return NextResponse.json(
@@ -82,7 +177,7 @@ export async function POST(request: NextRequest) {
     // Resolve model — use requested model if valid, otherwise default
     const MODEL = (requestModel && MODEL_PRICING[requestModel]) ? requestModel : DEFAULT_MODEL;
     console.log(`[Flow AI] Model: ${MODEL}`);
-    let memory = await getConversationMemory(companyId, userId);
+    let memory = await getConversationMemory(companyId, userId, chatId);
     let conversationId: string;
 
     if (!memory) {
@@ -94,7 +189,7 @@ export async function POST(request: NextRequest) {
       };
 
       try {
-        conversationId = await createConversationMemory(companyId, userId, userMessage);
+        conversationId = await createConversationMemory(companyId, userId, userMessage, chatId);
         memory = {
           id: conversationId,
           companyId,
@@ -128,11 +223,39 @@ export async function POST(request: NextRequest) {
         console.log('[Flow AI] Compacting conversation memory...');
         memory = await compactConversation(companyId, conversationId);
         console.log(`[Flow AI] Compaction complete. Tokens: ${memory.totalTokens}`);
+
+        // Extract and save business context from the new summary
+        if (memory.summary) {
+          extractBusinessContext(memory.summary).then(ctx => {
+            if (ctx) {
+              updateUserBusinessContext(companyId, userId, ctx).catch(err =>
+                console.warn('[Flow AI] Failed to save business context:', err)
+              );
+            }
+          }).catch(err => console.warn('[Flow AI] Business context extraction failed:', err));
+        }
       }
     }
 
     // Build optimized context from memory
     const recentHistory = buildContextFromMemory(memory);
+
+    // Build context reminder if the assistant was waiting for user input
+    const contextMessages = buildContextReminder(recentHistory, message);
+
+    // Load persistent business context for this user
+    let systemPrompt = FLOW_AI_SYSTEM_PROMPT;
+    try {
+      const businessCtx = await getUserBusinessContext(companyId, userId);
+      if (businessCtx) {
+        const ctxSnippet = buildBusinessContextPrompt(businessCtx);
+        if (ctxSnippet) {
+          systemPrompt += ctxSnippet;
+        }
+      }
+    } catch (ctxError) {
+      console.warn('[Flow AI] Failed to load business context:', ctxError);
+    }
 
     // ==========================================
     // OPENAI API CALL
@@ -141,8 +264,9 @@ export async function POST(request: NextRequest) {
     const response = await openai.chat.completions.create({
       model: MODEL,
       messages: [
-        { role: 'system', content: FLOW_AI_SYSTEM_PROMPT },
+        { role: 'system', content: systemPrompt },
         ...recentHistory,
+        ...contextMessages,
       ],
       tools: FLOW_AI_TOOLS as any,
       tool_choice: 'auto',
@@ -169,7 +293,7 @@ export async function POST(request: NextRequest) {
           continue;
         }
         try {
-          const functionArgs = JSON.parse(toolCall.function.arguments);
+          const functionArgs = sanitizeToolArgs(JSON.parse(toolCall.function.arguments));
           toolCalls.push({
             id: toolCall.id,
             name: functionName,

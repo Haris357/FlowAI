@@ -302,6 +302,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             message: content.trim(),
             companyId: company.id,
             userId: user.uid,
+            chatId: sessionId,
             model: selectedModel,
           }),
         });

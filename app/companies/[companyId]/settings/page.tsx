@@ -58,6 +58,7 @@ import {
   FileText,
   Receipt,
   AlertTriangle,
+  Sliders,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useSettings } from '@/hooks';
@@ -71,6 +72,9 @@ import {
 } from '@/services/settings';
 import { SettingOption, ALL_SETTINGS } from '@/lib/settings-seed-data';
 import { deleteCompanyData, getCompanyDataCounts } from '@/services/company';
+import { getAccountPreferences, updateAccountPreferences } from '@/services/preferences';
+import { getAccounts } from '@/services/accounts';
+import { Account, AccountPreferences } from '@/types';
 
 const CURRENCIES = [
   { code: 'USD', name: 'US Dollar', symbol: '$' },
@@ -168,6 +172,12 @@ export default function SettingsPage() {
   const [codeError, setCodeError] = useState('');
   const [validatingCode, setValidatingCode] = useState(false);
 
+  // Account preferences state
+  const [accountPreferences, setAccountPreferences] = useState<AccountPreferences>({});
+  const [allAccounts, setAllAccounts] = useState<Account[]>([]);
+  const [loadingPreferences, setLoadingPreferences] = useState(true);
+  const [savingPreferences, setSavingPreferences] = useState(false);
+
   // Delete company data state
   const [deleteDataConfirmOpen, setDeleteDataConfirmOpen] = useState(false);
   const [deletingData, setDeletingData] = useState(false);
@@ -207,6 +217,26 @@ export default function SettingsPage() {
       setDateFormat(company.dateFormat || 'MM/dd/yyyy');
     }
   }, [company]);
+
+  // Load account preferences and accounts
+  useEffect(() => {
+    async function loadPreferences() {
+      if (!company?.id) return;
+      try {
+        const [prefs, accounts] = await Promise.all([
+          getAccountPreferences(company.id),
+          getAccounts(company.id),
+        ]);
+        setAccountPreferences(prefs);
+        setAllAccounts(accounts);
+      } catch (error) {
+        console.error('Error loading account preferences:', error);
+      } finally {
+        setLoadingPreferences(false);
+      }
+    }
+    loadPreferences();
+  }, [company?.id]);
 
   // Load custom settings
   useEffect(() => {
@@ -517,6 +547,35 @@ export default function SettingsPage() {
     }
   };
 
+  const handleSaveAccountPreferences = async () => {
+    if (!company?.id) return;
+
+    setSavingPreferences(true);
+    try {
+      await updateAccountPreferences(company.id, accountPreferences);
+      toast.success('Account preferences saved');
+    } catch (error) {
+      console.error('Error saving account preferences:', error);
+      toast.error('Failed to save account preferences');
+    } finally {
+      setSavingPreferences(false);
+    }
+  };
+
+  const handleAccountPrefChange = (key: string, accountId: string) => {
+    const account = allAccounts.find(a => a.id === accountId);
+    const nameKey = key.replace('Id', 'Name');
+    setAccountPreferences(prev => ({
+      ...prev,
+      [key]: accountId || undefined,
+      [nameKey]: account?.name || undefined,
+    }));
+  };
+
+  const getAccountsByType = (typeCode: string) => {
+    return allAccounts.filter(a => a.isActive && a.typeCode === typeCode);
+  };
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -660,6 +719,12 @@ export default function SettingsPage() {
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Receipt size={16} />
                   <span>Bills</span>
+                </Stack>
+              </Tab>
+              <Tab>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Sliders size={16} />
+                  <span>Preferences</span>
                 </Stack>
               </Tab>
               <Tab>
@@ -962,8 +1027,232 @@ export default function SettingsPage() {
               </Stack>
             </TabPanel>
 
-            {/* Customization Settings */}
+            {/* Account Preferences */}
             <TabPanel value={3}>
+              <Stack spacing={3} sx={{ pt: 2 }}>
+                <Box>
+                  <Typography level="title-lg">Account Preferences</Typography>
+                  <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+                    Set default accounts used across forms and AI assistant. These are used when creating transactions, invoices, bills, and salary payments.
+                  </Typography>
+                </Box>
+
+                {loadingPreferences ? (
+                  <Stack spacing={2}>
+                    {[...Array(4)].map((_, i) => (
+                      <Skeleton key={i} variant="rectangular" height={56} />
+                    ))}
+                  </Stack>
+                ) : (
+                  <>
+                    {/* Transaction Defaults */}
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Typography level="title-md" sx={{ mb: 2 }}>Transaction Defaults</Typography>
+                        <Stack spacing={2}>
+                          <FormControl>
+                            <FormLabel>Default Cash / Bank Account</FormLabel>
+                            <Select
+                              value={accountPreferences.defaultCashAccountId || ''}
+                              onChange={(_, value) => handleAccountPrefChange('defaultCashAccountId', value || '')}
+                              placeholder="Select account..."
+                            >
+                              <Option value="">Not set (auto-detect)</Option>
+                              {getAccountsByType('asset').map(a => (
+                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
+                              ))}
+                            </Select>
+                            <FormHelperText>Used for expenses, payments received, and payments made</FormHelperText>
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel>Default Revenue Account</FormLabel>
+                            <Select
+                              value={accountPreferences.defaultRevenueAccountId || ''}
+                              onChange={(_, value) => handleAccountPrefChange('defaultRevenueAccountId', value || '')}
+                              placeholder="Select account..."
+                            >
+                              <Option value="">Not set (auto-detect)</Option>
+                              {getAccountsByType('revenue').map(a => (
+                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
+                              ))}
+                            </Select>
+                            <FormHelperText>Used for income transactions and payments received</FormHelperText>
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel>Default Expense Account</FormLabel>
+                            <Select
+                              value={accountPreferences.defaultExpenseAccountId || ''}
+                              onChange={(_, value) => handleAccountPrefChange('defaultExpenseAccountId', value || '')}
+                              placeholder="Select account..."
+                            >
+                              <Option value="">Not set (auto-detect)</Option>
+                              {getAccountsByType('expense').map(a => (
+                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
+                              ))}
+                            </Select>
+                            <FormHelperText>Used for expense transactions and recurring expenses</FormHelperText>
+                          </FormControl>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+
+                    {/* Invoice & Bill Defaults */}
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Typography level="title-md" sx={{ mb: 2 }}>Invoice & Bill Defaults</Typography>
+                        <Stack spacing={2}>
+                          <FormControl>
+                            <FormLabel>Default Accounts Receivable</FormLabel>
+                            <Select
+                              value={accountPreferences.defaultReceivableAccountId || ''}
+                              onChange={(_, value) => handleAccountPrefChange('defaultReceivableAccountId', value || '')}
+                              placeholder="Select account..."
+                            >
+                              <Option value="">Not set (auto-detect)</Option>
+                              {getAccountsByType('asset').map(a => (
+                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
+                              ))}
+                            </Select>
+                            <FormHelperText>Used when sending invoices (Debit AR)</FormHelperText>
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel>Default Accounts Payable</FormLabel>
+                            <Select
+                              value={accountPreferences.defaultPayableAccountId || ''}
+                              onChange={(_, value) => handleAccountPrefChange('defaultPayableAccountId', value || '')}
+                              placeholder="Select account..."
+                            >
+                              <Option value="">Not set (auto-detect)</Option>
+                              {getAccountsByType('liability').map(a => (
+                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
+                              ))}
+                            </Select>
+                            <FormHelperText>Used when creating bills (Credit AP)</FormHelperText>
+                          </FormControl>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+
+                    {/* Payroll Defaults */}
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Typography level="title-md" sx={{ mb: 2 }}>Payroll Defaults</Typography>
+                        <Stack spacing={2}>
+                          <FormControl>
+                            <FormLabel>Default Salary Expense Account</FormLabel>
+                            <Select
+                              value={accountPreferences.defaultSalaryExpenseAccountId || ''}
+                              onChange={(_, value) => handleAccountPrefChange('defaultSalaryExpenseAccountId', value || '')}
+                              placeholder="Select account..."
+                            >
+                              <Option value="">Not set (auto-detect)</Option>
+                              {getAccountsByType('expense').map(a => (
+                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
+                              ))}
+                            </Select>
+                            <FormHelperText>Debited when marking salary slips as paid</FormHelperText>
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel>Default Tax Payable Account</FormLabel>
+                            <Select
+                              value={accountPreferences.defaultTaxPayableAccountId || ''}
+                              onChange={(_, value) => handleAccountPrefChange('defaultTaxPayableAccountId', value || '')}
+                              placeholder="Select account..."
+                            >
+                              <Option value="">Not set (auto-detect)</Option>
+                              {getAccountsByType('liability').map(a => (
+                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
+                              ))}
+                            </Select>
+                            <FormHelperText>Credited for tax withheld from salary</FormHelperText>
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel>Default Provident Fund Payable Account</FormLabel>
+                            <Select
+                              value={accountPreferences.defaultPFPayableAccountId || ''}
+                              onChange={(_, value) => handleAccountPrefChange('defaultPFPayableAccountId', value || '')}
+                              placeholder="Select account..."
+                            >
+                              <Option value="">Not set (auto-detect)</Option>
+                              {getAccountsByType('liability').map(a => (
+                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
+                              ))}
+                            </Select>
+                            <FormHelperText>Credited for provident fund withheld from salary</FormHelperText>
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel>Default Salary Bank Account</FormLabel>
+                            <Select
+                              value={accountPreferences.defaultSalaryBankAccountId || ''}
+                              onChange={(_, value) => handleAccountPrefChange('defaultSalaryBankAccountId', value || '')}
+                              placeholder="Select account..."
+                            >
+                              <Option value="">Not set (auto-detect)</Option>
+                              {getAccountsByType('asset').map(a => (
+                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
+                              ))}
+                            </Select>
+                            <FormHelperText>Credited when paying net salary</FormHelperText>
+                          </FormControl>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+
+                    {/* Bank Account Defaults */}
+                    <Card variant="outlined">
+                      <CardContent>
+                        <Typography level="title-md" sx={{ mb: 2 }}>Bank Account Defaults</Typography>
+                        <Stack spacing={2}>
+                          <FormControl>
+                            <FormLabel>Default Linked Asset Account</FormLabel>
+                            <Select
+                              value={accountPreferences.defaultLinkedAssetAccountId || ''}
+                              onChange={(_, value) => handleAccountPrefChange('defaultLinkedAssetAccountId', value || '')}
+                              placeholder="Select account..."
+                            >
+                              <Option value="">Not set (auto-detect)</Option>
+                              {getAccountsByType('asset').map(a => (
+                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
+                              ))}
+                            </Select>
+                            <FormHelperText>Linked GL account when creating new bank accounts</FormHelperText>
+                          </FormControl>
+                          <FormControl>
+                            <FormLabel>Default Equity Account</FormLabel>
+                            <Select
+                              value={accountPreferences.defaultEquityAccountId || ''}
+                              onChange={(_, value) => handleAccountPrefChange('defaultEquityAccountId', value || '')}
+                              placeholder="Select account..."
+                            >
+                              <Option value="">Not set (auto-detect)</Option>
+                              {getAccountsByType('equity').map(a => (
+                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
+                              ))}
+                            </Select>
+                            <FormHelperText>Used for opening balance journal entries</FormHelperText>
+                          </FormControl>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+
+                    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                      <Button
+                        variant="solid"
+                        color="primary"
+                        startDecorator={<Save size={16} />}
+                        onClick={handleSaveAccountPreferences}
+                        loading={savingPreferences}
+                      >
+                        Save Preferences
+                      </Button>
+                    </Box>
+                  </>
+                )}
+              </Stack>
+            </TabPanel>
+
+            {/* Customization Settings */}
+            <TabPanel value={4}>
               <Stack spacing={3} sx={{ pt: 2 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Box>
@@ -1107,7 +1396,7 @@ export default function SettingsPage() {
             </TabPanel>
 
             {/* Danger Zone */}
-            <TabPanel value={4}>
+            <TabPanel value={5}>
               <Stack spacing={3} sx={{ pt: 2 }}>
                 <Box
                   sx={{

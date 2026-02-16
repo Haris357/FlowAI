@@ -44,6 +44,8 @@ import { useRouter } from 'next/navigation';
 import { getTransactions, createTransaction, updateTransaction, deleteTransaction } from '@/services/transactions';
 import { getCompanyAccounts } from '@/services/account-init';
 import { Transaction, Account } from '@/types';
+import { getPaymentMethods } from '@/services/settings';
+import { SettingOption } from '@/lib/settings-seed-data';
 import { LoadingSpinner, EmptyState, ConfirmDialog, PageBreadcrumbs, FormTableSkeleton } from '@/components/common';
 import { Search, ArrowUpRight, ArrowDownLeft, ArrowLeftRight, ChevronLeft, ChevronRight, TrendingUp, TrendingDown, Plus, Edit2, Trash2, MoreVertical } from 'lucide-react';
 import { useFormatting } from '@/hooks';
@@ -66,6 +68,7 @@ export default function TransactionsPage() {
   const router = useRouter();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<SettingOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState<string>('all');
@@ -109,12 +112,14 @@ export default function TransactionsPage() {
       if (!company?.id) return;
 
       try {
-        const [transactionsData, accountsData] = await Promise.all([
+        const [transactionsData, accountsData, paymentMethodsData] = await Promise.all([
           getTransactions(company.id),
           getCompanyAccounts(company.id),
+          getPaymentMethods(company.id),
         ]);
         setTransactions(transactionsData);
         setAccounts(accountsData);
+        setPaymentMethods(paymentMethodsData);
       } catch (error) {
         console.error('Error fetching data:', error);
       } finally {
@@ -855,11 +860,9 @@ export default function TransactionsPage() {
                       placeholder="Select method..."
                     >
                       <Option value="">Not specified</Option>
-                      <Option value="cash">Cash</Option>
-                      <Option value="bank_transfer">Bank Transfer</Option>
-                      <Option value="card">Card</Option>
-                      <Option value="cheque">Cheque</Option>
-                      <Option value="other">Other</Option>
+                      {paymentMethods.filter(m => m.isActive !== false).map(method => (
+                        <Option key={method.code} value={method.code}>{method.label}</Option>
+                      ))}
                     </Select>
                   </FormControl>
                 </Grid>

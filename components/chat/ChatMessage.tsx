@@ -36,6 +36,7 @@ import {
 import { format } from 'date-fns';
 import { ChatMessage as ChatMessageType } from '@/types';
 import { RichResponse, ActionButton } from '@/lib/ai-config';
+import { useCompany } from '@/contexts/CompanyContext';
 import AnimatedLogo from './AnimatedLogo';
 import ChatDataGrid from './ChatDataGrid';
 import ChatActionButtons from './ChatActionButtons';
@@ -806,6 +807,7 @@ export default function ChatMessage({
     entityType: string;
     entity: Record<string, any> | null;
   }>({ open: false, entityType: '', entity: null });
+  const { company } = useCompany();
 
   const isUser = message.role === 'user';
 
@@ -819,6 +821,7 @@ export default function ChatMessage({
     // Handle actions that trigger tool calls (send, pay, cancel, etc.)
     if (action.toolCall && action.entityId && onSendMessage) {
       const toolMessages: Record<string, string> = {
+        send_invoice: `send invoice ${action.entityId}`,
         change_invoice_status: `mark invoice ${action.entityId} as sent`,
         mark_invoice_paid: `mark invoice ${action.entityId} as paid`,
         cancel_invoice: `cancel invoice ${action.entityId}`,
@@ -852,9 +855,12 @@ export default function ChatMessage({
       if (route) {
         window.location.href = route;
       }
-    } else if (action.type === 'download') {
-      // TODO: Implement download functionality
-      console.log('Download:', action);
+    } else if (action.type === 'download' && action.entityType === 'invoice' && action.entityId) {
+      // Download invoice PDF
+      const companyId = company?.id;
+      if (companyId) {
+        window.open(`/api/invoices/pdf?companyId=${companyId}&invoiceId=${action.entityId}`, '_blank');
+      }
     }
   };
 
