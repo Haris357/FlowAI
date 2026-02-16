@@ -2763,12 +2763,12 @@ async function sendInvoiceViaEmail(args: Record<string, any>, companyId: string)
       };
     }
 
-    // Call the send API
+    // Call the comprehensive status API
     const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/invoices/send`, {
+    const response = await fetch(`${baseUrl}/api/invoices/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ companyId, invoiceId: invoiceDoc.id }),
+      body: JSON.stringify({ companyId, invoiceId: invoiceDoc.id, newStatus: 'sent' }),
     });
 
     const result = await response.json();
@@ -2780,9 +2780,16 @@ async function sendInvoiceViaEmail(args: Record<string, any>, companyId: string)
       };
     }
 
+    let msg = `✓ Invoice **${invoice.invoiceNumber}** has been sent to **${invoice.customerEmail}**.`;
+    if (result.emailSent) msg += `\n\nThe invoice PDF was attached to the email.`;
+    msg += ` Status changed to **Sent**.`;
+    if (result.accountingActions?.length > 0) {
+      msg += `\n\n📒 Accounting: ${result.accountingActions.join(', ')}`;
+    }
+
     return {
       success: true,
-      message: `✓ Invoice **${invoice.invoiceNumber}** has been sent to **${invoice.customerEmail}**.\n\nThe invoice PDF was attached to the email. Status changed to **Sent** and accounting entries (Debit AR, Credit Revenue) have been created.`,
+      message: msg,
       data: {
         type: 'entity',
         entityType: 'invoice',
@@ -2862,32 +2869,72 @@ async function changeInvoiceStatus(args: Record<string, any>, companyId: string)
       };
     }
 
-    // If changing to "sent", use the send invoice flow to also email the customer
-    if (newStatus === 'sent' && currentStatus === 'draft') {
-      return await sendInvoiceViaEmail({ invoiceId }, companyId);
-    }
+    // Use the comprehensive status API for all transitions (handles accounting + email)
+    try {
+      const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+      const res = await fetch(`${baseUrl}/api/invoices/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId,
+          invoiceId: invoiceDoc.id,
+          newStatus,
+          paymentAmount: args.paymentAmount,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        return { success: false, message: result.error || `Failed to change status to ${newStatus}` };
+      }
 
-    // Update the status
-    await updateInvoiceStatus(companyId, invoiceDoc.id, newStatus);
+      let message = `✓ Invoice **${invoiceId}** status changed from **${formatStatus('invoice', currentStatus)}** to **${formatStatus('invoice', newStatus)}**`;
+      if (result.emailSent) {
+        message += ` Notification email sent to **${invoice.customerEmail}**.`;
+      }
+      if (result.accountingActions?.length > 0) {
+        message += `\n\n📒 Accounting: ${result.accountingActions.join(', ')}`;
+      }
 
-    return {
-      success: true,
-      message: `✓ Invoice **${invoiceId}** status changed from **${formatStatus('invoice', currentStatus)}** to **${formatStatus('invoice', newStatus)}**`,
-      data: {
-        type: 'entity',
-        entityType: 'invoice',
-        entity: { ...invoice, status: newStatus },
-      },
-      actions: [
-        {
-          type: 'view',
-          label: 'View Invoice',
+      return {
+        success: true,
+        message,
+        data: {
+          type: 'entity',
           entityType: 'invoice',
-          entityId: invoiceDoc.id,
-          data: { ...invoice, status: newStatus },
+          entity: { ...invoice, status: newStatus },
         },
-      ],
-    };
+        actions: [
+          {
+            type: 'view',
+            label: 'View Invoice',
+            entityType: 'invoice',
+            entityId: invoiceDoc.id,
+            data: { ...invoice, status: newStatus },
+          },
+        ],
+      };
+    } catch (fetchError: any) {
+      // Fallback to client-side status update if API call fails
+      await updateInvoiceStatus(companyId, invoiceDoc.id, newStatus);
+      return {
+        success: true,
+        message: `✓ Invoice **${invoiceId}** status changed to **${formatStatus('invoice', newStatus)}** (accounting entries may not have been created)`,
+        data: {
+          type: 'entity',
+          entityType: 'invoice',
+          entity: { ...invoice, status: newStatus },
+        },
+        actions: [
+          {
+            type: 'view',
+            label: 'View Invoice',
+            entityType: 'invoice',
+            entityId: invoiceDoc.id,
+            data: { ...invoice, status: newStatus },
+          },
+        ],
+      };
+    }
   } catch (error: any) {
     return handleError(error, 'Change invoice status');
   }

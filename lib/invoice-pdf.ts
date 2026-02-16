@@ -1,6 +1,7 @@
 /**
  * Invoice PDF Generator
  * Server-side PDF generation using jsPDF + jspdf-autotable
+ * Theme: Terracotta (#D97757) / Warm Brown (#C4694D)
  */
 
 import jsPDF from 'jspdf';
@@ -35,6 +36,16 @@ interface CompanyData {
   invoiceFooter?: string;
 }
 
+// Terracotta theme RGB values
+const BRAND = { r: 217, g: 119, b: 87 };     // #D97757
+const BRAND_DARK = { r: 196, g: 105, b: 77 }; // #C4694D
+const BRAND_LIGHT_BG = { r: 254, g: 244, b: 240 }; // #FEF4F0
+const WARM_GRAY = { r: 250, g: 249, b: 247 };  // #FAF9F7
+const TEXT_PRIMARY = { r: 26, g: 25, b: 21 };   // #1A1915
+const TEXT_SECONDARY = { r: 92, g: 87, b: 82 }; // #5C5752
+const TEXT_TERTIARY = { r: 120, g: 115, b: 109 }; // #78736D
+const BORDER = { r: 232, g: 229, b: 222 };      // #E8E5DE
+
 function formatDate(date: any): string {
   if (!date) return '';
   const d = date?.toDate ? date.toDate() : new Date(date);
@@ -48,32 +59,38 @@ function formatCurrency(amount: number, currency: string): string {
     SGD: 'S$', MYR: 'RM', JPY: '¥', CNY: '¥',
   };
   const sym = symbols[currency] || `${currency} `;
-  return `${sym}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${sym}${(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function generateInvoicePDF(invoice: InvoiceData, company: CompanyData): Buffer {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
   const margin = 20;
-  let y = 20;
+  let y = 0;
+
+  // ---- TOP ACCENT BAR ----
+  doc.setFillColor(BRAND.r, BRAND.g, BRAND.b);
+  doc.rect(0, 0, pageWidth, 4, 'F');
+  y = 20;
 
   // ---- HEADER ----
   // Company name (left)
   doc.setFontSize(22);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(33, 33, 33);
+  doc.setTextColor(TEXT_PRIMARY.r, TEXT_PRIMARY.g, TEXT_PRIMARY.b);
   doc.text(company.name, margin, y);
 
   // "INVOICE" label (right)
   doc.setFontSize(28);
-  doc.setTextColor(59, 130, 246); // Blue
+  doc.setTextColor(BRAND.r, BRAND.g, BRAND.b);
   doc.text('INVOICE', pageWidth - margin, y, { align: 'right' });
   y += 8;
 
   // Company details
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(100, 100, 100);
+  doc.setTextColor(TEXT_TERTIARY.r, TEXT_TERTIARY.g, TEXT_TERTIARY.b);
   if (company.address) { doc.text(company.address, margin, y); y += 4; }
   if (company.email) { doc.text(company.email, margin, y); y += 4; }
   if (company.phone) { doc.text(company.phone, margin, y); y += 4; }
@@ -81,7 +98,7 @@ export function generateInvoicePDF(invoice: InvoiceData, company: CompanyData): 
   y += 4;
 
   // Divider line
-  doc.setDrawColor(220, 220, 220);
+  doc.setDrawColor(BORDER.r, BORDER.g, BORDER.b);
   doc.setLineWidth(0.5);
   doc.line(margin, y, pageWidth - margin, y);
   y += 10;
@@ -92,31 +109,35 @@ export function generateInvoicePDF(invoice: InvoiceData, company: CompanyData): 
   // Left side: Bill To
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(100, 100, 100);
+  doc.setTextColor(BRAND.r, BRAND.g, BRAND.b);
   doc.text('BILL TO', margin, y);
   y += 5;
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(33, 33, 33);
+  doc.setTextColor(TEXT_PRIMARY.r, TEXT_PRIMARY.g, TEXT_PRIMARY.b);
   doc.text(invoice.customerName, margin, y);
   y += 5;
   if (invoice.customerEmail) {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(100, 100, 100);
+    doc.setTextColor(TEXT_SECONDARY.r, TEXT_SECONDARY.g, TEXT_SECONDARY.b);
     doc.text(invoice.customerEmail, margin, y);
   }
 
   // Right side: Invoice details
   const rightX = pageWidth - margin;
   let metaY = metaStartY;
-  const metaLabel = (label: string, value: string) => {
+  const metaLabel = (label: string, value: string, highlight = false) => {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(100, 100, 100);
+    doc.setTextColor(TEXT_TERTIARY.r, TEXT_TERTIARY.g, TEXT_TERTIARY.b);
     doc.text(label, rightX - 60, metaY);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(33, 33, 33);
+    if (highlight) {
+      doc.setTextColor(BRAND.r, BRAND.g, BRAND.b);
+    } else {
+      doc.setTextColor(TEXT_PRIMARY.r, TEXT_PRIMARY.g, TEXT_PRIMARY.b);
+    }
     doc.text(value, rightX, metaY, { align: 'right' });
     metaY += 6;
   };
@@ -124,7 +145,7 @@ export function generateInvoicePDF(invoice: InvoiceData, company: CompanyData): 
   metaLabel('Invoice #:', invoice.invoiceNumber);
   metaLabel('Issue Date:', formatDate(invoice.issueDate));
   metaLabel('Due Date:', formatDate(invoice.dueDate));
-  metaLabel('Status:', invoice.status.toUpperCase());
+  metaLabel('Status:', invoice.status.toUpperCase(), true);
 
   y = Math.max(y, metaY) + 12;
 
@@ -142,17 +163,17 @@ export function generateInvoicePDF(invoice: InvoiceData, company: CompanyData): 
     body: tableBody,
     margin: { left: margin, right: margin },
     headStyles: {
-      fillColor: [59, 130, 246],
+      fillColor: [BRAND.r, BRAND.g, BRAND.b],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       fontSize: 10,
     },
     bodyStyles: {
       fontSize: 9,
-      textColor: [50, 50, 50],
+      textColor: [TEXT_PRIMARY.r, TEXT_PRIMARY.g, TEXT_PRIMARY.b],
     },
     alternateRowStyles: {
-      fillColor: [248, 250, 252],
+      fillColor: [WARM_GRAY.r, WARM_GRAY.g, WARM_GRAY.b],
     },
     columnStyles: {
       0: { cellWidth: 'auto' },
@@ -172,7 +193,11 @@ export function generateInvoicePDF(invoice: InvoiceData, company: CompanyData): 
   const drawTotalLine = (label: string, value: string, bold = false) => {
     doc.setFontSize(10);
     doc.setFont('helvetica', bold ? 'bold' : 'normal');
-    doc.setTextColor(bold ? 33 : 80, bold ? 33 : 80, bold ? 33 : 80);
+    if (bold) {
+      doc.setTextColor(TEXT_PRIMARY.r, TEXT_PRIMARY.g, TEXT_PRIMARY.b);
+    } else {
+      doc.setTextColor(TEXT_SECONDARY.r, TEXT_SECONDARY.g, TEXT_SECONDARY.b);
+    }
     doc.text(label, totalsX, y);
     doc.text(value, totalsValX, y, { align: 'right' });
     y += 6;
@@ -186,9 +211,9 @@ export function generateInvoicePDF(invoice: InvoiceData, company: CompanyData): 
     drawTotalLine('Discount:', `-${formatCurrency(invoice.discount, company.currency)}`);
   }
 
-  // Total line with background
+  // Total line with terracotta background
   y += 2;
-  doc.setFillColor(59, 130, 246);
+  doc.setFillColor(BRAND.r, BRAND.g, BRAND.b);
   doc.roundedRect(totalsX - 5, y - 5, pageWidth - margin - totalsX + 5, 10, 2, 2, 'F');
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
@@ -207,11 +232,11 @@ export function generateInvoicePDF(invoice: InvoiceData, company: CompanyData): 
   if (invoice.notes) {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(100, 100, 100);
+    doc.setTextColor(BRAND.r, BRAND.g, BRAND.b);
     doc.text('Notes:', margin, y);
     y += 5;
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(60, 60, 60);
+    doc.setTextColor(TEXT_SECONDARY.r, TEXT_SECONDARY.g, TEXT_SECONDARY.b);
     const noteLines = doc.splitTextToSize(invoice.notes, pageWidth - 2 * margin);
     doc.text(noteLines, margin, y);
     y += noteLines.length * 4 + 4;
@@ -220,26 +245,36 @@ export function generateInvoicePDF(invoice: InvoiceData, company: CompanyData): 
   if (invoice.terms) {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(100, 100, 100);
+    doc.setTextColor(BRAND.r, BRAND.g, BRAND.b);
     doc.text('Terms:', margin, y);
     y += 5;
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(60, 60, 60);
+    doc.setTextColor(TEXT_SECONDARY.r, TEXT_SECONDARY.g, TEXT_SECONDARY.b);
     const termLines = doc.splitTextToSize(invoice.terms, pageWidth - 2 * margin);
     doc.text(termLines, margin, y);
     y += termLines.length * 4 + 4;
   }
 
   // ---- FOOTER ----
+  const footerY = pageHeight - 15;
+  doc.setDrawColor(BORDER.r, BORDER.g, BORDER.b);
+  doc.line(margin, footerY - 8, pageWidth - margin, footerY - 8);
+
   if (company.invoiceFooter) {
-    const footerY = doc.internal.pageSize.getHeight() - 15;
-    doc.setDrawColor(220, 220, 220);
-    doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(150, 150, 150);
-    doc.text(company.invoiceFooter, pageWidth / 2, footerY, { align: 'center' });
+    doc.setTextColor(TEXT_TERTIARY.r, TEXT_TERTIARY.g, TEXT_TERTIARY.b);
+    doc.text(company.invoiceFooter, pageWidth / 2, footerY - 2, { align: 'center' });
   }
+
+  // "Powered by Flowbooks" at bottom
+  doc.setFontSize(7);
+  doc.setTextColor(TEXT_TERTIARY.r, TEXT_TERTIARY.g, TEXT_TERTIARY.b);
+  doc.text('Powered by Flowbooks', pageWidth / 2, footerY + 4, { align: 'center' });
+
+  // Bottom accent bar
+  doc.setFillColor(BRAND.r, BRAND.g, BRAND.b);
+  doc.rect(0, pageHeight - 4, pageWidth, 4, 'F');
 
   // Return as Buffer
   const arrayBuffer = doc.output('arraybuffer');

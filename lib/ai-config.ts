@@ -624,7 +624,7 @@ export const FLOW_AI_TOOLS: AITool[] = [
     type: 'function',
     function: {
       name: 'change_invoice_status',
-      description: 'Change invoice status. Accepts invoice numbers (INV-0001) or document IDs.',
+      description: 'Change invoice status with full accounting impact. Creates journal entries for payments (paid/partial), reversals (cancelled/refunded), and revenue recognition (sent). Sends notification emails to customers. Accepts invoice numbers (INV-0001) or document IDs.',
       parameters: {
         type: 'object',
         properties: {
@@ -633,6 +633,7 @@ export const FLOW_AI_TOOLS: AITool[] = [
             type: 'string',
             enum: ['draft', 'sent', 'viewed', 'partial', 'paid', 'overdue', 'cancelled', 'refunded', 'help', '?'],
           },
+          paymentAmount: { type: 'number', description: 'Payment amount (required for partial payments, optional for paid — defaults to remaining balance)' },
         },
         required: ['invoiceId'],
       },

@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Create journal entry (Debit AR, Credit Revenue)
-    const accountsRef = adminDb.collection(`companies/${companyId}/accounts`);
+    const accountsRef = adminDb.collection(`companies/${companyId}/chartOfAccounts`);
 
     // Find Accounts Receivable
     const arQuery = await accountsRef.where('subtypeCode', '==', 'current_asset').get();
@@ -131,11 +131,11 @@ export async function POST(request: NextRequest) {
       });
 
       // Update account balances
-      await adminDb.doc(`companies/${companyId}/accounts/${arAccount.id}`).update({
+      await adminDb.doc(`companies/${companyId}/chartOfAccounts/${arAccount.id}`).update({
         balance: (arData.balance || 0) + invoice.total,
         updatedAt: Timestamp.now(),
       });
-      await adminDb.doc(`companies/${companyId}/accounts/${revAccount.id}`).update({
+      await adminDb.doc(`companies/${companyId}/chartOfAccounts/${revAccount.id}`).update({
         balance: (revData.balance || 0) + invoice.total,
         updatedAt: Timestamp.now(),
       });

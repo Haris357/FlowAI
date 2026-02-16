@@ -406,10 +406,10 @@ export default function InvoicesPage() {
     if (!company?.id) return;
     setSendingInvoiceId(invoice.id);
     try {
-      const res = await fetch('/api/invoices/send', {
+      const res = await fetch('/api/invoices/status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId: company.id, invoiceId: invoice.id }),
+        body: JSON.stringify({ companyId: company.id, invoiceId: invoice.id, newStatus: 'sent' }),
       });
       const result = await res.json();
       if (!res.ok) {
@@ -417,6 +417,9 @@ export default function InvoicesPage() {
         return;
       }
       toast.success(`Invoice ${invoice.invoiceNumber} sent to ${invoice.customerEmail}`);
+      if (result.emailSent) {
+        toast.success(`Email sent to ${result.emailRecipient}`);
+      }
       const data = await getInvoices(company.id);
       setInvoices(data);
     } catch (error) {
@@ -1100,31 +1103,30 @@ export default function InvoicesPage() {
           entityName={statusModalInvoice.invoiceNumber}
           currentStatus={statusModalInvoice.status}
           onStatusChange={async (id, newStatus) => {
-            // If changing to "sent", send the invoice via email instead of just updating status
-            if (newStatus === 'sent' && statusModalInvoice?.customerEmail) {
-              setSendingInvoiceId(id);
-              try {
-                const res = await fetch('/api/invoices/send', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ companyId: company!.id, invoiceId: id }),
-                });
-                const result = await res.json();
-                if (!res.ok) {
-                  toast.error(result.error || 'Failed to send invoice');
-                  return;
-                }
-                toast.success(`Invoice sent to ${statusModalInvoice.customerEmail}`);
-              } catch (error) {
-                console.error('Error sending invoice:', error);
-                toast.error('Failed to send invoice');
+            setSendingInvoiceId(id);
+            try {
+              const res = await fetch('/api/invoices/status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ companyId: company!.id, invoiceId: id, newStatus }),
+              });
+              const result = await res.json();
+              if (!res.ok) {
+                toast.error(result.error || 'Failed to update status');
                 return;
-              } finally {
-                setSendingInvoiceId(null);
               }
-            } else {
-              await updateInvoiceStatus(company!.id, id, newStatus);
               toast.success(`Status updated to ${formatStatus('invoice', newStatus)}`);
+              if (result.emailSent) {
+                toast.success(`Notification sent to ${result.emailRecipient}`);
+              }
+              if (result.accountingActions?.length > 0) {
+                console.log('[Accounting]', result.accountingActions);
+              }
+            } catch (error) {
+              console.error('Error updating invoice status:', error);
+              toast.error('Failed to update status');
+            } finally {
+              setSendingInvoiceId(null);
             }
             const data = await getInvoices(company!.id);
             setInvoices(data);
