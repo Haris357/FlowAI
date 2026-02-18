@@ -153,8 +153,10 @@ export async function addMessage(
     content: string;
     toolCalls?: ToolCall[];
     richData?: ChatMessageRichData;
+    richDataList?: ChatMessageRichData[];
     actions?: ChatMessageAction[];
     followUp?: string;
+    hidden?: boolean;
   }
 ): Promise<string> {
   const messagesRef = collection(db, `companies/${companyId}/chats/${chatId}/messages`);
@@ -166,8 +168,10 @@ export async function addMessage(
     content: message.content,
     toolCalls: message.toolCalls || null,
     richData: message.richData || null,
+    richDataList: message.richDataList || null,
     actions: message.actions || null,
     followUp: message.followUp || null,
+    hidden: message.hidden || null,
     createdAt: serverTimestamp(),
   });
 
@@ -179,6 +183,19 @@ export async function addMessage(
   });
 
   return docRef.id;
+}
+
+/**
+ * Mark an action as completed on a message (persists across reloads)
+ */
+export async function updateMessageCompletedActions(
+  companyId: string,
+  chatId: string,
+  messageId: string,
+  completedActions: string[]
+): Promise<void> {
+  const messageRef = doc(db, `companies/${companyId}/chats/${chatId}/messages`, messageId);
+  await updateDoc(messageRef, { completedActions });
 }
 
 /**

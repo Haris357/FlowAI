@@ -22,16 +22,23 @@ import {
   BookOpen,
   Calculator,
   Zap,
+  AlertCircle,
+  CheckCircle,
+  Clock,
+  Bell,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { FormShortcut } from './FormShortcuts';
 import { type TokenUsage } from '@/contexts/ChatContext';
 
 const QUICK_ACTIONS = [
+  { label: 'Overdue Invoices', icon: AlertCircle, prompt: 'Show me all overdue invoices' },
+  { label: 'Unpaid Invoices', icon: Clock, prompt: 'Show all unpaid and sent invoices' },
+  { label: 'Send Reminder', icon: Bell, prompt: 'Send payment reminders for overdue invoices' },
   { label: 'Create Invoice', icon: FileText, prompt: 'Help me create an invoice for ' },
+  { label: 'Record Payment', icon: CheckCircle, prompt: 'Record a payment received for invoice ' },
   { label: 'Record Expense', icon: Receipt, prompt: 'I need to record an expense for ' },
   { label: 'Add Customer', icon: Users, prompt: 'Add a new customer named ' },
-  { label: 'Journal Entry', icon: BookOpen, prompt: 'Create a journal entry for ' },
   { label: 'View Accounts', icon: Calculator, prompt: 'Show me the list of accounts' },
 ];
 

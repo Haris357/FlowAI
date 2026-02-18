@@ -36,245 +36,308 @@ interface CompanyData {
   invoiceFooter?: string;
 }
 
-// Terracotta theme RGB values
-const BRAND = { r: 217, g: 119, b: 87 };     // #D97757
-const BRAND_DARK = { r: 196, g: 105, b: 77 }; // #C4694D
-const BRAND_LIGHT_BG = { r: 254, g: 244, b: 240 }; // #FEF4F0
-const WARM_GRAY = { r: 250, g: 249, b: 247 };  // #FAF9F7
-const TEXT_PRIMARY = { r: 26, g: 25, b: 21 };   // #1A1915
-const TEXT_SECONDARY = { r: 92, g: 87, b: 82 }; // #5C5752
-const TEXT_TERTIARY = { r: 120, g: 115, b: 109 }; // #78736D
-const BORDER = { r: 232, g: 229, b: 222 };      // #E8E5DE
+// Color palette
+const C = {
+  brand:     [217, 119, 87] as const,   // #D97757
+  brandDark: [196, 105, 77] as const,   // #C4694D
+  brandBg:   [254, 244, 240] as const,  // #FEF4F0
+  text:      [30, 30, 30] as const,     // #1E1E1E
+  textMid:   [100, 100, 100] as const,  // #646464
+  textLight: [140, 140, 140] as const,  // #8C8C8C
+  border:    [220, 220, 220] as const,  // #DCDCDC
+  rowAlt:    [248, 248, 248] as const,  // #F8F8F8
+  white:     [255, 255, 255] as const,
+};
 
 function formatDate(date: any): string {
-  if (!date) return '';
-  const d = date?.toDate ? date.toDate() : new Date(date);
-  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  if (!date) return '-';
+  try {
+    const d = date?.toDate ? date.toDate() : new Date(date);
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  } catch {
+    return '-';
+  }
 }
 
 function formatCurrency(amount: number, currency: string): string {
   const symbols: Record<string, string> = {
-    USD: '$', EUR: '€', GBP: '£', INR: '₹', PKR: 'Rs',
+    USD: '$', EUR: '€', GBP: '£', INR: '₹', PKR: 'Rs ',
     AED: 'AED ', SAR: 'SAR ', AUD: 'A$', CAD: 'C$',
-    SGD: 'S$', MYR: 'RM', JPY: '¥', CNY: '¥',
+    SGD: 'S$', MYR: 'RM ', JPY: '¥', CNY: '¥',
   };
   const sym = symbols[currency] || `${currency} `;
   return `${sym}${(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function generateInvoicePDF(invoice: InvoiceData, company: CompanyData): Buffer {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-  const pageHeight = doc.internal.pageSize.getHeight();
-  const margin = 20;
+  const doc = new jsPDF('p', 'mm', 'a4');
+  const pw = doc.internal.pageSize.getWidth();   // 210
+  const ph = doc.internal.pageSize.getHeight();   // 297
+  const ml = 20;  // margin left
+  const mr = 20;  // margin right
+  const contentW = pw - ml - mr;
   let y = 0;
 
-  // ---- TOP ACCENT BAR ----
-  doc.setFillColor(BRAND.r, BRAND.g, BRAND.b);
-  doc.rect(0, 0, pageWidth, 4, 'F');
-  y = 20;
+  // ── Top accent bar ──
+  doc.setFillColor(...C.brand);
+  doc.rect(0, 0, pw, 3, 'F');
+  y = 18;
 
-  // ---- HEADER ----
-  // Company name (left)
-  doc.setFontSize(22);
+  // ══════════════════════════════════════════
+  //  HEADER: Company name + INVOICE label
+  // ══════════════════════════════════════════
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(TEXT_PRIMARY.r, TEXT_PRIMARY.g, TEXT_PRIMARY.b);
-  doc.text(company.name, margin, y);
+  doc.setFontSize(20);
+  doc.setTextColor(...C.text);
+  doc.text(company.name || 'Company', ml, y);
 
-  // "INVOICE" label (right)
-  doc.setFontSize(28);
-  doc.setTextColor(BRAND.r, BRAND.g, BRAND.b);
-  doc.text('INVOICE', pageWidth - margin, y, { align: 'right' });
-  y += 8;
+  doc.setFontSize(26);
+  doc.setTextColor(...C.brand);
+  doc.text('INVOICE', pw - mr, y, { align: 'right' });
 
-  // Company details
-  doc.setFontSize(9);
+  y += 6;
+
+  // Company details (small, below company name)
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(TEXT_TERTIARY.r, TEXT_TERTIARY.g, TEXT_TERTIARY.b);
-  if (company.address) { doc.text(company.address, margin, y); y += 4; }
-  if (company.email) { doc.text(company.email, margin, y); y += 4; }
-  if (company.phone) { doc.text(company.phone, margin, y); y += 4; }
-  if (company.taxId) { doc.text(`Tax ID: ${company.taxId}`, margin, y); y += 4; }
-  y += 4;
+  doc.setFontSize(8);
+  doc.setTextColor(...C.textLight);
+  const companyDetails: string[] = [];
+  if (company.address) companyDetails.push(company.address);
+  if (company.email) companyDetails.push(company.email);
+  if (company.phone) companyDetails.push(company.phone);
+  if (company.taxId) companyDetails.push(`Tax ID: ${company.taxId}`);
 
-  // Divider line
-  doc.setDrawColor(BORDER.r, BORDER.g, BORDER.b);
-  doc.setLineWidth(0.5);
-  doc.line(margin, y, pageWidth - margin, y);
+  companyDetails.forEach(line => {
+    doc.text(line, ml, y);
+    y += 3.5;
+  });
+
+  y = Math.max(y, 32) + 6;
+
+  // Divider
+  doc.setDrawColor(...C.border);
+  doc.setLineWidth(0.3);
+  doc.line(ml, y, pw - mr, y);
   y += 10;
 
-  // ---- INVOICE META + CUSTOMER ----
+  // ══════════════════════════════════════════
+  //  BILL TO + INVOICE META (two columns)
+  // ══════════════════════════════════════════
   const metaStartY = y;
 
-  // Left side: Bill To
-  doc.setFontSize(9);
+  // Left column: Bill To
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(BRAND.r, BRAND.g, BRAND.b);
-  doc.text('BILL TO', margin, y);
+  doc.setTextColor(...C.brand);
+  doc.text('BILL TO', ml, y);
   y += 5;
+
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(TEXT_PRIMARY.r, TEXT_PRIMARY.g, TEXT_PRIMARY.b);
-  doc.text(invoice.customerName, margin, y);
-  y += 5;
+  doc.setTextColor(...C.text);
+  doc.text(invoice.customerName || '-', ml, y);
+  y += 4.5;
+
   if (invoice.customerEmail) {
-    doc.setFontSize(9);
+    doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(TEXT_SECONDARY.r, TEXT_SECONDARY.g, TEXT_SECONDARY.b);
-    doc.text(invoice.customerEmail, margin, y);
+    doc.setTextColor(...C.textMid);
+    doc.text(invoice.customerEmail, ml, y);
+    y += 4;
   }
 
-  // Right side: Invoice details
-  const rightX = pageWidth - margin;
+  // Right column: Invoice meta (as a mini table for clean alignment)
+  const metaRightEdge = pw - mr;
+  const metaLabelX = metaRightEdge - 55;
   let metaY = metaStartY;
-  const metaLabel = (label: string, value: string, highlight = false) => {
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.setTextColor(TEXT_TERTIARY.r, TEXT_TERTIARY.g, TEXT_TERTIARY.b);
-    doc.text(label, rightX - 60, metaY);
+
+  const metaRows: [string, string, boolean][] = [
+    ['Invoice #', invoice.invoiceNumber || '-', false],
+    ['Issue Date', formatDate(invoice.issueDate), false],
+    ['Due Date', formatDate(invoice.dueDate), false],
+    ['Status', (invoice.status || 'draft').toUpperCase(), true],
+  ];
+
+  metaRows.forEach(([label, value, highlight]) => {
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
-    if (highlight) {
-      doc.setTextColor(BRAND.r, BRAND.g, BRAND.b);
-    } else {
-      doc.setTextColor(TEXT_PRIMARY.r, TEXT_PRIMARY.g, TEXT_PRIMARY.b);
-    }
-    doc.text(value, rightX, metaY, { align: 'right' });
-    metaY += 6;
-  };
+    doc.setTextColor(...C.textLight);
+    doc.text(`${label}:`, metaLabelX, metaY, { align: 'right' });
 
-  metaLabel('Invoice #:', invoice.invoiceNumber);
-  metaLabel('Issue Date:', formatDate(invoice.issueDate));
-  metaLabel('Due Date:', formatDate(invoice.dueDate));
-  metaLabel('Status:', invoice.status.toUpperCase(), true);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    const metaColor = highlight ? C.brand : C.text;
+    doc.setTextColor(metaColor[0], metaColor[1], metaColor[2]);
+    doc.text(value, metaRightEdge, metaY, { align: 'right' });
+    metaY += 5.5;
+  });
 
-  y = Math.max(y, metaY) + 12;
+  y = Math.max(y, metaY) + 10;
 
-  // ---- ITEMS TABLE ----
-  const tableBody = invoice.items.map(item => [
-    item.description,
-    item.quantity.toString(),
-    formatCurrency(item.rate, company.currency),
-    formatCurrency(item.quantity * item.rate, company.currency),
+  // ══════════════════════════════════════════
+  //  LINE ITEMS TABLE
+  // ══════════════════════════════════════════
+  const tableBody = (invoice.items || []).map(item => [
+    item.description || '',
+    (item.quantity ?? 0).toString(),
+    formatCurrency(item.rate ?? 0, company.currency),
+    formatCurrency((item.quantity ?? 0) * (item.rate ?? 0), company.currency),
   ]);
+
+  // Fallback if no items
+  if (tableBody.length === 0) {
+    tableBody.push(['-', '0', formatCurrency(0, company.currency), formatCurrency(0, company.currency)]);
+  }
 
   autoTable(doc, {
     startY: y,
     head: [['Description', 'Qty', 'Rate', 'Amount']],
     body: tableBody,
-    margin: { left: margin, right: margin },
+    margin: { left: ml, right: mr },
     headStyles: {
-      fillColor: [BRAND.r, BRAND.g, BRAND.b],
+      fillColor: [C.brand[0], C.brand[1], C.brand[2]],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 10,
+      fontSize: 9,
+      cellPadding: { top: 3, bottom: 3, left: 4, right: 4 },
     },
     bodyStyles: {
       fontSize: 9,
-      textColor: [TEXT_PRIMARY.r, TEXT_PRIMARY.g, TEXT_PRIMARY.b],
+      textColor: [C.text[0], C.text[1], C.text[2]],
+      cellPadding: { top: 3, bottom: 3, left: 4, right: 4 },
+      lineColor: [C.border[0], C.border[1], C.border[2]],
+      lineWidth: 0.2,
     },
     alternateRowStyles: {
-      fillColor: [WARM_GRAY.r, WARM_GRAY.g, WARM_GRAY.b],
+      fillColor: [C.rowAlt[0], C.rowAlt[1], C.rowAlt[2]],
     },
     columnStyles: {
-      0: { cellWidth: 'auto' },
-      1: { halign: 'center', cellWidth: 25 },
-      2: { halign: 'right', cellWidth: 35 },
-      3: { halign: 'right', cellWidth: 40 },
+      0: { cellWidth: 'auto', halign: 'left' },
+      1: { cellWidth: 20, halign: 'center' },
+      2: { cellWidth: 35, halign: 'right' },
+      3: { cellWidth: 38, halign: 'right', fontStyle: 'bold' },
     },
-    theme: 'striped',
+    styles: {
+      overflow: 'linebreak',
+    },
+    theme: 'grid',
+    tableLineColor: [C.border[0], C.border[1], C.border[2]],
+    tableLineWidth: 0.2,
   });
 
-  y = (doc as any).lastAutoTable.finalY + 10;
+  y = (doc as any).lastAutoTable.finalY + 6;
 
-  // ---- TOTALS ----
-  const totalsX = pageWidth - margin - 80;
-  const totalsValX = pageWidth - margin;
+  // ══════════════════════════════════════════
+  //  TOTALS — pixel-aligned with Amount column
+  // ══════════════════════════════════════════
+  // Table: Description(auto) | Qty(20) | Rate(35) | Amount(38)
+  // Cell padding = 4mm each side. Table right edge = 190.
+  // Amount column text (right-aligned) ends at 190 - 4 = 186.
+  const tableEdge = pw - mr;            // 190 — table grid right edge
+  const valX = tableEdge - 4;           // 186 — matches Amount column text
+  const lblX = tableEdge - 55;          // 135 — labels start here
 
-  const drawTotalLine = (label: string, value: string, bold = false) => {
-    doc.setFontSize(10);
+  const drawTotalRow = (label: string, value: string, opts?: { bold?: boolean; color?: readonly [number, number, number]; size?: number }) => {
+    const { bold = false, color = C.textMid, size = 9 } = opts || {};
+    doc.setFontSize(size);
     doc.setFont('helvetica', bold ? 'bold' : 'normal');
-    if (bold) {
-      doc.setTextColor(TEXT_PRIMARY.r, TEXT_PRIMARY.g, TEXT_PRIMARY.b);
-    } else {
-      doc.setTextColor(TEXT_SECONDARY.r, TEXT_SECONDARY.g, TEXT_SECONDARY.b);
-    }
-    doc.text(label, totalsX, y);
-    doc.text(value, totalsValX, y, { align: 'right' });
+    doc.setTextColor(...color);
+    doc.text(label, lblX, y);
+    doc.text(value, valX, y, { align: 'right' });
     y += 6;
   };
 
-  drawTotalLine('Subtotal:', formatCurrency(invoice.subtotal, company.currency));
-  if (invoice.taxRate > 0) {
-    drawTotalLine(`Tax (${invoice.taxRate}%):`, formatCurrency(invoice.taxAmount, company.currency));
-  }
-  if (invoice.discount > 0) {
-    drawTotalLine('Discount:', `-${formatCurrency(invoice.discount, company.currency)}`);
+  drawTotalRow('Subtotal', formatCurrency(invoice.subtotal, company.currency));
+
+  if (invoice.taxRate > 0 || invoice.taxAmount > 0) {
+    const taxLabel = invoice.taxRate > 0 ? `Tax (${invoice.taxRate}%)` : 'Tax';
+    drawTotalRow(taxLabel, formatCurrency(invoice.taxAmount, company.currency));
   }
 
-  // Total line with terracotta background
-  y += 2;
-  doc.setFillColor(BRAND.r, BRAND.g, BRAND.b);
-  doc.roundedRect(totalsX - 5, y - 5, pageWidth - margin - totalsX + 5, 10, 2, 2, 'F');
-  doc.setFontSize(11);
+  if (invoice.discount > 0) {
+    drawTotalRow('Discount', `- ${formatCurrency(invoice.discount, company.currency)}`);
+  }
+
+  // Total highlight box — ends exactly at table edge
+  const totalBoxH = 8;
+  const totalBoxL = lblX - 3;                      // 132
+  const totalBoxW = tableEdge - totalBoxL;          // 58, ends at exactly 190
+  doc.setFillColor(...C.brand);
+  doc.roundedRect(totalBoxL, y - 4, totalBoxW, totalBoxH, 1.5, 1.5, 'F');
+
+  doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(255, 255, 255);
-  doc.text('TOTAL:', totalsX, y + 1);
-  doc.text(formatCurrency(invoice.total, company.currency), totalsValX, y + 1, { align: 'right' });
-  y += 14;
+  doc.setTextColor(...C.white);
+  doc.text('Total', lblX, y);
+  doc.text(formatCurrency(invoice.total, company.currency), valX, y, { align: 'right' });
+  y += totalBoxH + 4;
 
   if (invoice.amountPaid > 0) {
-    drawTotalLine('Amount Paid:', formatCurrency(invoice.amountPaid, company.currency));
-    drawTotalLine('Amount Due:', formatCurrency(invoice.amountDue, company.currency), true);
+    drawTotalRow('Amount Paid', formatCurrency(invoice.amountPaid, company.currency), { color: [34, 139, 34] });
+  }
+  if (invoice.amountDue > 0 && invoice.amountPaid > 0) {
+    drawTotalRow('Amount Due', formatCurrency(invoice.amountDue, company.currency), { bold: true, color: C.brand, size: 10 });
   }
 
-  // ---- NOTES & TERMS ----
-  y += 8;
+  // ══════════════════════════════════════════
+  //  NOTES & TERMS
+  // ══════════════════════════════════════════
+  y += 6;
+
   if (invoice.notes) {
-    doc.setFontSize(9);
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(BRAND.r, BRAND.g, BRAND.b);
-    doc.text('Notes:', margin, y);
-    y += 5;
+    doc.setTextColor(...C.brand);
+    doc.text('NOTES', ml, y);
+    y += 4;
+    doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(TEXT_SECONDARY.r, TEXT_SECONDARY.g, TEXT_SECONDARY.b);
-    const noteLines = doc.splitTextToSize(invoice.notes, pageWidth - 2 * margin);
-    doc.text(noteLines, margin, y);
-    y += noteLines.length * 4 + 4;
+    doc.setTextColor(...C.textMid);
+    const noteLines = doc.splitTextToSize(invoice.notes, contentW);
+    doc.text(noteLines, ml, y);
+    y += noteLines.length * 3.5 + 4;
   }
 
   if (invoice.terms) {
-    doc.setFontSize(9);
+    doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(BRAND.r, BRAND.g, BRAND.b);
-    doc.text('Terms:', margin, y);
-    y += 5;
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(TEXT_SECONDARY.r, TEXT_SECONDARY.g, TEXT_SECONDARY.b);
-    const termLines = doc.splitTextToSize(invoice.terms, pageWidth - 2 * margin);
-    doc.text(termLines, margin, y);
-    y += termLines.length * 4 + 4;
-  }
-
-  // ---- FOOTER ----
-  const footerY = pageHeight - 15;
-  doc.setDrawColor(BORDER.r, BORDER.g, BORDER.b);
-  doc.line(margin, footerY - 8, pageWidth - margin, footerY - 8);
-
-  if (company.invoiceFooter) {
+    doc.setTextColor(...C.brand);
+    doc.text('TERMS & CONDITIONS', ml, y);
+    y += 4;
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(TEXT_TERTIARY.r, TEXT_TERTIARY.g, TEXT_TERTIARY.b);
-    doc.text(company.invoiceFooter, pageWidth / 2, footerY - 2, { align: 'center' });
+    doc.setTextColor(...C.textMid);
+    const termLines = doc.splitTextToSize(invoice.terms, contentW);
+    doc.text(termLines, ml, y);
+    y += termLines.length * 3.5 + 4;
   }
 
-  // "Powered by Flowbooks" at bottom
-  doc.setFontSize(7);
-  doc.setTextColor(TEXT_TERTIARY.r, TEXT_TERTIARY.g, TEXT_TERTIARY.b);
-  doc.text('Powered by Flowbooks', pageWidth / 2, footerY + 4, { align: 'center' });
+  // ══════════════════════════════════════════
+  //  FOOTER
+  // ══════════════════════════════════════════
+  const footerY = ph - 14;
+
+  // Divider line
+  doc.setDrawColor(...C.border);
+  doc.setLineWidth(0.2);
+  doc.line(ml, footerY - 4, pw - mr, footerY - 4);
+
+  // Custom footer text
+  if (company.invoiceFooter) {
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...C.textLight);
+    doc.text(company.invoiceFooter, pw / 2, footerY + 1, { align: 'center' });
+  }
+
+  // "Powered by Flowbooks"
+  doc.setFontSize(6.5);
+  doc.setTextColor(...C.textLight);
+  doc.text('Powered by Flowbooks', pw / 2, footerY + (company.invoiceFooter ? 5 : 1), { align: 'center' });
 
   // Bottom accent bar
-  doc.setFillColor(BRAND.r, BRAND.g, BRAND.b);
-  doc.rect(0, pageHeight - 4, pageWidth, 4, 'F');
+  doc.setFillColor(...C.brand);
+  doc.rect(0, ph - 3, pw, 3, 'F');
 
   // Return as Buffer
   const arrayBuffer = doc.output('arraybuffer');

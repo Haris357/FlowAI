@@ -2,8 +2,9 @@
 
 import { useRef, useEffect, useState } from 'react';
 import { Box } from '@mui/joy';
-import { ChatMessage as ChatMessageType } from '@/types';
-import ChatMessage, { TypingIndicator } from './ChatMessage';
+import { ChatMessage as ChatMessageType, ThinkingStep } from '@/types';
+import ChatMessage from './ChatMessage';
+import ThinkingSteps from './ThinkingSteps';
 import ChatWelcome from './ChatWelcome';
 import ChatInput from './ChatInput';
 import MemoryIndicator from './MemoryIndicator';
@@ -14,6 +15,7 @@ interface ChatMainProps {
   messages: ChatMessageType[];
   isAITyping: boolean;
   isSendingMessage: boolean;
+  thinkingSteps?: ThinkingStep[];
   userName?: string;
   userPhotoUrl?: string;
   showTimestamps?: boolean;
@@ -21,6 +23,7 @@ interface ChatMainProps {
   selectedForm?: FormShortcut | null;
   inputValue?: string;
   onSendMessage: (content: string) => void;
+  onExecuteToolAction?: (toolName: string, args: Record<string, any>, sourceMessageId?: string, actionKey?: string) => void;
   onSelectAction?: (prompt: string) => void;
   onClearForm?: () => void;
   tokenUsage?: TokenUsage;
@@ -30,6 +33,7 @@ export default function ChatMain({
   messages,
   isAITyping,
   isSendingMessage,
+  thinkingSteps = [],
   userName,
   userPhotoUrl,
   showTimestamps = true,
@@ -37,6 +41,7 @@ export default function ChatMain({
   selectedForm,
   inputValue = '',
   onSendMessage,
+  onExecuteToolAction,
   onSelectAction,
   onClearForm,
   tokenUsage,
@@ -155,7 +160,7 @@ export default function ChatMain({
             transition: 'opacity 0.3s ease-out 0.1s, transform 0.3s ease-out 0.1s',
           }}
         >
-          {messages.map((message, index) => (
+          {messages.filter(m => !m.hidden).map((message, index) => (
             <Box
               key={message.id}
               sx={{
@@ -181,12 +186,13 @@ export default function ChatMain({
                 actions={message.actions}
                 followUp={message.followUp}
                 onSendMessage={onSendMessage}
+                onExecuteToolAction={onExecuteToolAction}
               />
             </Box>
           ))}
 
-          {/* Typing indicator */}
-          {isAITyping && <TypingIndicator />}
+          {/* Thinking steps / typing indicator */}
+          {isAITyping && <ThinkingSteps steps={thinkingSteps} />}
 
           <div ref={messagesEndRef} />
         </Box>

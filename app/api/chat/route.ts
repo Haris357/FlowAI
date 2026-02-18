@@ -145,11 +145,19 @@ function calculateCost(promptTokens: number, completionTokens: number, model: st
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, companyId, userId, chatId, model: requestModel } = await request.json();
+    const body = await request.json();
+    const { message, companyId, userId, chatId, model: requestModel, toolResults, originalAssistant } = body;
+    const isFollowUp = !!(toolResults && originalAssistant);
 
-    if (!message || !companyId || !userId) {
+    if (!isFollowUp && (!message || !companyId || !userId)) {
       return NextResponse.json(
         { error: 'Message, companyId, and userId are required' },
+        { status: 400 }
+      );
+    }
+    if (isFollowUp && (!companyId || !userId || !chatId)) {
+      return NextResponse.json(
+        { error: 'companyId, userId, and chatId are required for follow-up' },
         { status: 400 }
       );
     }
@@ -162,8 +170,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Security check
-    if (isBlockedRequest(message)) {
+    // Security check (skip for follow-up rounds)
+    if (!isFollowUp && isBlockedRequest(message)) {
       return NextResponse.json({
         message: "I can only help with accounting-related tasks like managing customers, invoices, expenses, and reports. How can I assist you with your business finances?",
         toolCalls: [],
@@ -176,11 +184,20 @@ export async function POST(request: NextRequest) {
 
     // Resolve model — use requested model if valid, otherwise default
     const MODEL = (requestModel && MODEL_PRICING[requestModel]) ? requestModel : DEFAULT_MODEL;
-    console.log(`[Flow AI] Model: ${MODEL}`);
+    console.log(`[Flow AI] Model: ${MODEL}${isFollowUp ? ' (follow-up)' : ''}`);
     let memory = await getConversationMemory(companyId, userId, chatId);
     let conversationId: string;
 
-    if (!memory) {
+    if (isFollowUp) {
+      // Follow-up round: just load memory, don't add a user message
+      if (!memory) {
+        return NextResponse.json(
+          { error: 'Conversation not found for follow-up' },
+          { status: 400 }
+        );
+      }
+      conversationId = memory.id;
+    } else if (!memory) {
       const userMessage: ConversationMessage = {
         role: 'user',
         content: message,
@@ -240,8 +257,8 @@ export async function POST(request: NextRequest) {
     // Build optimized context from memory
     const recentHistory = buildContextFromMemory(memory);
 
-    // Build context reminder if the assistant was waiting for user input
-    const contextMessages = buildContextReminder(recentHistory, message);
+    // Build context reminder (skip for follow-up)
+    const contextMessages = isFollowUp ? [] : buildContextReminder(recentHistory, message);
 
     // Load persistent business context for this user
     let systemPrompt = FLOW_AI_SYSTEM_PROMPT;
@@ -261,13 +278,31 @@ export async function POST(request: NextRequest) {
     // OPENAI API CALL
     // ==========================================
 
+    // Build messages — for follow-up, include assistant tool_calls + tool results
+    const openAIMessages = isFollowUp
+      ? [
+          { role: 'system' as const, content: systemPrompt },
+          ...recentHistory,
+          {
+            role: 'assistant' as const,
+            content: originalAssistant.content || null,
+            tool_calls: originalAssistant.toolCalls,
+          },
+          ...toolResults.map((tr: any) => ({
+            role: 'tool' as const,
+            tool_call_id: tr.toolCallId,
+            content: tr.result,
+          })),
+        ]
+      : [
+          { role: 'system' as const, content: systemPrompt },
+          ...recentHistory,
+          ...contextMessages,
+        ];
+
     const response = await openai.chat.completions.create({
       model: MODEL,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...recentHistory,
-        ...contextMessages,
-      ],
+      messages: openAIMessages as any,
       tools: FLOW_AI_TOOLS as any,
       tool_choice: 'auto',
       temperature: 0.2,
@@ -316,19 +351,10 @@ export async function POST(request: NextRequest) {
     // PERSIST ASSISTANT RESPONSE TO MEMORY
     // ==========================================
 
-    // When tool calls are present, store a descriptive memory so the AI remembers what it did
+    // Store a descriptive memory — use natural language so the AI doesn't copy technical syntax
     let memoryContent = responseText;
-    if (toolCalls.length > 0) {
-      const toolSummaries = toolCalls.map(tc => {
-        const argsStr = Object.entries(tc.args || {})
-          .filter(([k]) => !['companyId', 'userId'].includes(k))
-          .map(([k, v]) => `${k}: ${typeof v === 'string' ? v : JSON.stringify(v)}`)
-          .join(', ');
-        return `[Action: ${tc.name}(${argsStr})]`;
-      }).join(' ');
-      memoryContent = memoryContent
-        ? `${memoryContent}\n${toolSummaries}`
-        : toolSummaries;
+    if (toolCalls.length > 0 && !memoryContent) {
+      memoryContent = 'Proceeding with the requested action.';
     }
 
     const assistantMessage: ConversationMessage = {
@@ -346,6 +372,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       message: responseText,
       toolCalls,
+      // Include raw OpenAI tool_calls for follow-up rounds
+      rawToolCalls: choice.message.tool_calls || [],
+      rawContent: choice.message.content || null,
       usage: {
         promptTokens,
         completionTokens,

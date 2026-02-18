@@ -241,30 +241,31 @@ export default function EntityDetailModal({
         <FieldRow icon={<Phone size={15} />} label="Phone" value={entity.phone} />
         <FieldRow icon={<MapPin size={15} />} label="Address" value={entity.address} />
         {entity.taxId && <FieldRow icon={<Hash size={15} />} label="Tax ID" value={entity.taxId} />}
+        {!entity.email && !entity.phone && !entity.address && !entity.taxId && (
+          <Box sx={{ py: 2, textAlign: 'center' }}>
+            <Typography level="body-sm" sx={{ color: 'text.tertiary', fontStyle: 'italic' }}>
+              No contact details available
+            </Typography>
+          </Box>
+        )}
       </Box>
 
-      {(entity.totalBilled || entity.totalPaid || entity.outstandingBalance) && (
+      {(entity.totalBilled !== undefined || entity.totalPaid !== undefined || entity.outstandingBalance !== undefined) && (
         <>
           <Divider />
           <Stack direction="row" spacing={2} sx={{ py: 2, justifyContent: 'space-around' }}>
-            {entity.totalBilled !== undefined && (
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Billed</Typography>
-                <Typography level="title-sm" fontWeight="lg">{formatCurrency(entity.totalBilled)}</Typography>
-              </Box>
-            )}
-            {entity.totalPaid !== undefined && (
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Paid</Typography>
-                <Typography level="title-sm" fontWeight="lg" color="success">{formatCurrency(entity.totalPaid)}</Typography>
-              </Box>
-            )}
-            {entity.outstandingBalance !== undefined && (
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Outstanding</Typography>
-                <Typography level="title-sm" fontWeight="lg" color="danger">{formatCurrency(entity.outstandingBalance)}</Typography>
-              </Box>
-            )}
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Billed</Typography>
+              <Typography level="title-sm" fontWeight="lg">{formatCurrency(entity.totalBilled ?? 0)}</Typography>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Paid</Typography>
+              <Typography level="title-sm" fontWeight="lg" color="success">{formatCurrency(entity.totalPaid ?? 0)}</Typography>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Outstanding</Typography>
+              <Typography level="title-sm" fontWeight="lg" color="danger">{formatCurrency(entity.outstandingBalance ?? 0)}</Typography>
+            </Box>
           </Stack>
         </>
       )}
@@ -305,22 +306,18 @@ export default function EntityDetailModal({
         <FieldRow icon={<MapPin size={15} />} label="Address" value={entity.address} />
       </Box>
 
-      {(entity.totalBilled || entity.outstandingBalance) && (
+      {(entity.totalBilled !== undefined || entity.outstandingBalance !== undefined) && (
         <>
           <Divider />
           <Stack direction="row" spacing={3} sx={{ py: 2, justifyContent: 'space-around' }}>
-            {entity.totalBilled !== undefined && (
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Total Billed</Typography>
-                <Typography level="title-sm" fontWeight="lg">{formatCurrency(entity.totalBilled)}</Typography>
-              </Box>
-            )}
-            {entity.outstandingBalance !== undefined && (
-              <Box sx={{ textAlign: 'center' }}>
-                <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Outstanding</Typography>
-                <Typography level="title-sm" fontWeight="lg" color="danger">{formatCurrency(entity.outstandingBalance)}</Typography>
-              </Box>
-            )}
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Total Billed</Typography>
+              <Typography level="title-sm" fontWeight="lg">{formatCurrency(entity.totalBilled ?? 0)}</Typography>
+            </Box>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Outstanding</Typography>
+              <Typography level="title-sm" fontWeight="lg" color="danger">{formatCurrency(entity.outstandingBalance ?? 0)}</Typography>
+            </Box>
           </Stack>
         </>
       )}

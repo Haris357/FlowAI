@@ -51,6 +51,19 @@ interface ChatMessageProps {
   actions?: ActionButton[];
   followUp?: string;
   onSendMessage?: (content: string) => void;
+  onExecuteToolAction?: (toolName: string, args: Record<string, any>, sourceMessageId?: string, actionKey?: string) => void;
+}
+
+// Parse {{BUTTONS:...}} tags from message content
+function parseSuggestions(content: string): { text: string; suggestions: string[][] } {
+  const suggestions: string[][] = [];
+  // Match all {{BUTTONS:opt1|opt2|opt3}} patterns
+  const text = content.replace(/\{\{BUTTONS:(.*?)\}\}/g, (_match, opts: string) => {
+    const options = opts.split('|').map((o: string) => o.trim()).filter(Boolean);
+    if (options.length > 0) suggestions.push(options);
+    return '';
+  }).trim();
+  return { text, suggestions };
 }
 
 // Simple markdown-like text renderer
@@ -80,6 +93,65 @@ function RichText({ content }: { content: string }) {
         return part;
       })}
     </Typography>
+  );
+}
+
+// Inline suggestion buttons
+function SuggestionButtons({ suggestions, onSelect }: { suggestions: string[][]; onSelect: (text: string) => void }) {
+  const [selected, setSelected] = useState<string | null>(null);
+
+  if (suggestions.length === 0) return null;
+
+  const handleSelect = (option: string) => {
+    if (selected) return;
+    setSelected(option);
+    onSelect(option);
+  };
+
+  return (
+    <Stack spacing={1} sx={{ mt: 1.5 }}>
+      {suggestions.map((group, gi) => (
+        <Stack key={gi} direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+          {group.map((option, oi) => {
+            const isSelected = selected === option;
+            const isHidden = selected !== null && !isSelected;
+            if (isHidden) return null;
+            return (
+              <Chip
+                key={oi}
+                variant={isSelected ? 'solid' : 'outlined'}
+                color="primary"
+                size="sm"
+                onClick={() => handleSelect(option)}
+                disabled={selected !== null}
+                sx={{
+                  cursor: selected ? 'default' : 'pointer',
+                  fontWeight: 500,
+                  borderRadius: '16px',
+                  px: 1.5,
+                  transition: 'all 0.2s ease',
+                  ...(isSelected ? {
+                    opacity: 1,
+                    '&.Mui-disabled': {
+                      opacity: 1,
+                      bgcolor: 'primary.500',
+                      color: '#fff',
+                    },
+                  } : {
+                    '&:hover': {
+                      bgcolor: 'primary.100',
+                      borderColor: 'primary.400',
+                    },
+                  }),
+                }}
+              >
+                {option}
+              </Chip>
+            );
+          })}
+        </Stack>
+      ))}
+    </Stack>
   );
 }
 
@@ -800,8 +872,12 @@ export default function ChatMessage({
   actions,
   followUp,
   onSendMessage,
+  onExecuteToolAction,
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
+  const [clickedToolActions, setClickedToolActions] = useState<Set<string>>(
+    new Set(message.completedActions || [])
+  );
   const [viewModal, setViewModal] = useState<{
     open: boolean;
     entityType: string;
@@ -819,17 +895,25 @@ export default function ChatMessage({
 
   const handleAction = (action: ActionButton) => {
     // Handle actions that trigger tool calls (send, pay, cancel, etc.)
-    if (action.toolCall && action.entityId && onSendMessage) {
-      const toolMessages: Record<string, string> = {
-        send_invoice: `send invoice ${action.entityId}`,
-        change_invoice_status: `mark invoice ${action.entityId} as sent`,
-        mark_invoice_paid: `mark invoice ${action.entityId} as paid`,
-        cancel_invoice: `cancel invoice ${action.entityId}`,
-        change_bill_status: `mark bill ${action.entityId} as paid`,
+    if (action.toolCall && action.entityId) {
+      // Prevent duplicate clicks
+      const key = `${action.toolCall}-${action.entityId}`;
+      if (clickedToolActions.has(key)) return;
+      setClickedToolActions(prev => new Set(prev).add(key));
+
+      // Build tool args based on the tool name
+      const toolArgs: Record<string, Record<string, any>> = {
+        send_invoice: { invoiceId: action.entityId },
+        change_invoice_status: { invoiceId: action.entityId, newStatus: 'sent' },
+        mark_invoice_paid: { invoiceId: action.entityId, newStatus: 'paid' },
+        cancel_invoice: { invoiceId: action.entityId, newStatus: 'cancelled' },
+        change_bill_status: { billId: action.entityId, newStatus: 'paid' },
       };
-      const message = toolMessages[action.toolCall];
-      if (message) {
-        onSendMessage(message);
+      const args = toolArgs[action.toolCall] || { id: action.entityId };
+
+      // Execute tool directly — no AI round-trip, pass message ID for persistence
+      if (onExecuteToolAction) {
+        onExecuteToolAction(action.toolCall, args, message.id, key);
       }
       return;
     }
@@ -860,6 +944,12 @@ export default function ChatMessage({
       const companyId = company?.id;
       if (companyId) {
         window.open(`/api/invoices/pdf?companyId=${companyId}&invoiceId=${action.entityId}`, '_blank');
+      }
+    } else if (action.type === 'download' && action.entityType === 'salary_slip' && action.entityId) {
+      // Download salary slip PDF
+      const companyId = company?.id;
+      if (companyId) {
+        window.open(`/api/payroll/pdf?companyId=${companyId}&slipId=${action.entityId}`, '_blank');
       }
     }
   };
@@ -944,182 +1034,204 @@ export default function ChatMessage({
                 p: isUser ? 0 : 2,
               }}
             >
-              {/* Main message text */}
-              {message.content && <RichText content={message.content} />}
+              {/* Main message text + inline suggestion buttons */}
+              {message.content && (() => {
+                const { text, suggestions } = parseSuggestions(message.content);
+                return (
+                  <>
+                    {text && <RichText content={text} />}
+                    {!isUser && suggestions.length > 0 && onSendMessage && (
+                      <SuggestionButtons suggestions={suggestions} onSelect={onSendMessage} />
+                    )}
+                  </>
+                );
+              })()}
 
-              {/* Rich data display */}
-              {!isUser && richData && (
-                <Box sx={{ mt: message.content ? 2 : 0 }}>
-                  {/* Single entity display */}
-                  {richData.type === 'entity' && richData.entity && !richData.entities && (
-                    <EntityInlineCard entity={richData.entity} entityType={richData.entityType} />
-                  )}
+              {/* Rich data display — supports multiple blocks (entity + list + summary in one message) */}
+              {!isUser && (() => {
+                const dataBlocks = message.richDataList || (richData ? [richData] : []);
+                if (dataBlocks.length === 0) return null;
+                return (
+                  <Box sx={{ mt: message.content ? 2 : 0 }}>
+                    <Stack spacing={2}>
+                      {dataBlocks.map((rd, blockIdx) => (
+                        <Box key={blockIdx}>
+                          {/* Single entity display */}
+                          {rd.type === 'entity' && rd.entity && !rd.entities && (
+                            <EntityInlineCard entity={rd.entity} entityType={rd.entityType} />
+                          )}
 
-                  {/* Multiple entities display */}
-                  {richData.type === 'entity' && richData.entities && richData.entities.length > 0 && (
-                    <Stack spacing={1}>
-                      {richData.entities.map((item, idx) => (
-                        <EntityInlineCard key={idx} entity={item.entity} entityType={item.entityType} />
+                          {/* Multiple entities display — each card with inline actions */}
+                          {rd.type === 'entity' && rd.entities && rd.entities.length > 0 && (
+                            <Stack spacing={1.5}>
+                              {rd.entities.map((item, idx) => (
+                                <Stack key={idx} direction="row" alignItems="center" spacing={1}>
+                                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <EntityInlineCard entity={item.entity} entityType={item.entityType} />
+                                  </Box>
+                                  {item.actions && item.actions.length > 0 && (
+                                    <ChatActionButtons
+                                      actions={item.actions}
+                                      onAction={handleAction}
+                                      compact
+                                      disabledActions={clickedToolActions}
+                                    />
+                                  )}
+                                </Stack>
+                              ))}
+                            </Stack>
+                          )}
+
+                          {/* List display with data grid */}
+                          {rd.type === 'list' && rd.items && rd.items.length > 0 && (
+                            <Box>
+                              <ChatDataGrid
+                                items={rd.items}
+                                columns={rd.columns || []}
+                                entityType={rd.entityType || 'item'}
+                                pagination={rd.pagination}
+                                onViewItem={handleViewItem}
+                              />
+                            </Box>
+                          )}
+
+                          {/* Dashboard Summary display */}
+                          {rd.type === 'summary' && rd.summary && (() => {
+                            const s = rd.summary;
+                            const net = Number(s.net) || 0;
+                            const netColor = net >= 0 ? 'success' : 'danger';
+                            const NetIcon = net > 0 ? TrendingUp : net < 0 ? TrendingDown : Minus;
+                            return (
+                              <Box sx={{ borderRadius: 'lg', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2.5, py: 1.5, bgcolor: 'primary.softBg' }}>
+                                  <BarChart3 size={16} />
+                                  <Typography level="title-sm" fontWeight={700}>Dashboard Summary</Typography>
+                                  {s.period && (
+                                    <Chip size="sm" variant="soft" color="neutral" sx={{ ml: 'auto', fontSize: '10px' }}>
+                                      {String(s.period)}
+                                    </Chip>
+                                  )}
+                                </Box>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                  <Box sx={{ px: 2, py: 1.5, textAlign: 'center', borderRight: '1px solid', borderColor: 'divider' }}>
+                                    <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Income</Typography>
+                                    <Typography level="title-sm" fontWeight={700} color="success">${Number(s.income || 0).toLocaleString()}</Typography>
+                                  </Box>
+                                  <Box sx={{ px: 2, py: 1.5, textAlign: 'center', borderRight: '1px solid', borderColor: 'divider' }}>
+                                    <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Expenses</Typography>
+                                    <Typography level="title-sm" fontWeight={700} color="danger">${Number(s.expenses || 0).toLocaleString()}</Typography>
+                                  </Box>
+                                  <Box sx={{ px: 2, py: 1.5, textAlign: 'center' }}>
+                                    <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Net</Typography>
+                                    <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
+                                      <NetIcon size={14} />
+                                      <Typography level="title-sm" fontWeight={700} color={netColor}>${Math.abs(net).toLocaleString()}</Typography>
+                                    </Stack>
+                                  </Box>
+                                </Box>
+                                <Box sx={{ display: 'flex', gap: 2, px: 2.5, py: 1.5, bgcolor: 'background.surface' }}>
+                                  {s.customerCount != null && (
+                                    <Stack direction="row" spacing={0.75} alignItems="center">
+                                      <Users size={13} style={{ opacity: 0.5 }} />
+                                      <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{s.customerCount} Customers</Typography>
+                                    </Stack>
+                                  )}
+                                  {s.vendorCount != null && (
+                                    <Stack direction="row" spacing={0.75} alignItems="center">
+                                      <Store size={13} style={{ opacity: 0.5 }} />
+                                      <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{s.vendorCount} Vendors</Typography>
+                                    </Stack>
+                                  )}
+                                  {s.openInvoices != null && (
+                                    <Stack direction="row" spacing={0.75} alignItems="center">
+                                      <ClipboardList size={13} style={{ opacity: 0.5 }} />
+                                      <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{s.openInvoices} Open Invoices</Typography>
+                                    </Stack>
+                                  )}
+                                </Box>
+                              </Box>
+                            );
+                          })()}
+
+                          {/* Report display */}
+                          {rd.type === 'report' && rd.summary && (() => {
+                            const s = rd.summary;
+                            const net = Number(s.net) || 0;
+                            const netColor = net >= 0 ? 'success' : 'danger';
+                            const NetIcon = net > 0 ? TrendingUp : net < 0 ? TrendingDown : Minus;
+                            const categories = s.categories as Record<string, number> | undefined;
+                            const hasCategories = categories && Object.keys(categories).length > 0;
+                            const maxCategoryAmount = hasCategories ? Math.max(...Object.values(categories)) : 0;
+
+                            return (
+                              <Box sx={{ borderRadius: 'lg', border: '1px solid', borderColor: 'divider', overflow: 'hidden' }}>
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2.5, py: 1.5, bgcolor: 'primary.softBg' }}>
+                                  <PieChart size={16} />
+                                  <Box sx={{ flex: 1 }}>
+                                    <Typography level="title-sm" fontWeight={700}>{s.reportName || 'Financial Report'}</Typography>
+                                    {s.period && (
+                                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>{String(s.period)}</Typography>
+                                    )}
+                                  </Box>
+                                  <Chip size="sm" variant="outlined" color="neutral" sx={{ fontSize: '10px' }}>
+                                    {s.transactionCount || 0} transactions
+                                  </Chip>
+                                </Box>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: '1px solid', borderColor: 'divider' }}>
+                                  <Box sx={{ px: 2, py: 1.5, textAlign: 'center', borderRight: '1px solid', borderColor: 'divider' }}>
+                                    <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Income</Typography>
+                                    <Typography level="title-sm" fontWeight={700} color="success">${Number(s.income || 0).toLocaleString()}</Typography>
+                                  </Box>
+                                  <Box sx={{ px: 2, py: 1.5, textAlign: 'center', borderRight: '1px solid', borderColor: 'divider' }}>
+                                    <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Expenses</Typography>
+                                    <Typography level="title-sm" fontWeight={700} color="danger">${Number(s.expenses || 0).toLocaleString()}</Typography>
+                                  </Box>
+                                  <Box sx={{ px: 2, py: 1.5, textAlign: 'center' }}>
+                                    <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Net</Typography>
+                                    <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
+                                      <NetIcon size={14} />
+                                      <Typography level="title-sm" fontWeight={700} color={netColor}>
+                                        {net < 0 ? '-' : ''}${Math.abs(net).toLocaleString()}
+                                      </Typography>
+                                    </Stack>
+                                  </Box>
+                                </Box>
+                                {hasCategories && (
+                                  <Box sx={{ px: 2.5, py: 1.5, bgcolor: 'background.level1' }}>
+                                    <Typography level="body-xs" sx={{ color: 'text.tertiary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '10px', mb: 1 }}>
+                                      By Category
+                                    </Typography>
+                                    <Stack spacing={0.75}>
+                                      {Object.entries(categories)
+                                        .sort((a, b) => b[1] - a[1])
+                                        .map(([cat, amt]) => (
+                                          <Box key={cat}>
+                                            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
+                                              <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{cat}</Typography>
+                                              <Typography level="body-xs" fontWeight={600}>${Number(amt).toLocaleString()}</Typography>
+                                            </Box>
+                                            <Box sx={{ height: 3, bgcolor: 'neutral.100', borderRadius: 2, overflow: 'hidden' }}>
+                                              <Box sx={{ height: '100%', width: `${(amt / maxCategoryAmount) * 100}%`, bgcolor: 'warning.400', borderRadius: 2 }} />
+                                            </Box>
+                                          </Box>
+                                        ))}
+                                    </Stack>
+                                  </Box>
+                                )}
+                              </Box>
+                            );
+                          })()}
+                        </Box>
                       ))}
                     </Stack>
-                  )}
-
-                  {/* List display with data grid */}
-                  {richData.type === 'list' && richData.items && richData.items.length > 0 && (
-                    <Box sx={{ mt: 1 }}>
-                      <ChatDataGrid
-                        items={richData.items}
-                        columns={richData.columns || []}
-                        entityType={richData.entityType || 'item'}
-                        pagination={richData.pagination}
-                        onViewItem={handleViewItem}
-                      />
-                    </Box>
-                  )}
-
-                  {/* Dashboard Summary display */}
-                  {richData.type === 'summary' && richData.summary && (() => {
-                    const s = richData.summary;
-                    const net = Number(s.net) || 0;
-                    const netColor = net >= 0 ? 'success' : 'danger';
-                    const NetIcon = net > 0 ? TrendingUp : net < 0 ? TrendingDown : Minus;
-                    return (
-                      <Box sx={{ borderRadius: 'lg', border: '1px solid', borderColor: 'divider', overflow: 'hidden', mt: 1 }}>
-                        {/* Header */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2.5, py: 1.5, bgcolor: 'primary.softBg' }}>
-                          <BarChart3 size={16} />
-                          <Typography level="title-sm" fontWeight={700}>Dashboard Summary</Typography>
-                          {s.period && (
-                            <Chip size="sm" variant="soft" color="neutral" sx={{ ml: 'auto', fontSize: '10px' }}>
-                              {String(s.period)}
-                            </Chip>
-                          )}
-                        </Box>
-
-                        {/* KPI Row */}
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: '1px solid', borderColor: 'divider' }}>
-                          <Box sx={{ px: 2, py: 1.5, textAlign: 'center', borderRight: '1px solid', borderColor: 'divider' }}>
-                            <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Income</Typography>
-                            <Typography level="title-sm" fontWeight={700} color="success">${Number(s.income || 0).toLocaleString()}</Typography>
-                          </Box>
-                          <Box sx={{ px: 2, py: 1.5, textAlign: 'center', borderRight: '1px solid', borderColor: 'divider' }}>
-                            <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Expenses</Typography>
-                            <Typography level="title-sm" fontWeight={700} color="danger">${Number(s.expenses || 0).toLocaleString()}</Typography>
-                          </Box>
-                          <Box sx={{ px: 2, py: 1.5, textAlign: 'center' }}>
-                            <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Net</Typography>
-                            <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
-                              <NetIcon size={14} />
-                              <Typography level="title-sm" fontWeight={700} color={netColor}>${Math.abs(net).toLocaleString()}</Typography>
-                            </Stack>
-                          </Box>
-                        </Box>
-
-                        {/* Overview Row */}
-                        <Box sx={{ display: 'flex', gap: 2, px: 2.5, py: 1.5, bgcolor: 'background.surface' }}>
-                          {s.customerCount != null && (
-                            <Stack direction="row" spacing={0.75} alignItems="center">
-                              <Users size={13} style={{ opacity: 0.5 }} />
-                              <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{s.customerCount} Customers</Typography>
-                            </Stack>
-                          )}
-                          {s.vendorCount != null && (
-                            <Stack direction="row" spacing={0.75} alignItems="center">
-                              <Store size={13} style={{ opacity: 0.5 }} />
-                              <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{s.vendorCount} Vendors</Typography>
-                            </Stack>
-                          )}
-                          {s.openInvoices != null && (
-                            <Stack direction="row" spacing={0.75} alignItems="center">
-                              <ClipboardList size={13} style={{ opacity: 0.5 }} />
-                              <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{s.openInvoices} Open Invoices</Typography>
-                            </Stack>
-                          )}
-                        </Box>
-                      </Box>
-                    );
-                  })()}
-
-                  {/* Report display */}
-                  {richData.type === 'report' && richData.summary && (() => {
-                    const s = richData.summary;
-                    const net = Number(s.net) || 0;
-                    const netColor = net >= 0 ? 'success' : 'danger';
-                    const NetIcon = net > 0 ? TrendingUp : net < 0 ? TrendingDown : Minus;
-                    const categories = s.categories as Record<string, number> | undefined;
-                    const hasCategories = categories && Object.keys(categories).length > 0;
-                    const maxCategoryAmount = hasCategories ? Math.max(...Object.values(categories)) : 0;
-
-                    return (
-                      <Box sx={{ borderRadius: 'lg', border: '1px solid', borderColor: 'divider', overflow: 'hidden', mt: 1 }}>
-                        {/* Header */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2.5, py: 1.5, bgcolor: 'primary.softBg' }}>
-                          <PieChart size={16} />
-                          <Box sx={{ flex: 1 }}>
-                            <Typography level="title-sm" fontWeight={700}>{s.reportName || 'Financial Report'}</Typography>
-                            {s.period && (
-                              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>{String(s.period)}</Typography>
-                            )}
-                          </Box>
-                          <Chip size="sm" variant="outlined" color="neutral" sx={{ fontSize: '10px' }}>
-                            {s.transactionCount || 0} transactions
-                          </Chip>
-                        </Box>
-
-                        {/* KPI Row */}
-                        <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: '1px solid', borderColor: 'divider' }}>
-                          <Box sx={{ px: 2, py: 1.5, textAlign: 'center', borderRight: '1px solid', borderColor: 'divider' }}>
-                            <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Income</Typography>
-                            <Typography level="title-sm" fontWeight={700} color="success">${Number(s.income || 0).toLocaleString()}</Typography>
-                          </Box>
-                          <Box sx={{ px: 2, py: 1.5, textAlign: 'center', borderRight: '1px solid', borderColor: 'divider' }}>
-                            <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Expenses</Typography>
-                            <Typography level="title-sm" fontWeight={700} color="danger">${Number(s.expenses || 0).toLocaleString()}</Typography>
-                          </Box>
-                          <Box sx={{ px: 2, py: 1.5, textAlign: 'center' }}>
-                            <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Net</Typography>
-                            <Stack direction="row" spacing={0.5} alignItems="center" justifyContent="center">
-                              <NetIcon size={14} />
-                              <Typography level="title-sm" fontWeight={700} color={netColor}>
-                                {net < 0 ? '-' : ''}${Math.abs(net).toLocaleString()}
-                              </Typography>
-                            </Stack>
-                          </Box>
-                        </Box>
-
-                        {/* Categories Breakdown */}
-                        {hasCategories && (
-                          <Box sx={{ px: 2.5, py: 1.5, bgcolor: 'background.level1' }}>
-                            <Typography level="body-xs" sx={{ color: 'text.tertiary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '10px', mb: 1 }}>
-                              By Category
-                            </Typography>
-                            <Stack spacing={0.75}>
-                              {Object.entries(categories)
-                                .sort((a, b) => b[1] - a[1])
-                                .map(([cat, amt]) => (
-                                  <Box key={cat}>
-                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.25 }}>
-                                      <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{cat}</Typography>
-                                      <Typography level="body-xs" fontWeight={600}>${Number(amt).toLocaleString()}</Typography>
-                                    </Box>
-                                    <Box sx={{ height: 3, bgcolor: 'neutral.100', borderRadius: 2, overflow: 'hidden' }}>
-                                      <Box sx={{ height: '100%', width: `${(amt / maxCategoryAmount) * 100}%`, bgcolor: 'warning.400', borderRadius: 2 }} />
-                                    </Box>
-                                  </Box>
-                                ))}
-                            </Stack>
-                          </Box>
-                        )}
-                      </Box>
-                    );
-                  })()}
-                </Box>
-              )}
+                  </Box>
+                );
+              })()}
 
               {/* Action buttons */}
               {!isUser && actions && actions.length > 0 && (
                 <Box sx={{ mt: 2 }}>
-                  <ChatActionButtons actions={actions} onAction={handleAction} />
+                  <ChatActionButtons actions={actions} onAction={handleAction} disabledActions={clickedToolActions} />
                 </Box>
               )}
 

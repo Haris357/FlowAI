@@ -52,7 +52,7 @@ import {
 import { getActiveEmployees } from '@/services/employees';
 import { SalarySlip, Employee } from '@/types';
 import { LoadingSpinner, EmptyState, ConfirmDialog, PageBreadcrumbs, FormTableSkeleton } from '@/components/common';
-import { Calendar, DollarSign, Users, CheckCircle, BarChart3, Plus, Edit2, Trash2, Eye, MoreVertical } from 'lucide-react';
+import { Calendar, DollarSign, Users, CheckCircle, BarChart3, Plus, Edit2, Trash2, Eye, MoreVertical, Download } from 'lucide-react';
 import StatusChangeModal from '@/components/StatusChangeModal';
 import FormEntityDetailModal from '@/components/FormEntityDetailModal';
 import { canEdit as canEditStatus, canDelete as canDeleteStatus, getStatusColor as getStatusMgmtColor, formatStatus } from '@/lib/status-management';
@@ -593,6 +593,10 @@ export default function PayrollPage() {
                                 }}>
                                   <ListItemDecorator><Eye size={16} /></ListItemDecorator>
                                   View Details
+                                </MenuItem>
+                                <MenuItem onClick={() => company && window.open(`/api/payroll/pdf?companyId=${company.id}&slipId=${slip.id}`, '_blank')}>
+                                  <ListItemDecorator><Download size={16} /></ListItemDecorator>
+                                  Download PDF
                                 </MenuItem>
                                 {canEditStatus('salarySlip', slip.status).allowed && (
                                   <MenuItem onClick={() => handleEdit(slip)}>

@@ -26,6 +26,7 @@ export default function ChatWithIdPage() {
     currentMessages,
     isAITyping,
     isSendingMessage,
+    thinkingSteps,
     isLoadingSessions,
     sidebarCollapsed,
     chatSettings,
@@ -34,6 +35,7 @@ export default function ChatWithIdPage() {
     renameChat,
     deleteChat,
     sendMessage,
+    executeToolAction,
     clearAllChats,
     toggleSidebar,
     updateChatSettings,
@@ -134,6 +136,7 @@ export default function ChatWithIdPage() {
         messages={currentMessages}
         isAITyping={isAITyping}
         isSendingMessage={isSendingMessage}
+        thinkingSteps={thinkingSteps}
         userName={user?.displayName || user?.email || undefined}
         userPhotoUrl={user?.photoURL || undefined}
         showTimestamps={chatSettings.showTimestamps}
@@ -141,6 +144,7 @@ export default function ChatWithIdPage() {
         selectedForm={selectedForm}
         inputValue={inputValue}
         onSendMessage={handleSendMessage}
+        onExecuteToolAction={executeToolAction}
         onSelectAction={handleSelectAction}
         onClearForm={handleClearForm}
         tokenUsage={tokenUsage}

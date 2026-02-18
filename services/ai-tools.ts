@@ -447,14 +447,7 @@ async function addCustomer(args: Record<string, any>, companyId: string): Promis
           entityId: docRef.id,
           data: { id: docRef.id, ...customerData },
         },
-        {
-          type: 'navigate',
-          label: 'Create Invoice',
-          entityType: 'invoice',
-          data: { customerName: args.name, customerId: docRef.id },
-        },
       ],
-      followUp: 'Would you like to create an invoice for them?',
     };
   } catch (error: any) {
     return handleError(error, 'Add customer');
@@ -513,13 +506,7 @@ async function listCustomers(args: Record<string, any>, companyId: string): Prom
         ],
         pagination: { page: args.page || 1, pageSize, total: customers.length },
       },
-      actions: customers.map(c => ({
-        type: 'view' as const,
-        label: 'View Details',
-        entityType: 'customer' as const,
-        entityId: c.id,
-        data: c,
-      })),
+      actions: [],
       followUp: hasMore ? 'Want to see more customers?' : undefined,
     };
   } catch (error: any) {
@@ -566,9 +553,7 @@ async function getCustomer(args: Record<string, any>, companyId: string): Promis
       entity: customer,
     },
     actions: [
-      { type: 'view', label: 'View Full Details', entityType: 'customer', entityId: customerId, data: customer },
-      { type: 'edit', label: 'Edit Customer', entityType: 'customer', entityId: customerId, data: customer },
-      { type: 'navigate', label: 'Create Invoice', entityType: 'invoice', data: { customerName: customer.name } },
+      { type: 'view', label: 'View Details', entityType: 'customer', entityId: customerId, data: customer },
     ],
   };
 }
@@ -667,10 +652,8 @@ async function addVendor(args: Record<string, any>, companyId: string): Promise<
     message: `I've added **${args.name}** as a new vendor.`,
     data: { type: 'entity', entityType: 'vendor', entity: { id: docRef.id, ...vendorData } },
     actions: [
-      { type: 'view', label: 'View Vendor', entityType: 'vendor', entityId: docRef.id, data: { id: docRef.id, ...vendorData } },
-      { type: 'navigate', label: 'Record Bill', entityType: 'bill', data: { vendorName: args.name } },
+      { type: 'view', label: 'View Details', entityType: 'vendor', entityId: docRef.id, data: { id: docRef.id, ...vendorData } },
     ],
-    followUp: 'Would you like to record a bill from them or add another vendor?',
   };
 }
 
@@ -875,12 +858,31 @@ async function deleteEmployee(args: Record<string, any>, companyId: string): Pro
 
 async function createInvoice(args: Record<string, any>, companyId: string): Promise<ToolResult> {
   try {
-    // Find or create customer
+    // Find or create customer — try exact match first, then partial/contains match
     const customers = await getCustomers(companyId);
+    const searchName = args.customerName.toLowerCase().trim();
     let customer = customers.find(c =>
-      c.name.toLowerCase() === args.customerName.toLowerCase() ||
+      c.name.toLowerCase() === searchName ||
       c.email?.toLowerCase() === args.customerEmail?.toLowerCase()
     );
+    if (!customer) {
+      // Partial match: customer name contains search or search contains customer name
+      const partialMatches = customers.filter(c =>
+        c.name.toLowerCase().includes(searchName) ||
+        searchName.includes(c.name.toLowerCase())
+      );
+      if (partialMatches.length === 1) {
+        customer = partialMatches[0];
+      } else if (partialMatches.length > 1) {
+        // Multiple matches — ask user to pick
+        const names = partialMatches.map(c => c.name).join(', ');
+        return {
+          success: false,
+          message: `I found multiple customers matching "${args.customerName}": ${names}. Which one did you mean?`,
+          followUp: `Please specify the exact customer name.`,
+        };
+      }
+    }
 
     if (!customer) {
       // Create new customer
@@ -2687,6 +2689,21 @@ async function generateSalarySlipAI(args: Record<string, any>, companyId: string
       success: true,
       message: `Salary slip generated for **${entity.employeeName}** — ${monthName} ${year}\n\nBasic: $${basicSalary.toLocaleString()} | Allowances: +$${(allowances.hra + allowances.da + allowances.ta + allowances.other).toLocaleString()} | Deductions: -$${totalDeductions.toLocaleString()} | **Net Pay: $${netPay.toLocaleString()}**`,
       data: { type: 'entity', entityType: 'salary_slip' as any, entity },
+      actions: [
+        {
+          type: 'view' as const,
+          label: 'View Salary Slip',
+          entityType: 'salary_slip' as any,
+          entityId: slipId,
+          data: { ...entity },
+        },
+        {
+          type: 'download' as const,
+          label: 'Download PDF',
+          entityType: 'salary_slip' as any,
+          entityId: slipId,
+        },
+      ],
     };
   } catch (error: any) {
     return { success: false, message: `Failed to generate salary slip: ${error.message}`, error: error.message };

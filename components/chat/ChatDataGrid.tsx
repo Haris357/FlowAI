@@ -47,7 +47,7 @@ export default function ChatDataGrid({
   pagination,
   onViewItem,
   onPageChange,
-  maxRows = 5,
+  maxRows = 50,
 }: ChatDataGridProps) {
   const params = useParams();
   const router = useRouter();

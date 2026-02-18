@@ -369,7 +369,7 @@ export interface ChatMessageRichData {
   type: 'entity' | 'list' | 'report' | 'summary';
   entityType?: string;
   entity?: Record<string, any>;
-  entities?: Array<{ entityType: string; entity: Record<string, any> }>;
+  entities?: Array<{ entityType: string; entity: Record<string, any>; actions?: any[] }>;
   items?: Record<string, any>[];
   columns?: { key: string; label: string; type?: 'text' | 'currency' | 'date' | 'status' }[];
   pagination?: { page: number; pageSize: number; total: number };
@@ -390,8 +390,11 @@ export interface ChatMessage {
   content: string;
   toolCalls?: ToolCall[];
   richData?: ChatMessageRichData;
+  richDataList?: ChatMessageRichData[];
   actions?: ChatMessageAction[];
   followUp?: string;
+  hidden?: boolean;
+  completedActions?: string[];
   createdAt: Timestamp;
 }
 
@@ -399,6 +402,12 @@ export interface ToolCall {
   name: string;
   input: Record<string, unknown>;
   result?: Record<string, unknown>;
+}
+
+export interface ThinkingStep {
+  id: string;
+  label: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'error';
 }
 
 // Chat session (conversation) type

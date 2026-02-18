@@ -23,6 +23,7 @@ export default function ChatPage() {
     currentMessages,
     isAITyping,
     isSendingMessage,
+    thinkingSteps,
     sidebarCollapsed,
     chatSettings,
     startNewChat,
@@ -30,6 +31,7 @@ export default function ChatPage() {
     renameChat,
     deleteChat,
     sendMessage,
+    executeToolAction,
     clearAllChats,
     toggleSidebar,
     updateChatSettings,
@@ -109,6 +111,7 @@ export default function ChatPage() {
         messages={currentMessages}
         isAITyping={isAITyping}
         isSendingMessage={isSendingMessage}
+        thinkingSteps={thinkingSteps}
         userName={user?.displayName || user?.email || undefined}
         userPhotoUrl={user?.photoURL || undefined}
         showTimestamps={chatSettings.showTimestamps}
@@ -116,6 +119,7 @@ export default function ChatPage() {
         selectedForm={selectedForm}
         inputValue={inputValue}
         onSendMessage={handleSendMessage}
+        onExecuteToolAction={executeToolAction}
         onSelectAction={handleSelectAction}
         onClearForm={handleClearForm}
         tokenUsage={tokenUsage}

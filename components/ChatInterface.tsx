@@ -508,15 +508,20 @@ export default function ChatInterface() {
           setMessages([{
             id: 'welcome',
             role: 'assistant',
-            content: `Hi! I'm your Flowbooks AI assistant. I can help you with:
+            content: `Hey! I'm your Flowbooks AI — your smart accounting assistant. Here's what I can do:
 
-- Recording expenses and income
-- Creating invoices for customers
-- Adding customers, vendors, and employees
-- Generating financial reports
-- Tracking payments and outstanding balances
+**Invoices & Payments**
+- Create, send, and track invoices — I'll email them with a PDF attached
+- Send payment reminders to customers with overdue invoices
+- Record payments and automatically update your books
+- Show you unpaid, overdue, or partially paid invoices instantly
 
-Just tell me what you'd like to do in plain English!`,
+**Full Accounting**
+- Record expenses, income, and journal entries
+- Manage customers, vendors, and employees
+- Generate financial reports and track balances
+
+Try asking me something like *"show overdue invoices"* or *"create an invoice for $500"* — or pick a quick action below!`,
             timestamp: new Date(),
           }]);
         } else {
@@ -528,15 +533,7 @@ Just tell me what you'd like to do in plain English!`,
         setMessages([{
           id: 'welcome',
           role: 'assistant',
-          content: `Hi! I'm your Flowbooks AI assistant. I can help you with:
-
-- Recording expenses and income
-- Creating invoices for customers
-- Adding customers, vendors, and employees
-- Generating financial reports
-- Tracking payments and outstanding balances
-
-Just tell me what you'd like to do in plain English!`,
+          content: `Hey! I'm your Flowbooks AI — your smart accounting assistant. Ask me about invoices, payments, expenses, or anything accounting-related!`,
           timestamp: new Date(),
         }]);
       } finally {
