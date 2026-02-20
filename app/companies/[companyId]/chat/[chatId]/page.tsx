@@ -28,6 +28,7 @@ export default function ChatWithIdPage() {
     isSendingMessage,
     thinkingSteps,
     isLoadingSessions,
+    sessionsLoaded,
     sidebarCollapsed,
     chatSettings,
     startNewChat,
@@ -44,20 +45,19 @@ export default function ChatWithIdPage() {
 
   // Load the chat from URL when sessions are loaded
   useEffect(() => {
-    if (!isLoadingSessions && sessions.length >= 0 && chatId && !hasInitialized) {
-      const chatExists = sessions.some(s => s.id === chatId);
-      if (chatExists) {
-        if (currentSessionId !== chatId) {
-          selectChat(chatId);
-        }
-        setHasInitialized(true);
-      } else if (sessions.length > 0) {
-        // Chat not found, redirect to main chat page
-        router.replace(`/companies/${companyId}/chat`);
+    if (!sessionsLoaded || !chatId || hasInitialized) return;
+
+    const chatExists = sessions.some(s => s.id === chatId);
+    if (chatExists) {
+      if (currentSessionId !== chatId) {
+        selectChat(chatId);
       }
-      setHasInitialized(true);
+    } else {
+      // Chat not found, redirect to main chat page
+      router.replace(`/companies/${companyId}/chat`);
     }
-  }, [isLoadingSessions, sessions, chatId, currentSessionId, selectChat, hasInitialized, router]);
+    setHasInitialized(true);
+  }, [sessionsLoaded, sessions, chatId, currentSessionId, selectChat, hasInitialized, router, companyId]);
 
   const handleNewChat = () => {
     startNewChat();

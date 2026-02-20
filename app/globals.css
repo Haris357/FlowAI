@@ -43,7 +43,7 @@
   :root {
     --foreground-rgb: 238, 236, 232;
     --background-start-rgb: 26, 25, 21;
-    --background-end-rgb: 26, 25, 21;
+    --background-end-rgb: 35, 34, 32;
   }
 }
 
@@ -70,8 +70,8 @@
     --accent-foreground: 0 0% 100%;
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 98%;
-    --border: 36 12% 88%;
-    --input: 36 12% 88%;
+    --border: 36 10% 86%;
+    --input: 36 10% 86%;
     --ring: 16 60% 63%;
 
     /* Chart colors using brand palette */

@@ -13,6 +13,73 @@ service cloud.firestore {
     // Users collection - users can only read/write their own document
     match /users/{userId} {
       allow read, write: if isAuthenticated() && request.auth.uid == userId;
+
+      // User settings subcollection
+      match /settings/{settingId} {
+        allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      }
+
+      // User notifications subcollection
+      match /notifications/{notificationId} {
+        allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      }
+
+      // Subscription subcollection
+      match /subscription/{subId} {
+        allow read: if isAuthenticated() && request.auth.uid == userId;
+        allow write: if false; // Only admin SDK can write
+      }
+
+      // Usage tracking subcollection
+      match /usage/{periodId} {
+        allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      }
+
+      // Token purchases subcollection
+      match /tokenPurchases/{purchaseId} {
+        allow read: if isAuthenticated() && request.auth.uid == userId;
+        allow write: if false; // Only admin SDK can write
+      }
+
+      // Billing history subcollection
+      match /billingHistory/{eventId} {
+        allow read: if isAuthenticated() && request.auth.uid == userId;
+        allow write: if false; // Only admin SDK can write
+      }
+    }
+
+    // Announcements - read-only for users, write via admin SDK
+    match /announcements/{announcementId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if false; // Only admin SDK can write
+    }
+
+    // Support tickets - users create and read their own tickets
+    match /supportTickets/{ticketId} {
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Only admin (via server SDK) can update/delete tickets
+      allow update, delete: if false;
+    }
+
+    // Feedback - users create and read their own feedback
+    match /feedback/{feedbackId} {
+      allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      // Only admin (via server SDK) can update/delete feedback
+      allow update, delete: if false;
+    }
+
+    // Blog posts - publicly readable, only authenticated users can write (admin gated at app level)
+    match /blogPosts/{postId} {
+      allow read: if true;
+      allow create, update, delete: if isAuthenticated();
+    }
+
+    // Testimonials - publicly readable, only authenticated users can write (admin gated at app level)
+    match /testimonials/{testimonialId} {
+      allow read: if true;
+      allow create, update, delete: if isAuthenticated();
     }
 
     // Companies collection

@@ -41,13 +41,43 @@ const theme = extendTheme({
     },
     dark: {
       palette: {
-        primary: darkTheme.primary,
-        success: darkTheme.success,
-        danger: darkTheme.danger,
-        warning: darkTheme.warning,
-        neutral: darkTheme.neutral,
+        primary: {
+          ...darkTheme.primary,
+          outlinedBorder: '#5C3F30',
+          softBg: '#2A1F1A',
+          softHoverBg: '#3D2C22',
+          softActiveBg: '#5C3F30',
+        },
+        success: {
+          ...darkTheme.success,
+          outlinedBorder: '#166534',
+          softBg: '#14532d',
+          softHoverBg: '#166534',
+        },
+        danger: {
+          ...darkTheme.danger,
+          outlinedBorder: '#991b1b',
+          softBg: '#7f1d1d',
+          softHoverBg: '#991b1b',
+        },
+        warning: {
+          ...darkTheme.warning,
+          outlinedBorder: '#92400e',
+          softBg: '#78350f',
+          softHoverBg: '#92400e',
+        },
+        neutral: {
+          ...darkTheme.neutral,
+          outlinedBorder: '#3D3A37',
+          plainHoverBg: '#2D2B28',
+          plainActiveBg: '#3D3A37',
+          softBg: '#2D2B28',
+          softHoverBg: '#3D3A37',
+          softActiveBg: '#454240',
+        },
         background: darkTheme.background,
         text: darkTheme.text,
+        divider: '#2D2B28',
       },
     },
   },
@@ -85,11 +115,42 @@ const theme = extendTheme({
       styleOverrides: {
         root: ({ theme, ownerState }) => ({
           transition: 'all 0.2s ease-in-out',
+          '[data-joy-color-scheme="dark"] &': {
+            '--variant-outlinedBorder': '#3D3A37',
+            borderColor: ownerState.variant === 'outlined' ? '#3D3A37' : undefined,
+          },
           '&:hover': {
             transform: ownerState.variant === 'outlined' ? 'translateY(-2px)' : undefined,
             boxShadow: ownerState.variant === 'outlined' ? theme.shadow.md : undefined,
           },
         }),
+      },
+    },
+    JoyDivider: {
+      styleOverrides: {
+        root: {
+          '[data-joy-color-scheme="dark"] &': {
+            borderColor: '#2D2B28',
+          },
+        },
+      },
+    },
+    JoyModalDialog: {
+      styleOverrides: {
+        root: {
+          '[data-joy-color-scheme="dark"] &': {
+            borderColor: '#3D3A37',
+          },
+        },
+      },
+    },
+    JoySheet: {
+      styleOverrides: {
+        root: {
+          '[data-joy-color-scheme="dark"] &[variant="outlined"]': {
+            borderColor: '#3D3A37',
+          },
+        },
       },
     },
     JoyButton: {
@@ -110,6 +171,9 @@ const theme = extendTheme({
       styleOverrides: {
         root: {
           borderRadius: '8px',
+          '[data-joy-color-scheme="dark"] &': {
+            '--Input-focusedHighlight': 'var(--joy-palette-primary-500)',
+          },
         },
       },
     },
@@ -117,6 +181,15 @@ const theme = extendTheme({
       styleOverrides: {
         root: {
           borderRadius: '8px',
+        },
+      },
+    },
+    JoyMenu: {
+      styleOverrides: {
+        root: {
+          '[data-joy-color-scheme="dark"] &': {
+            borderColor: '#3D3A37',
+          },
         },
       },
     },

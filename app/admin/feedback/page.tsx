@@ -1,0 +1,152 @@
+'use client';
+import { useState, useEffect } from 'react';
+import {
+  Box, Typography, Stack, Card, CardContent, Chip, Button, Skeleton,
+} from '@mui/joy';
+import { MessageSquare, Star, CheckCircle, Inbox } from 'lucide-react';
+import toast from 'react-hot-toast';
+
+const TYPE_COLORS: Record<string, 'primary' | 'success' | 'danger' | 'warning'> = {
+  suggestion: 'primary', praise: 'success', complaint: 'danger', bug_report: 'warning',
+};
+const STATUS_COLORS: Record<string, 'warning' | 'primary' | 'success'> = {
+  new: 'warning', reviewed: 'primary', acknowledged: 'success',
+};
+
+export default function AdminFeedbackPage() {
+  const [feedbackList, setFeedbackList] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/admin/feedback')
+      .then(res => res.json())
+      .then(d => setFeedbackList(d.feedback || []))
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleUpdate = async (feedbackId: string, status: string) => {
+    setUpdating(feedbackId);
+    try {
+      const res = await fetch('/api/admin/feedback', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ feedbackId, status }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('Feedback updated');
+      setFeedbackList(prev => prev.map(f => f.id === feedbackId ? { ...f, status } : f));
+    } catch {
+      toast.error('Failed to update');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  const formatDate = (ts: any) => {
+    if (!ts) return '-';
+    const d = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  return (
+    <Box sx={{ p: { xs: 2.5, md: 4 }, maxWidth: 960, mx: 'auto' }}>
+      <Stack spacing={3}>
+        <Box>
+          <Typography level="h3" fontWeight={700}>Feedback</Typography>
+          <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+            Review user feedback and suggestions.
+          </Typography>
+        </Box>
+
+        {loading ? (
+          <Stack spacing={1.5}>
+            {[1, 2, 3].map(i => (
+              <Card key={i} variant="outlined">
+                <CardContent sx={{ p: 2.5 }}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                    <Box sx={{ flex: 1 }}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Skeleton variant="text" width="35%" />
+                        <Skeleton variant="rectangular" width={55} height={18} sx={{ borderRadius: 10 }} />
+                      </Stack>
+                      <Skeleton variant="text" width="70%" sx={{ mt: 0.5 }} />
+                      <Skeleton variant="text" width={120} sx={{ mt: 0.5 }} />
+                    </Box>
+                    <Skeleton variant="rectangular" width={65} height={22} sx={{ borderRadius: 10 }} />
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
+        ) : feedbackList.length === 0 ? (
+          <Card variant="soft">
+            <CardContent sx={{ py: 6, textAlign: 'center' }}>
+              <Inbox size={36} style={{ color: 'var(--joy-palette-neutral-400)', margin: '0 auto 8px' }} />
+              <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
+                No feedback yet.
+              </Typography>
+            </CardContent>
+          </Card>
+        ) : (
+          <Stack spacing={1.5}>
+            {feedbackList.map(fb => (
+              <Card key={fb.id} variant="outlined" sx={{
+                transition: 'border-color 0.2s',
+                '&:hover': { borderColor: 'neutral.400' },
+              }}>
+                <CardContent sx={{ p: 2.5 }}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                    <Box sx={{ flex: 1, minWidth: 0, mr: 2 }}>
+                      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                        <Typography level="body-sm" fontWeight={600}>{fb.subject}</Typography>
+                        <Chip size="sm" variant="soft" color={TYPE_COLORS[fb.type] || 'neutral'} sx={{ fontSize: '10px' }}>
+                          {fb.type?.replace(/_/g, ' ')}
+                        </Chip>
+                        {fb.rating && (
+                          <Stack direction="row" spacing={0.25}>
+                            {Array.from({ length: fb.rating }).map((_, i) => (
+                              <Star key={i} size={10} fill="var(--joy-palette-warning-400)" color="var(--joy-palette-warning-400)" />
+                            ))}
+                          </Stack>
+                        )}
+                      </Stack>
+                      <Typography level="body-xs" sx={{ color: 'text.secondary' }} noWrap>
+                        {fb.description?.slice(0, 200)}
+                      </Typography>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.75 }}>
+                        {fb.userEmail} &bull; {formatDate(fb.createdAt)}
+                      </Typography>
+                    </Box>
+                    <Stack spacing={1} alignItems="flex-end" sx={{ flexShrink: 0 }}>
+                      <Chip size="sm" variant="soft" color={STATUS_COLORS[fb.status] || 'neutral'} sx={{ fontSize: '10px' }}>
+                        {fb.status}
+                      </Chip>
+                      {fb.status === 'new' && (
+                        <Button size="sm" variant="soft" color="success"
+                          startDecorator={<CheckCircle size={12} />}
+                          onClick={() => handleUpdate(fb.id, 'acknowledged')}
+                          loading={updating === fb.id}
+                          sx={{ fontSize: '11px' }}>
+                          Acknowledge
+                        </Button>
+                      )}
+                    </Stack>
+                  </Stack>
+
+                  {fb.adminResponse && (
+                    <Box sx={{ mt: 2, p: 1.5, borderRadius: 'sm', bgcolor: 'primary.softBg' }}>
+                      <Typography level="body-xs" fontWeight={600} sx={{ color: 'primary.700' }}>Admin Response:</Typography>
+                      <Typography level="body-xs" sx={{ color: 'primary.600', mt: 0.25 }}>{fb.adminResponse}</Typography>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
+        )}
+      </Stack>
+    </Box>
+  );
+}

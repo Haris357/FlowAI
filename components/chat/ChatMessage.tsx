@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Box, Stack, Typography, Avatar, Divider, Chip } from '@mui/joy';
+import { Box, Stack, Typography, Avatar, Divider, Chip, Modal, ModalDialog, ModalClose, Textarea, Button } from '@mui/joy';
 import {
   User,
   Copy,
@@ -32,11 +32,15 @@ import {
   Landmark,
   Banknote,
   RefreshCcw,
+  ThumbsUp,
+  ThumbsDown,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ChatMessage as ChatMessageType } from '@/types';
 import { RichResponse, ActionButton } from '@/lib/ai-config';
 import { useCompany } from '@/contexts/CompanyContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { useChat } from '@/contexts/ChatContext';
 import AnimatedLogo from './AnimatedLogo';
 import ChatDataGrid from './ChatDataGrid';
 import ChatActionButtons from './ChatActionButtons';
@@ -73,12 +77,12 @@ function RichText({ content }: { content: string }) {
 
   return (
     <Typography
-      level="body-md"
+      level="body-sm"
       component="div"
       sx={{
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
-        lineHeight: 1.7,
+        lineHeight: 1.55,
         color: 'text.primary',
         '& strong': {
           fontWeight: 600,
@@ -883,7 +887,13 @@ export default function ChatMessage({
     entityType: string;
     entity: Record<string, any> | null;
   }>({ open: false, entityType: '', entity: null });
+  const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
+  const [showComplaintModal, setShowComplaintModal] = useState(false);
+  const [complaint, setComplaint] = useState('');
+  const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const { company } = useCompany();
+  const { user } = useAuth();
+  const { currentSessionId } = useChat();
 
   const isUser = message.role === 'user';
 
@@ -891,6 +901,81 @@ export default function ChatMessage({
     await navigator.clipboard.writeText(message.content);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleFeedback = async (rating: 'like' | 'dislike') => {
+    if (feedback === rating) return; // Already selected
+    setFeedback(rating);
+
+    if (rating === 'dislike') {
+      setShowComplaintModal(true);
+      return;
+    }
+
+    // Like — submit immediately
+    try {
+      await fetch('/api/chat/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.uid || '',
+          companyId: company?.id || '',
+          chatId: currentSessionId || '',
+          messageId: message.id,
+          userMessage: '',
+          aiResponse: message.content,
+          rating: 'like',
+          complaint: '',
+        }),
+      });
+    } catch (err) {
+      console.error('Failed to submit feedback:', err);
+    }
+  };
+
+  const handleSubmitComplaint = async () => {
+    setSubmittingFeedback(true);
+    try {
+      await fetch('/api/chat/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.uid || '',
+          companyId: company?.id || '',
+          chatId: currentSessionId || '',
+          messageId: message.id,
+          userMessage: '',
+          aiResponse: message.content,
+          rating: 'dislike',
+          complaint: complaint.trim(),
+        }),
+      });
+      setShowComplaintModal(false);
+      setComplaint('');
+    } catch (err) {
+      console.error('Failed to submit complaint:', err);
+    } finally {
+      setSubmittingFeedback(false);
+    }
+  };
+
+  const handleCloseComplaint = () => {
+    setShowComplaintModal(false);
+    // If they close without submitting, still record the dislike
+    fetch('/api/chat/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: user?.uid || '',
+        companyId: company?.id || '',
+        chatId: currentSessionId || '',
+        messageId: message.id,
+        userMessage: '',
+        aiResponse: message.content,
+        rating: 'dislike',
+        complaint: '',
+      }),
+    }).catch(() => {});
   };
 
   const handleAction = (action: ActionButton) => {
@@ -977,63 +1062,61 @@ export default function ChatMessage({
         sx={{
           maxWidth: 768,
           mx: 'auto',
-          px: { xs: 2, sm: 3 },
-          py: 2,
-          '&:hover .copy-button': {
+          px: { xs: 1.5, sm: 2.5 },
+          py: 0.5,
+          '&:hover .msg-actions': {
             opacity: 1,
           },
         }}
       >
-        <Stack
-          direction="row"
-          spacing={2}
-          sx={{
-            alignItems: 'flex-start',
-          }}
-        >
-          {/* Avatar */}
-          {isUser ? (
-            <Avatar
-              size="sm"
-              src={userPhotoUrl}
-              sx={{
-                bgcolor: 'primary.500',
-                flexShrink: 0,
-                width: 32,
-                height: 32,
-              }}
-            >
-              {userName?.charAt(0) || <User size={16} />}
-            </Avatar>
-          ) : (
-            <Box sx={{ flexShrink: 0, width: 32, height: 32 }}>
-              <AnimatedLogo size="sm" />
-            </Box>
-          )}
-
-          {/* Message content */}
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            {/* Role label */}
-            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 0.5 }}>
-              <Typography level="title-sm" fontWeight="lg">
-                {isUser ? (userName || 'You') : 'Flow AI'}
-              </Typography>
+        {isUser ? (
+          /* ===== USER MESSAGE — Right aligned bubble ===== */
+          <Stack direction="row" justifyContent="flex-end" spacing={1} alignItems="flex-end">
+            <Box sx={{ maxWidth: '75%' }}>
               {showTimestamp && (
-                <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                <Typography level="body-xs" sx={{ color: 'text.tertiary', textAlign: 'right', mb: 0.25, mr: 0.5, fontSize: '11px' }}>
                   {format(timestamp, 'h:mm a')}
                 </Typography>
               )}
-            </Stack>
-
-            {/* Content */}
-            <Box
-              sx={{
-                position: 'relative',
-                bgcolor: isUser ? 'transparent' : 'background.level1',
-                borderRadius: 'lg',
-                p: isUser ? 0 : 2,
-              }}
-            >
+              <Box
+                sx={{
+                  bgcolor: '#D97757',
+                  color: '#fff',
+                  borderRadius: '16px 16px 4px 16px',
+                  px: 2,
+                  py: 1,
+                }}
+              >
+                <Typography
+                  level="body-sm"
+                  sx={{
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    lineHeight: 1.5,
+                    color: 'inherit',
+                  }}
+                >
+                  {message.content}
+                </Typography>
+              </Box>
+            </Box>
+          </Stack>
+        ) : (
+          /* ===== AI MESSAGE — Claude-style clean layout ===== */
+          <Stack direction="row" spacing={1.5} alignItems="flex-start">
+            <Box sx={{ flexShrink: 0, width: 28, height: 28, mt: 0.25 }}>
+              <AnimatedLogo size="sm" />
+            </Box>
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              {showTimestamp && (
+                <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 0.5 }}>
+                  <Typography level="body-xs" fontWeight={700} sx={{ color: 'text.primary' }}>Flow AI</Typography>
+                  <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '11px' }}>
+                    {format(timestamp, 'h:mm a')}
+                  </Typography>
+                </Stack>
+              )}
+              <Box sx={{ position: 'relative' }}>
               {/* Main message text + inline suggestion buttons */}
               {message.content && (() => {
                 const { text, suggestions } = parseSuggestions(message.content);
@@ -1249,36 +1332,124 @@ export default function ChatMessage({
                 </Typography>
               )}
 
-              {/* Copy button - only for assistant messages */}
-              {!isUser && (
+              </Box>
+
+              {/* Action bar: copy + like/dislike */}
+              <Stack
+                direction="row"
+                spacing={0.5}
+                className="msg-actions"
+                sx={{
+                  mt: 0.5,
+                  ml: 0.25,
+                  opacity: feedback ? 1 : 0,
+                  transition: 'opacity 0.2s',
+                }}
+              >
                 <Box
-                  className="copy-button"
                   onClick={handleCopy}
                   sx={{
-                    position: 'absolute',
-                    top: 8,
-                    right: 8,
-                    opacity: 0,
-                    transition: 'opacity 0.2s',
                     cursor: 'pointer',
                     p: 0.5,
                     borderRadius: 'sm',
-                    '&:hover': {
-                      bgcolor: 'background.level2',
-                    },
+                    display: 'flex',
+                    alignItems: 'center',
+                    '&:hover': { bgcolor: 'background.level2' },
                   }}
                 >
                   {copied ? (
-                    <Check size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />
+                    <Check size={14} style={{ color: 'var(--joy-palette-primary-500)' }} />
                   ) : (
-                    <Copy size={16} style={{ color: 'var(--joy-palette-text-tertiary)' }} />
+                    <Copy size={14} style={{ color: 'var(--joy-palette-text-tertiary)' }} />
                   )}
                 </Box>
-              )}
+                <Box
+                  onClick={() => handleFeedback('like')}
+                  sx={{
+                    cursor: feedback === 'like' ? 'default' : 'pointer',
+                    p: 0.5,
+                    borderRadius: 'sm',
+                    display: 'flex',
+                    alignItems: 'center',
+                    '&:hover': feedback !== 'like' ? { bgcolor: 'background.level2' } : {},
+                  }}
+                >
+                  <ThumbsUp
+                    size={14}
+                    fill={feedback === 'like' ? 'var(--joy-palette-success-500)' : 'none'}
+                    style={{ color: feedback === 'like' ? 'var(--joy-palette-success-500)' : 'var(--joy-palette-text-tertiary)' }}
+                  />
+                </Box>
+                <Box
+                  onClick={() => handleFeedback('dislike')}
+                  sx={{
+                    cursor: feedback === 'dislike' ? 'default' : 'pointer',
+                    p: 0.5,
+                    borderRadius: 'sm',
+                    display: 'flex',
+                    alignItems: 'center',
+                    '&:hover': feedback !== 'dislike' ? { bgcolor: 'background.level2' } : {},
+                  }}
+                >
+                  <ThumbsDown
+                    size={14}
+                    fill={feedback === 'dislike' ? 'var(--joy-palette-danger-500)' : 'none'}
+                    style={{ color: feedback === 'dislike' ? 'var(--joy-palette-danger-500)' : 'var(--joy-palette-text-tertiary)' }}
+                  />
+                </Box>
+              </Stack>
             </Box>
-          </Box>
-        </Stack>
+          </Stack>
+        )}
       </Box>
+
+      {/* Complaint modal for dislike feedback */}
+      <Modal open={showComplaintModal} onClose={handleCloseComplaint}>
+        <ModalDialog
+          sx={{
+            maxWidth: 440,
+            borderRadius: 'lg',
+            p: 2.5,
+          }}
+        >
+          <ModalClose />
+          <Typography level="title-md" fontWeight="lg" sx={{ mb: 0.5 }}>
+            What went wrong?
+          </Typography>
+          <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 2 }}>
+            Help us improve by telling us what was wrong with this response.
+          </Typography>
+          <Textarea
+            placeholder="Describe the issue with this response..."
+            minRows={3}
+            maxRows={6}
+            value={complaint}
+            onChange={(e) => setComplaint(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+          <Stack direction="row" spacing={1} justifyContent="flex-end">
+            <Button
+              variant="plain"
+              color="neutral"
+              size="sm"
+              onClick={handleCloseComplaint}
+            >
+              Skip
+            </Button>
+            <Button
+              size="sm"
+              loading={submittingFeedback}
+              onClick={handleSubmitComplaint}
+              sx={{
+                bgcolor: '#D97757',
+                '&:hover': { bgcolor: '#c4684a' },
+              }}
+            >
+              Submit
+            </Button>
+          </Stack>
+        </ModalDialog>
+      </Modal>
 
       {/* Entity detail modal */}
       <EntityDetailModal
@@ -1294,50 +1465,24 @@ export default function ChatMessage({
 // Typing indicator component
 export function TypingIndicator() {
   return (
-    <Box
-      sx={{
-        maxWidth: 768,
-        mx: 'auto',
-        px: { xs: 2, sm: 3 },
-        py: 2,
-      }}
-    >
-      <Stack direction="row" spacing={2} alignItems="flex-start">
-        <Box sx={{ flexShrink: 0, width: 32, height: 32 }}>
+    <Box sx={{ maxWidth: 768, mx: 'auto', px: { xs: 1.5, sm: 2.5 }, py: 0.5 }}>
+      <Stack direction="row" spacing={1.5} alignItems="flex-start">
+        <Box sx={{ flexShrink: 0, width: 28, height: 28, mt: 0.25 }}>
           <AnimatedLogo size="sm" isResponding />
         </Box>
-        <Box sx={{ flex: 1 }}>
-          <Typography level="title-sm" fontWeight="lg" sx={{ mb: 0.5 }}>
-            Flow AI
-          </Typography>
-          <Box
-            sx={{
-              bgcolor: 'background.level1',
-              borderRadius: 'lg',
-              p: 2,
-              display: 'inline-flex',
-            }}
-          >
-            <Stack direction="row" spacing={0.5} alignItems="center">
-              {[0, 1, 2].map((i) => (
-                <Box
-                  key={i}
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: 'primary.400',
-                    animation: 'typing 1.4s infinite',
-                    animationDelay: `${i * 0.2}s`,
-                    '@keyframes typing': {
-                      '0%, 60%, 100%': { opacity: 0.3, transform: 'scale(0.8)' },
-                      '30%': { opacity: 1, transform: 'scale(1)' },
-                    },
-                  }}
-                />
-              ))}
-            </Stack>
-          </Box>
+        <Box>
+          <Typography level="body-xs" fontWeight={700} sx={{ color: 'text.primary', mb: 0.75 }}>Flow AI</Typography>
+          <Stack spacing={0.75} sx={{ minWidth: 140 }}>
+            {[85, 60, 40].map((w, i) => (
+              <Box key={i} sx={{
+                height: 6, borderRadius: 3, width: `${w}%`,
+                background: 'linear-gradient(90deg, var(--joy-palette-neutral-200) 25%, var(--joy-palette-neutral-100) 50%, var(--joy-palette-neutral-200) 75%)',
+                backgroundSize: '200% 100%',
+                animation: `shimmer 1.5s ease-in-out ${i * 0.15}s infinite`,
+                '@keyframes shimmer': { '0%': { backgroundPosition: '200% 0' }, '100%': { backgroundPosition: '-200% 0' } },
+              }} />
+            ))}
+          </Stack>
         </Box>
       </Stack>
     </Box>

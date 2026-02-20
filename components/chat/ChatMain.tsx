@@ -1,13 +1,14 @@
 'use client';
 
 import { useRef, useEffect, useState } from 'react';
-import { Box } from '@mui/joy';
+import { Box, Stack, Typography } from '@mui/joy';
 import { ChatMessage as ChatMessageType, ThinkingStep } from '@/types';
 import ChatMessage from './ChatMessage';
 import ThinkingSteps from './ThinkingSteps';
 import ChatWelcome from './ChatWelcome';
 import ChatInput from './ChatInput';
 import MemoryIndicator from './MemoryIndicator';
+import AnimatedLogo from './AnimatedLogo';
 import { FormShortcut } from './FormShortcuts';
 import { TokenUsage } from '@/contexts/ChatContext';
 
@@ -191,8 +192,36 @@ export default function ChatMain({
             </Box>
           ))}
 
-          {/* Thinking steps / typing indicator */}
-          {isAITyping && <ThinkingSteps steps={thinkingSteps} />}
+          {/* Typing indicator or thinking steps accordion (when tools are running) */}
+          {isAITyping && (thinkingSteps.length > 0 ? (
+            <ThinkingSteps steps={thinkingSteps} />
+          ) : (
+            <Box sx={{
+              maxWidth: 768, mx: 'auto', px: { xs: 1.5, sm: 2.5 }, py: 0.5,
+              animation: 'fadeIn 0.25s ease-out',
+              '@keyframes fadeIn': { from: { opacity: 0, transform: 'translateY(6px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
+            }}>
+              <Stack direction="row" spacing={1.5} alignItems="flex-start">
+                <Box sx={{ flexShrink: 0, width: 28, height: 28, mt: 0.25 }}>
+                  <AnimatedLogo size="sm" isResponding />
+                </Box>
+                <Box>
+                  <Typography level="body-xs" fontWeight={700} sx={{ color: 'text.primary', mb: 0.75 }}>Flow AI</Typography>
+                  <Stack spacing={0.75} sx={{ minWidth: 140 }}>
+                    {[85, 60, 40].map((w, i) => (
+                      <Box key={i} sx={{
+                        height: 6, borderRadius: 3, width: `${w}%`,
+                        background: 'linear-gradient(90deg, var(--joy-palette-neutral-200) 25%, var(--joy-palette-neutral-100) 50%, var(--joy-palette-neutral-200) 75%)',
+                        backgroundSize: '200% 100%',
+                        animation: `shimmer 1.5s ease-in-out ${i * 0.15}s infinite`,
+                        '@keyframes shimmer': { '0%': { backgroundPosition: '200% 0' }, '100%': { backgroundPosition: '-200% 0' } },
+                      }} />
+                    ))}
+                  </Stack>
+                </Box>
+              </Stack>
+            </Box>
+          ))}
 
           <div ref={messagesEndRef} />
         </Box>

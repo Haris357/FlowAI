@@ -241,8 +241,8 @@ export const darkTheme = {
   },
   text: {
     primary: '#EEECE8',
-    secondary: '#A8A29E',
-    tertiary: '#78736D',
+    secondary: '#B5B0AA',
+    tertiary: '#948F89',
   },
 } as const;
 

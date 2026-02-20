@@ -260,26 +260,16 @@ export default function ChatInput({
                     </Typography>
                     <Stack spacing={0.25}>
                       <Stack direction="row" justifyContent="space-between" spacing={3}>
-                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Input</Typography>
-                        <Typography level="body-xs">{formatTokenCount(tokenUsage.promptTokens)} tokens</Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between" spacing={3}>
-                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Output</Typography>
-                        <Typography level="body-xs">{formatTokenCount(tokenUsage.completionTokens)} tokens</Typography>
+                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Tokens Used</Typography>
+                        <Typography level="body-xs">{formatTokenCount(tokenUsage.totalTokens)}</Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between" spacing={3}>
                         <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Requests</Typography>
                         <Typography level="body-xs">{tokenUsage.requestCount}</Typography>
                       </Stack>
-                      <Box sx={{ borderTop: '1px solid', borderColor: 'divider', mt: 0.5, pt: 0.5 }}>
-                        <Stack direction="row" justifyContent="space-between" spacing={3}>
-                          <Typography level="body-xs" fontWeight={600}>Est. Cost</Typography>
-                          <Typography level="body-xs" fontWeight={600}>${tokenUsage.totalCost.toFixed(4)}</Typography>
-                        </Stack>
-                      </Box>
                     </Stack>
                   </Box>
-                ) : 'Flow AI v1 — GPT-4o Mini'
+                ) : 'Flow AI v1'
               }
               placement="top"
               variant="outlined"

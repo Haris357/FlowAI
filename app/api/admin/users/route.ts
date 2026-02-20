@@ -1,0 +1,56 @@
+import { NextResponse } from 'next/server';
+import { getFirestore } from 'firebase-admin/firestore';
+import { initAdmin } from '@/lib/firebase-admin';
+
+initAdmin();
+const db = getFirestore();
+
+export async function GET(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const limitParam = parseInt(searchParams.get('limit') || '50');
+    const search = searchParams.get('search') || '';
+    const planFilter = searchParams.get('plan') || '';
+
+    let query: FirebaseFirestore.Query = db.collection('users')
+      .orderBy('createdAt', 'desc')
+      .limit(limitParam);
+
+    const snap = await query.get();
+    let users = snap.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // Client-side search filter (Firestore doesn't support text search)
+    if (search) {
+      const s = search.toLowerCase();
+      users = users.filter(u =>
+        (u as any).name?.toLowerCase().includes(s) ||
+        (u as any).email?.toLowerCase().includes(s)
+      );
+    }
+
+    // Fetch subscription data for each user
+    const enriched = await Promise.all(users.map(async (user) => {
+      try {
+        const subSnap = await db.collection('users').doc(user.id).collection('subscription').doc('current').get();
+        const sub = subSnap.exists ? subSnap.data() : null;
+        return { ...user, subscription: sub };
+      } catch {
+        return { ...user, subscription: null };
+      }
+    }));
+
+    // Plan filter
+    let filtered = enriched;
+    if (planFilter) {
+      filtered = enriched.filter(u => (u.subscription?.planId || 'free') === planFilter);
+    }
+
+    return NextResponse.json({ users: filtered });
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 });
+  }
+}

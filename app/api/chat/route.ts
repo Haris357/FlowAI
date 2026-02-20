@@ -17,6 +17,7 @@ import {
   extractBusinessContext,
   buildBusinessContextPrompt,
 } from '@/services/userContext';
+import { checkTokenBudgetAdmin, trackTokenUsageAdmin } from '@/services/subscription-admin';
 
 // ==========================================
 // CONFIGURATION
@@ -179,11 +180,72 @@ export async function POST(request: NextRequest) {
     }
 
     // ==========================================
+    // FAST PATH: Instant response for simple greetings (skip OpenAI entirely)
+    // ==========================================
+    if (!isFollowUp && message) {
+      const trimmed = message.trim().toLowerCase().replace(/[!?.,']+$/g, '');
+      const GREETING_RESPONSES: Record<string, string[]> = {
+        'hi': ['Hi there! How can I help you with your accounting today?', 'Hello! What can I assist you with?', 'Hi! Ready to help with your finances.'],
+        'hello': ['Hello! How can I assist you today?', 'Hi there! What would you like to do?', 'Hello! Ready to help with your accounting needs.'],
+        'hey': ['Hey! What can I help you with today?', 'Hey there! How can I assist you?'],
+        'good morning': ['Good morning! How can I help you today?', 'Morning! What can I assist you with?'],
+        'good evening': ['Good evening! How can I assist you?', 'Evening! What would you like to help with?'],
+        'good night': ['Good night! Let me know if you need anything before you go.'],
+        'thanks': ['You\'re welcome! Let me know if you need anything else.', 'Happy to help! Anything else?'],
+        'thank you': ['You\'re welcome! Is there anything else I can help with?', 'Glad I could help! Let me know if you need more.'],
+        'bye': ['Goodbye! Feel free to come back anytime you need help.', 'See you later! Your data is all saved.'],
+        'ok': ['Great! Let me know if you need anything else.', 'Alright! What would you like to do next?'],
+        'okay': ['Sounds good! Anything else I can help with?', 'Got it! What\'s next?'],
+        'yes': ['Great! What would you like me to help with?', 'Sure! Go ahead and tell me what you need.'],
+        'no': ['Alright! Let me know if you change your mind or need help later.'],
+        'sure': ['Great! What would you like me to do?'],
+      };
+      const responses = GREETING_RESPONSES[trimmed];
+      if (responses) {
+        const reply = responses[Math.floor(Math.random() * responses.length)];
+        return NextResponse.json({
+          message: reply,
+          toolCalls: [],
+          rawToolCalls: [],
+          rawContent: reply,
+          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0, model: 'instant', tokensRemaining: undefined },
+        });
+      }
+    }
+
+    // ==========================================
+    // SUBSCRIPTION TOKEN CHECK
+    // ==========================================
+
+    let tokenBudget: { hasTokens: boolean; remaining: number; limit: number; planId: string; allowedModels: string[] } | null = null;
+    try {
+      tokenBudget = await checkTokenBudgetAdmin(userId);
+      if (!tokenBudget.hasTokens) {
+        return NextResponse.json({
+          error: 'token_limit_reached',
+          message: 'You have used all your AI tokens for this month. Please upgrade your plan or purchase additional tokens.',
+          upgradeUrl: '/settings/billing',
+          remaining: 0,
+          limit: tokenBudget.limit,
+        }, { status: 403 });
+      }
+    } catch (err) {
+      // Graceful degradation — if subscription check fails, allow with free limits
+      console.warn('[Flow AI] Subscription check failed, defaulting to free tier:', err);
+    }
+
+    // ==========================================
     // AI MEMORY SYSTEM
     // ==========================================
 
     // Resolve model — use requested model if valid, otherwise default
-    const MODEL = (requestModel && MODEL_PRICING[requestModel]) ? requestModel : DEFAULT_MODEL;
+    // Also enforce plan's allowed models
+    let resolvedModel = (requestModel && MODEL_PRICING[requestModel]) ? requestModel : DEFAULT_MODEL;
+    if (tokenBudget?.allowedModels && !tokenBudget.allowedModels.includes(resolvedModel)) {
+      // Fall back to the best model allowed on the plan
+      resolvedModel = tokenBudget.allowedModels[tokenBudget.allowedModels.length - 1] || DEFAULT_MODEL;
+    }
+    const MODEL = resolvedModel;
     console.log(`[Flow AI] Model: ${MODEL}${isFollowUp ? ' (follow-up)' : ''}`);
     let memory = await getConversationMemory(companyId, userId, chatId);
     let conversationId: string;
@@ -367,6 +429,15 @@ export async function POST(request: NextRequest) {
 
     const cost = calculateCost(promptTokens, completionTokens, MODEL);
 
+    // Track token usage for subscription billing
+    let usageRemaining: number | undefined;
+    try {
+      const usageResult = await trackTokenUsageAdmin(userId, totalTokens, MODEL, cost);
+      usageRemaining = usageResult.remaining;
+    } catch (err) {
+      console.warn('[Flow AI] Failed to track token usage:', err);
+    }
+
     console.log(`[Flow AI] ${MODEL} — ${promptTokens}+${completionTokens}=${totalTokens} tokens, $${cost.toFixed(6)}`);
 
     return NextResponse.json({
@@ -381,6 +452,7 @@ export async function POST(request: NextRequest) {
         totalTokens,
         cost,
         model: MODEL,
+        tokensRemaining: usageRemaining,
       },
     });
 

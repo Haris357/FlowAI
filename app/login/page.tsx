@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Sparkles, Shield, Moon, Sun } from 'lucide-react';
+import { Sparkles, Shield, Moon, Sun, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -23,7 +23,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0a0a0a] relative overflow-hidden px-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#1A1915] relative overflow-hidden px-4">
       {/* Grid background */}
       <div className="absolute inset-0 pointer-events-none">
         <div
@@ -41,20 +41,28 @@ export default function LoginPage() {
           style={{
             background:
               mode === 'dark'
-                ? 'radial-gradient(ellipse at center, transparent 0%, #0a0a0a 70%)'
+                ? 'radial-gradient(ellipse at center, transparent 0%, #1A1915 70%)'
                 : 'radial-gradient(ellipse at center, transparent 0%, rgba(255,255,255,0.85) 70%)',
           }}
         />
       </div>
 
-      {/* Theme toggle */}
-      <button
-        onClick={toggleMode}
-        className="absolute top-5 right-5 z-10 p-2 rounded-full text-slate-500 dark:text-slate-400 hover:bg-slate-200/60 dark:hover:bg-white/[0.06] transition-colors"
-        aria-label="Toggle dark mode"
-      >
-        {mode === 'dark' ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
-      </button>
+      {/* Top bar */}
+      <div className="absolute top-5 left-5 right-5 z-10 flex items-center justify-between">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-500 dark:text-[#A8A29E] hover:bg-slate-200/60 dark:hover:bg-white/[0.06] transition-colors"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" /> Home
+        </Link>
+        <button
+          onClick={toggleMode}
+          className="p-2 rounded-full text-slate-500 dark:text-[#A8A29E] hover:bg-slate-200/60 dark:hover:bg-white/[0.06] transition-colors"
+          aria-label="Toggle dark mode"
+        >
+          {mode === 'dark' ? <Sun className="w-4.5 h-4.5" /> : <Moon className="w-4.5 h-4.5" />}
+        </button>
+      </div>
 
       {/* Card */}
       <div className="relative z-10 w-full max-w-sm animate-fade-in-up">
@@ -74,7 +82,7 @@ export default function LoginPage() {
         <div className="bg-white dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] rounded-2xl p-8 shadow-sm">
           <div className="text-center mb-6">
             <h1 className="text-xl font-bold text-slate-900 dark:text-white mb-1.5">Welcome back</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">Sign in to continue to Flowbooks</p>
+            <p className="text-sm text-slate-500 dark:text-[#A8A29E]">Sign in to continue to Flowbooks</p>
           </div>
 
           {/* Error */}
@@ -88,10 +96,10 @@ export default function LoginPage() {
           <button
             onClick={handleGoogleLogin}
             disabled={loading}
-            className="w-full flex items-center justify-center gap-3 px-5 py-3 bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.1] rounded-xl font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.15] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow"
+            className="w-full flex items-center justify-center gap-3 px-5 py-3 bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.1] rounded-xl font-medium text-slate-700 dark:text-[#EEECE8] hover:bg-slate-50 dark:hover:bg-white/[0.08] hover:border-slate-300 dark:hover:border-white/[0.15] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow"
           >
             {loading ? (
-              <div className="w-5 h-5 border-2 border-slate-300 dark:border-slate-600 border-t-brand-500 rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-slate-300 dark:border-[#5C5752] border-t-brand-500 rounded-full animate-spin" />
             ) : (
               <>
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
@@ -108,22 +116,19 @@ export default function LoginPage() {
           {/* Divider */}
           <div className="flex items-center gap-3 my-5">
             <div className="flex-1 h-px bg-slate-200 dark:bg-white/[0.06]" />
-            <Shield className="w-3.5 h-3.5 text-slate-300 dark:text-slate-600" />
+            <Shield className="w-3.5 h-3.5 text-slate-300 dark:text-[#5C5752]" />
             <div className="flex-1 h-px bg-slate-200 dark:bg-white/[0.06]" />
           </div>
 
-          {/* Trust indicators */}
-          <div className="flex items-center justify-center gap-4 text-[11px] text-slate-400 dark:text-slate-500">
-            <span>Free forever</span>
-            <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
-            <span>No credit card</span>
-            <span className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600" />
-            <span>Secure</span>
-          </div>
+          {/* Sign up link */}
+          <p className="text-center text-sm text-slate-500 dark:text-[#A8A29E]">
+            Don&apos;t have an account?{' '}
+            <Link href="/signup" className="text-brand-600 dark:text-brand-400 font-medium hover:underline">Sign up</Link>
+          </p>
         </div>
 
         {/* Footer */}
-        <p className="mt-6 text-center text-[11px] text-slate-400 dark:text-slate-500">
+        <p className="mt-6 text-center text-[11px] text-slate-400 dark:text-[#78736D]">
           By continuing, you agree to our{' '}
           <Link href="/terms" className="text-brand-600 dark:text-brand-400 hover:underline">Terms</Link>
           {' '}and{' '}

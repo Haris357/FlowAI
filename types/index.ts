@@ -1,5 +1,23 @@
 import { Timestamp } from 'firebase/firestore';
 
+// Subscription types
+export type {
+  PlanId, SubscriptionStatus, PlanDefinition, UserSubscription,
+  ModelUsageBreakdown, UsagePeriod, TokenPackId, TokenPackDefinition,
+  TokenPurchase, BillingEventType, BillingEvent, PlanLimitCheck,
+} from './subscription';
+
+// Notification types
+export type {
+  NotificationType, NotificationCategory, AppNotification,
+} from './notification';
+
+// Support types
+export type {
+  TicketCategory, TicketPriority, TicketStatus, SupportTicket,
+  FeedbackType, FeedbackStatus, Feedback,
+} from './support';
+
 // User types
 export interface User {
   id: string;

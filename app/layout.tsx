@@ -4,6 +4,7 @@ import { Inter } from 'next/font/google';
 import NextTopLoader from 'nextjs-toploader';
 import Layout from '@/components/Layout';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
@@ -46,9 +47,11 @@ export default function RootLayout({
         />
         <ThemeProvider>
           <AuthProvider>
-            <Layout>
-              {children}
-            </Layout>
+            <SubscriptionProvider>
+              <Layout>
+                {children}
+              </Layout>
+            </SubscriptionProvider>
           </AuthProvider>
         </ThemeProvider>
       </body>

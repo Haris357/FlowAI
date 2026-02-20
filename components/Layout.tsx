@@ -22,6 +22,13 @@ import {
 import { Toaster } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
+import PlanBadge from '@/components/subscription/PlanBadge';
+import UsageMeter from '@/components/subscription/UsageMeter';
+import UpgradeModal from '@/components/subscription/UpgradeModal';
+import NotificationBell from '@/components/notifications/NotificationBell';
+import NotificationPanel from '@/components/notifications/NotificationPanel';
+import WelcomeTutorialModal from '@/components/settings/WelcomeTutorialModal';
+import SettingsModal from '@/components/settings/SettingsModal';
 import { usePathname, useRouter, useParams } from 'next/navigation';
 import NextLink from 'next/link';
 import {
@@ -132,6 +139,8 @@ export default function Layout({ children }: LayoutProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
+  const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
 
   // Get companyId from URL params
   const companyId = params?.companyId as string | undefined;
@@ -487,100 +496,178 @@ export default function Layout({ children }: LayoutProps) {
           </Box>
 
           {/* User Section */}
-          <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
             {!sidebarCollapsed ? (
               <>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                  <IconButton
-                    variant="soft"
-                    size="sm"
-                    onClick={toggleMode}
-                    sx={{
-                      transition: 'all 0.2s ease-in-out',
-                      '&:hover': {
-                        transform: 'rotate(180deg)',
-                      },
-                    }}
-                  >
-                    {mode === 'light' ? <Moon size={16} /> : <Sun size={16} />}
-                  </IconButton>
-                  <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                    {mode === 'light' ? 'Dark mode' : 'Light mode'}
-                  </Typography>
-                </Stack>
+                {/* Token Usage — top */}
+                <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
+                  <UsageMeter compact />
+                </Box>
 
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Avatar
-                    src={user?.photoURL || undefined}
-                    size="sm"
-                  >
-                    {user?.displayName?.charAt(0) || user?.email?.charAt(0)}
-                  </Avatar>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Typography level="body-sm" fontWeight={500} noWrap>
-                      {user?.displayName || user?.email?.split('@')[0]}
-                    </Typography>
-                    <Typography level="body-xs" sx={{ color: 'text.tertiary' }} noWrap>
-                      {user?.email}
-                    </Typography>
-                  </Box>
-                  <Dropdown>
-                    <MenuButton
-                      slots={{ root: IconButton }}
-                      slotProps={{ root: { size: 'sm', variant: 'plain', color: 'neutral' } }}
+                {/* Quick Actions Row */}
+                <Stack
+                  direction="row"
+                  justifyContent="center"
+                  spacing={0.5}
+                  sx={{ px: 1.5, pb: 1 }}
+                >
+                  <Tooltip title={mode === 'light' ? 'Dark mode' : 'Light mode'}>
+                    <IconButton
+                      variant="plain"
+                      size="sm"
+                      onClick={toggleMode}
+                      sx={{
+                        borderRadius: '8px',
+                        width: 34,
+                        height: 34,
+                        transition: 'all 0.2s ease',
+                        '&:hover': { bgcolor: 'background.level2', transform: 'rotate(180deg)' },
+                      }}
+                    >
+                      {mode === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+                    </IconButton>
+                  </Tooltip>
+                  <NotificationBell onClick={() => setNotificationPanelOpen(true)} />
+                  <Tooltip title="Account Settings">
+                    <IconButton
+                      variant="plain"
+                      size="sm"
+                      onClick={() => setSettingsModalOpen(true)}
+                      sx={{
+                        borderRadius: '8px',
+                        width: 34,
+                        height: 34,
+                        transition: 'all 0.2s ease',
+                        '&:hover': { bgcolor: 'background.level2' },
+                      }}
                     >
                       <Settings size={16} />
-                    </MenuButton>
-                    <Menu placement="top-end" sx={{ minWidth: 180, zIndex: 1200 }}>
-                      <MenuItem onClick={() => companyId && router.push(`/companies/${companyId}/settings`)}>
-                        <User size={16} />
-                        Company Settings
-                      </MenuItem>
-                      <Divider />
-                      <MenuItem onClick={signOut} color="danger">
-                        <LogOut size={16} />
-                        Sign out
-                      </MenuItem>
-                    </Menu>
-                  </Dropdown>
+                    </IconButton>
+                  </Tooltip>
                 </Stack>
+
+                <Divider />
+
+                {/* User Profile Card */}
+                <Dropdown>
+                  <MenuButton
+                    variant="plain"
+                    sx={{
+                      p: 0,
+                      width: '100%',
+                      border: 'none',
+                      '&:hover': { bgcolor: 'transparent' },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        px: 1.5,
+                        py: 1,
+                        cursor: 'pointer',
+                        transition: 'background 0.15s ease',
+                        '&:hover': { bgcolor: 'background.level1' },
+                      }}
+                    >
+                      <Stack direction="row" spacing={1.25} alignItems="center">
+                        <Avatar
+                          src={user?.photoURL || undefined}
+                          size="sm"
+                          sx={{
+                            width: 34,
+                            height: 34,
+                            border: '2px solid',
+                            borderColor: 'primary.200',
+                          }}
+                        >
+                          {user?.displayName?.charAt(0) || user?.email?.charAt(0)}
+                        </Avatar>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Stack direction="row" spacing={0.75} alignItems="center">
+                            <Typography level="body-sm" fontWeight={600} noWrap sx={{ fontSize: '13px' }}>
+                              {user?.displayName || user?.email?.split('@')[0]}
+                            </Typography>
+                            <PlanBadge />
+                          </Stack>
+                          <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '11px' }} noWrap>
+                            {user?.email}
+                          </Typography>
+                        </Box>
+                        <ChevronDown size={14} style={{ color: 'var(--joy-palette-text-tertiary)', flexShrink: 0 }} />
+                      </Stack>
+                    </Box>
+                  </MenuButton>
+                  <Menu placement="top-end" sx={{ minWidth: 200, zIndex: 1200 }}>
+                    <MenuItem onClick={() => companyId && router.push(`/companies/${companyId}/settings`)}>
+                      <User size={16} />
+                      Company Settings
+                    </MenuItem>
+                    <MenuItem onClick={() => setSettingsModalOpen(true)}>
+                      <Settings size={16} />
+                      Account Settings
+                    </MenuItem>
+                    <Divider />
+                    <MenuItem onClick={signOut} color="danger">
+                      <LogOut size={16} />
+                      Sign out
+                    </MenuItem>
+                  </Menu>
+                </Dropdown>
               </>
             ) : (
-              <Stack spacing={1} alignItems="center">
-                <Tooltip title={mode === 'light' ? 'Switch to dark mode' : 'Switch to light mode'} placement="right">
+              <Stack spacing={0.75} alignItems="center" sx={{ py: 1.5 }}>
+                <Tooltip title={mode === 'light' ? 'Dark mode' : 'Light mode'} placement="right">
                   <IconButton
-                    variant="soft"
+                    variant="plain"
                     size="sm"
                     onClick={toggleMode}
                     sx={{
-                      transition: 'all 0.2s ease-in-out',
-                      '&:hover': {
-                        transform: 'rotate(180deg)',
-                      },
+                      borderRadius: '8px',
+                      width: 34,
+                      height: 34,
+                      transition: 'all 0.2s ease',
+                      '&:hover': { bgcolor: 'background.level2', transform: 'rotate(180deg)' },
                     }}
                   >
                     {mode === 'light' ? <Moon size={16} /> : <Sun size={16} />}
                   </IconButton>
                 </Tooltip>
+                <NotificationBell onClick={() => setNotificationPanelOpen(true)} collapsed />
                 <Dropdown>
-                  <Tooltip title="Profile & Settings" placement="right">
+                  <Tooltip title={user?.displayName || user?.email?.split('@')[0]} placement="right">
                     <MenuButton
                       slots={{ root: Avatar }}
                       slotProps={{
                         root: {
                           size: 'sm',
                           src: user?.photoURL || undefined,
-                          sx: { cursor: 'pointer' }
-                        }
+                          sx: {
+                            cursor: 'pointer',
+                            border: '2px solid',
+                            borderColor: 'primary.200',
+                          },
+                        },
                       }}
                     >
                       {user?.displayName?.charAt(0) || user?.email?.charAt(0)}
                     </MenuButton>
                   </Tooltip>
-                  <Menu placement="right-end" sx={{ minWidth: 180, zIndex: 1200 }}>
+                  <Menu placement="right-end" sx={{ minWidth: 200, zIndex: 1200 }}>
+                    <Box sx={{ px: 2, py: 1 }}>
+                      <Typography level="body-sm" fontWeight={600}>
+                        {user?.displayName || user?.email?.split('@')[0]}
+                      </Typography>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                        {user?.email}
+                      </Typography>
+                    </Box>
+                    <Divider />
                     <MenuItem onClick={() => companyId && router.push(`/companies/${companyId}/settings`)}>
                       <User size={16} />
                       Company Settings
+                    </MenuItem>
+                    <MenuItem onClick={() => setSettingsModalOpen(true)}>
+                      <Settings size={16} />
+                      Account Settings
                     </MenuItem>
                     <Divider />
                     <MenuItem onClick={signOut} color="danger">
@@ -655,64 +742,88 @@ export default function Layout({ children }: LayoutProps) {
           </Box>
 
           {/* User Section */}
-          <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider' }}>
-            <Stack spacing={2}>
-              <Stack direction="row" spacing={1} alignItems="center">
+          <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+            {/* Token Usage — top */}
+            <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
+              <UsageMeter compact />
+            </Box>
+
+            {/* Quick Actions Row */}
+            <Stack
+              direction="row"
+              justifyContent="center"
+              spacing={0.5}
+              sx={{ px: 1.5, pb: 1 }}
+            >
+              <Tooltip title={mode === 'light' ? 'Dark mode' : 'Light mode'}>
                 <IconButton
-                  variant="soft"
+                  variant="plain"
                   size="sm"
                   onClick={toggleMode}
                   sx={{
-                    transition: 'all 0.2s ease-in-out',
-                    '&:hover': {
-                      transform: 'rotate(180deg)',
-                    },
+                    borderRadius: '8px',
+                    width: 34,
+                    height: 34,
+                    transition: 'all 0.2s ease',
+                    '&:hover': { bgcolor: 'background.level2', transform: 'rotate(180deg)' },
                   }}
                 >
                   {mode === 'light' ? <Moon size={16} /> : <Sun size={16} />}
                 </IconButton>
-                <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                  {mode === 'light' ? 'Dark mode' : 'Light mode'}
-                </Typography>
-              </Stack>
+              </Tooltip>
+              <NotificationBell onClick={() => { setMobileOpen(false); setNotificationPanelOpen(true); }} />
+              <Tooltip title="Account Settings">
+                <IconButton
+                  variant="plain"
+                  size="sm"
+                  onClick={() => { setMobileOpen(false); setSettingsModalOpen(true); }}
+                  sx={{
+                    borderRadius: '8px',
+                    width: 34,
+                    height: 34,
+                    transition: 'all 0.2s ease',
+                    '&:hover': { bgcolor: 'background.level2' },
+                  }}
+                >
+                  <Settings size={16} />
+                </IconButton>
+              </Tooltip>
+            </Stack>
 
-              <Stack direction="row" spacing={1.5} alignItems="center">
-                <Avatar src={user?.photoURL || undefined} size="sm">
+            <Divider />
+
+            {/* User Profile */}
+            <Box
+              sx={{
+                px: 1.5,
+                py: 1,
+                cursor: 'pointer',
+                transition: 'background 0.15s ease',
+                '&:hover': { bgcolor: 'background.level1' },
+              }}
+              onClick={() => { setMobileOpen(false); setSettingsModalOpen(true); }}
+            >
+              <Stack direction="row" spacing={1.25} alignItems="center">
+                <Avatar
+                  src={user?.photoURL || undefined}
+                  size="sm"
+                  sx={{ width: 34, height: 34, border: '2px solid', borderColor: 'primary.200' }}
+                >
                   {user?.displayName?.charAt(0) || user?.email?.charAt(0)}
                 </Avatar>
-                <Typography level="body-sm" fontWeight={500}>
-                  {user?.displayName || user?.email?.split('@')[0]}
-                </Typography>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Stack direction="row" spacing={0.75} alignItems="center">
+                    <Typography level="body-sm" fontWeight={600} noWrap sx={{ fontSize: '13px' }}>
+                      {user?.displayName || user?.email?.split('@')[0]}
+                    </Typography>
+                    <PlanBadge />
+                  </Stack>
+                  <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '11px' }} noWrap>
+                    {user?.email}
+                  </Typography>
+                </Box>
               </Stack>
-
-              <ListItemButton
-                onClick={() => {
-                  setMobileOpen(false);
-                  companyId && router.push(`/companies/${companyId}/settings`);
-                }}
-                sx={{ borderRadius: 'sm' }}
-              >
-                <ListItemDecorator>
-                  <User size={16} />
-                </ListItemDecorator>
-                <ListItemContent>
-                  <Typography level="body-sm">
-                    Company Settings
-                  </Typography>
-                </ListItemContent>
-              </ListItemButton>
-
-              <ListItemButton onClick={signOut} sx={{ borderRadius: 'sm' }}>
-                <ListItemDecorator>
-                  <LogOut size={16} />
-                </ListItemDecorator>
-                <ListItemContent>
-                  <Typography level="body-sm" color="danger">
-                    Sign out
-                  </Typography>
-                </ListItemContent>
-              </ListItemButton>
-            </Stack>
+            </Box>
           </Box>
         </Sheet>
       )}
@@ -754,6 +865,7 @@ export default function Layout({ children }: LayoutProps) {
               Flow<span style={{ fontStyle: 'italic' }}>books</span>
             </Typography>
             <Stack direction="row" spacing={1} alignItems="center">
+              <NotificationBell onClick={() => setNotificationPanelOpen(true)} />
               <IconButton
                 size="sm"
                 variant="soft"
@@ -774,27 +886,34 @@ export default function Layout({ children }: LayoutProps) {
         </Box>
       </Box>
 
+      <UpgradeModal />
+      <NotificationPanel open={notificationPanelOpen} onClose={() => setNotificationPanelOpen(false)} />
+      <SettingsModal open={settingsModalOpen} onClose={() => setSettingsModalOpen(false)} />
+      <WelcomeTutorialModal />
+
       <Toaster
         position="top-right"
         toastOptions={{
           duration: 4000,
           style: {
-            background: mode === 'light' ? '#fff' : '#1e293b',
-            color: mode === 'light' ? '#333' : '#f1f5f9',
+            background: mode === 'light' ? '#fff' : '#232220',
+            color: mode === 'light' ? '#1A1915' : '#EEECE8',
             borderRadius: '8px',
-            border: `1px solid ${mode === 'light' ? '#e5e7eb' : '#475569'}`,
-            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1)',
+            border: `1px solid ${mode === 'light' ? '#E8E5DE' : '#3D3A37'}`,
+            boxShadow: mode === 'light'
+              ? '0 10px 15px -3px rgba(0, 0, 0, 0.08)'
+              : '0 10px 15px -3px rgba(0, 0, 0, 0.3)',
           },
           success: {
             iconTheme: {
               primary: '#10b981',
-              secondary: mode === 'light' ? '#fff' : '#1e293b',
+              secondary: mode === 'light' ? '#fff' : '#232220',
             },
           },
           error: {
             iconTheme: {
               primary: '#ef4444',
-              secondary: mode === 'light' ? '#fff' : '#1e293b',
+              secondary: mode === 'light' ? '#fff' : '#232220',
             },
           },
         }}

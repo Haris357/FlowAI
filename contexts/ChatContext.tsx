@@ -25,18 +25,12 @@ import { RichResponse, ActionButton } from '@/lib/ai-config';
 // ==========================================
 
 export interface TokenUsage {
-  promptTokens: number;
-  completionTokens: number;
   totalTokens: number;
-  totalCost: number;
   requestCount: number;
 }
 
 const EMPTY_TOKEN_USAGE: TokenUsage = {
-  promptTokens: 0,
-  completionTokens: 0,
   totalTokens: 0,
-  totalCost: 0,
   requestCount: 0,
 };
 
@@ -129,6 +123,7 @@ interface ChatContextType {
   currentSessionId: string | null;
   currentMessages: ChatMessage[];
   isLoadingSessions: boolean;
+  sessionsLoaded: boolean;
   isLoadingMessages: boolean;
   isSendingMessage: boolean;
   isAITyping: boolean;
@@ -175,6 +170,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [currentMessages, setCurrentMessages] = useState<ChatMessage[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+  const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isAITyping, setIsAITyping] = useState(false);
@@ -237,9 +233,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     try {
       const loadedSessions = await getChats(company.id, user.uid);
       setSessions(loadedSessions);
+      setSessionsLoaded(true);
     } catch (error) {
       console.error('Error loading chat sessions:', error);
       toast.error('Failed to load chat history');
+      setSessionsLoaded(true);
     } finally {
       setIsLoadingSessions(false);
     }
@@ -350,9 +348,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
       };
       setCurrentMessages(prev => [...prev, userMessage]);
 
-      // Start thinking steps
+      // Start typing indicator (no accordion — only shown when tool calls are detected)
       setIsAITyping(true);
-      setThinkingSteps([{ id: 'think', label: 'Understanding your request', status: 'in_progress' }]);
+      setThinkingSteps([]);
 
       try {
         await addMessage(company.id, sessionId, { role: 'user', content: content.trim() });
@@ -385,16 +383,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         // Track token usage
         if (data.usage) {
           setTokenUsage(prev => ({
-            promptTokens: prev.promptTokens + (data.usage.promptTokens || 0),
-            completionTokens: prev.completionTokens + (data.usage.completionTokens || 0),
             totalTokens: prev.totalTokens + (data.usage.totalTokens || 0),
-            totalCost: prev.totalCost + (data.usage.cost || 0),
             requestCount: prev.requestCount + 1,
           }));
         }
-
-        // Mark thinking step as done
-        setThinkingSteps(prev => prev.map(s => s.id === 'think' ? { ...s, status: 'completed' as const } : s));
 
         let finalMessage = stripActionPatterns(data.message || '');
         let richData: ChatMessage['richData'] | undefined;
@@ -405,10 +397,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         // Retry once if AI narrated actions without calling tools
         if ((!data.toolCalls || data.toolCalls.length === 0) && finalMessage &&
             /\b(execut|proceed|start|begin|work on|carry out|handl)(ing|e)\b/i.test(finalMessage)) {
-          setThinkingSteps(prev => [
-            ...prev.map(s => ({ ...s, status: 'completed' as const })),
-            { id: 'retry', label: 'Processing actions', status: 'in_progress' as const },
-          ]);
+          setThinkingSteps([{ id: 'retry', label: 'Processing actions', status: 'in_progress' as const }]);
           try {
             const retryRes = await fetch('/api/chat', {
               method: 'POST',
@@ -425,10 +414,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
               const retryData = await retryRes.json();
               if (retryData.usage) {
                 setTokenUsage(prev => ({
-                  promptTokens: prev.promptTokens + (retryData.usage.promptTokens || 0),
-                  completionTokens: prev.completionTokens + (retryData.usage.completionTokens || 0),
                   totalTokens: prev.totalTokens + (retryData.usage.totalTokens || 0),
-                  totalCost: prev.totalCost + (retryData.usage.cost || 0),
                   requestCount: prev.requestCount + 1,
                 }));
               }
@@ -444,16 +430,13 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         }
 
         if (data.toolCalls && data.toolCalls.length > 0) {
-          // Add tool call steps
+          // Set tool call steps (accordion only appears now)
           const toolSteps: ThinkingStep[] = data.toolCalls.map((tc: any, i: number) => ({
             id: `tool-${i}`,
             label: getToolLabel(tc.name, tc.args || tc.input),
             status: 'pending' as const,
           }));
-          setThinkingSteps(prev => [
-            ...prev.map(s => ({ ...s, status: 'completed' as const })),
-            ...toolSteps,
-          ]);
+          setThinkingSteps(toolSteps);
 
           const results: ToolResult[] = [];
           for (let i = 0; i < data.toolCalls.length; i++) {
@@ -516,10 +499,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 // Track token usage from follow-up
                 if (followUpData.usage) {
                   setTokenUsage(prev => ({
-                    promptTokens: prev.promptTokens + (followUpData.usage.promptTokens || 0),
-                    completionTokens: prev.completionTokens + (followUpData.usage.completionTokens || 0),
                     totalTokens: prev.totalTokens + (followUpData.usage.totalTokens || 0),
-                    totalCost: prev.totalCost + (followUpData.usage.cost || 0),
                     requestCount: prev.requestCount + 1,
                   }));
                 }
@@ -783,6 +763,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     currentSessionId,
     currentMessages,
     isLoadingSessions,
+    sessionsLoaded,
     isLoadingMessages,
     isSendingMessage,
     isAITyping,

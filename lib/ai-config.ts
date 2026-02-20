@@ -366,13 +366,13 @@ export const FLOW_AI_TOOLS: AITool[] = [
     type: 'function',
     function: {
       name: 'list_invoices',
-      description: 'List invoices.',
+      description: 'List invoices. IMPORTANT: Use the status filter to narrow results. For payment reminders or overdue queries, ALWAYS pass status="overdue". For unpaid queries, pass status="sent".',
       parameters: {
         type: 'object',
         properties: {
           page: { type: 'number' },
           pageSize: { type: 'number' },
-          status: { type: 'string', enum: ['draft', 'sent', 'paid', 'overdue', 'cancelled'] },
+          status: { type: 'string', enum: ['draft', 'sent', 'paid', 'overdue', 'cancelled'], description: 'Filter by invoice status. Use "overdue" for overdue/reminder queries, "sent" for unpaid invoices.' },
           customerName: { type: 'string' },
           startDate: { type: 'string' },
           endDate: { type: 'string' },
@@ -1311,9 +1311,10 @@ export const FLOW_AI_SYSTEM_PROMPT = `You are Flow AI, an expert accounting assi
    - Show key details: customer name, amount, due date, and how many days overdue.
    - After showing overdue invoices, suggest: "Would you like me to send payment reminders to these customers?"
 
-19. PAYMENT REMINDERS: When the user asks to "send reminder" or "remind customer":
+19. PAYMENT REMINDERS: When the user asks to "send reminder", "send payment reminder", or "remind customer":
+   - CRITICAL: You MUST call list_invoices with status="overdue" to get ONLY overdue invoices. NEVER list all invoices for reminder requests.
    - If a specific customer is mentioned, find their overdue/unpaid invoices and change their status to "overdue" (which triggers a reminder email).
-   - If no specific customer is mentioned, list all overdue invoices and ask which ones to send reminders for.
+   - If no specific customer is mentioned, call list_invoices with status="overdue" first, then show only those overdue invoices and ask which ones to send reminders for.
    - After sending a reminder, confirm: "✓ Payment reminder sent to [customer] for [invoice number] ([amount due])."
 
 20. SMART PAYMENT RECORDING: When the user says an invoice is "paid" or mentions receiving payment:
