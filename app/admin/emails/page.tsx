@@ -8,11 +8,12 @@ import {
 import {
   Mail, Send, Eye, Search, Users, CreditCard, Zap, AlertTriangle,
   MessageCircle, Megaphone, PenTool, Receipt, XCircle, KeyRound,
-  Handshake, CheckCircle, Inbox,
+  Handshake, CheckCircle, Inbox, Newspaper,
 } from 'lucide-react';
 import { EMAIL_TEMPLATE_OPTIONS, type EmailTemplateType } from '@/lib/email-templates';
 import StatCard from '@/components/admin/StatCard';
 import toast from 'react-hot-toast';
+import { adminFetch } from '@/lib/admin-fetch';
 
 // ==========================================
 // TEMPLATE UI CONFIG
@@ -109,6 +110,14 @@ const TEMPLATE_UI: Record<EmailTemplateType, {
       { key: 'resetLink', label: 'Reset Link', type: 'text', required: true, placeholder: 'https://flowbooks.app/reset?token=...' },
     ],
   },
+  newsletter: {
+    icon: Newspaper,
+    color: '#D97757',
+    fields: [
+      { key: 'newsletterTitle', label: 'Newsletter Title', type: 'text', required: true, placeholder: 'This Week at Flowbooks' },
+      { key: 'announcementBody', label: 'Newsletter Content', type: 'textarea', required: true, placeholder: 'Use ## headings to create sections' },
+    ],
+  },
 };
 
 // ==========================================
@@ -162,7 +171,7 @@ export default function AdminEmailCenterPage() {
     const timer = setTimeout(async () => {
       setSearching(true);
       try {
-        const res = await fetch(`/api/admin/users?search=${encodeURIComponent(userSearch)}`);
+        const res = await adminFetch(`/api/admin/users?search=${encodeURIComponent(userSearch)}`);
         const data = await res.json();
         setSearchResults((data.users || []).slice(0, 8).map((u: any) => ({
           id: u.id,
@@ -229,7 +238,7 @@ export default function AdminEmailCenterPage() {
     setPreviewOpen(true);
 
     try {
-      const res = await fetch('/api/admin/emails/send', {
+      const res = await adminFetch('/api/admin/emails/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -281,7 +290,7 @@ export default function AdminEmailCenterPage() {
         recipients.planId = selectedPlan;
       }
 
-      const res = await fetch('/api/admin/emails/send', {
+      const res = await adminFetch('/api/admin/emails/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

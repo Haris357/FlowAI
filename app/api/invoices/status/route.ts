@@ -4,6 +4,7 @@ import { initAdmin } from '@/lib/firebase-admin';
 import { generateInvoicePDF } from '@/lib/invoice-pdf';
 import { invoiceStatusEmail, getInvoiceEmailSubject, InvoiceEmailType } from '@/lib/email-templates';
 import { sendEmail } from '@/lib/email';
+import { checkPlanLimitAdmin, getEmailSendCountAdmin } from '@/services/subscription-admin';
 
 initAdmin();
 const adminDb = getFirestore();
@@ -486,7 +487,18 @@ export async function POST(request: NextRequest) {
     // SEND NOTIFICATION EMAIL (if applicable and customer has email)
     // ============================================================
     let emailSent = false;
+    // Check email send limit before attempting to send
+    let emailAllowed = true;
     if (invoice.customerEmail && EMAIL_STATUSES.includes(newStatus as InvoiceEmailType)) {
+      try {
+        const emailCount = await getEmailSendCountAdmin(companyId);
+        const limitCheck = await checkPlanLimitAdmin(company.ownerId, 'emailSends', emailCount);
+        emailAllowed = limitCheck.allowed;
+      } catch {
+        emailAllowed = false;
+      }
+    }
+    if (emailAllowed && invoice.customerEmail && EMAIL_STATUSES.includes(newStatus as InvoiceEmailType)) {
       try {
         const emailType = newStatus as InvoiceEmailType;
         // Re-fetch invoice with updated fields for email

@@ -8,7 +8,7 @@ import ThinkingSteps from './ThinkingSteps';
 import ChatWelcome from './ChatWelcome';
 import ChatInput from './ChatInput';
 import MemoryIndicator from './MemoryIndicator';
-import AnimatedLogo from './AnimatedLogo';
+import FlowAIAvatar from './FlowAIAvatar';
 import { FormShortcut } from './FormShortcuts';
 import { TokenUsage } from '@/contexts/ChatContext';
 
@@ -202,11 +202,10 @@ export default function ChatMain({
               '@keyframes fadeIn': { from: { opacity: 0, transform: 'translateY(6px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
             }}>
               <Stack direction="row" spacing={1.5} alignItems="flex-start">
-                <Box sx={{ flexShrink: 0, width: 28, height: 28, mt: 0.25 }}>
-                  <AnimatedLogo size="sm" isResponding />
+                <Box sx={{ flexShrink: 0, width: 56, height: 56, mt: 0.25 }}>
+                  <FlowAIAvatar size={56} isThinking />
                 </Box>
-                <Box>
-                  <Typography level="body-xs" fontWeight={700} sx={{ color: 'text.primary', mb: 0.75 }}>Flow AI</Typography>
+                <Box sx={{ pt: 0.5 }}>
                   <Stack spacing={0.75} sx={{ minWidth: 140 }}>
                     {[85, 60, 40].map((w, i) => (
                       <Box key={i} sx={{
@@ -222,6 +221,14 @@ export default function ChatMain({
               </Stack>
             </Box>
           ))}
+
+          {/* FlowAI Avatar — shown once below the last AI message when not typing */}
+          {!isAITyping && messages.filter(m => !m.hidden).length > 0 &&
+            messages.filter(m => !m.hidden).slice(-1)[0]?.role === 'assistant' && (
+            <Box sx={{ maxWidth: 768, mx: 'auto', px: { xs: 1.5, sm: 2.5 }, pt: 0.5, pb: 1 }}>
+              <FlowAIAvatar size={56} />
+            </Box>
+          )}
 
           <div ref={messagesEndRef} />
         </Box>

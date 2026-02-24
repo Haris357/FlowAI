@@ -5,7 +5,7 @@
 
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
-import { getPlan, DEFAULT_SUBSCRIPTION } from '@/lib/plans';
+import { getPlan, isUnlimited, DEFAULT_SUBSCRIPTION } from '@/lib/plans';
 import type { PlanId, UserSubscription } from '@/types/subscription';
 
 initAdmin();
@@ -175,6 +175,85 @@ export async function trackTokenUsageAdmin(
   const newBonus = Math.max(0, (currentData.bonusTokens || 0) - Math.max(0, tokensUsed - monthlyRemaining));
 
   return { remaining: newMonthlyRemaining + newBonus };
+}
+
+// ==========================================
+// PLAN LIMIT CHECK
+// ==========================================
+
+/**
+ * Server-side plan limit check for API routes.
+ * Verifies the user's plan allows the requested action.
+ */
+export async function checkPlanLimitAdmin(
+  userId: string,
+  limitType: string,
+  currentCount?: number
+): Promise<{
+  allowed: boolean;
+  reason?: string;
+  limit?: number;
+  planId: PlanId;
+}> {
+  const subscription = await getSubscriptionAdmin(userId);
+  const effectivePlanId = getEffectivePlanId(subscription);
+  const plan = getPlan(effectivePlanId);
+  const count = currentCount ?? 0;
+
+  const check = (value: number, name: string) => {
+    if (isUnlimited(value)) return { allowed: true as const };
+    const allowed = count < value;
+    return {
+      allowed,
+      reason: allowed ? undefined : `${plan.name} plan limit reached for ${name} (${value}). Please upgrade.`,
+      limit: value,
+    };
+  };
+
+  let result: { allowed: boolean; reason?: string; limit?: number };
+
+  switch (limitType) {
+    case 'emailSends':
+      result = check(plan.maxEmailSendsPerMonth, 'email sends per month');
+      break;
+    case 'companies':
+      result = check(plan.maxCompanies, 'companies');
+      break;
+    case 'customers':
+      result = check(plan.maxCustomers, 'customers');
+      break;
+    case 'vendors':
+      result = check(plan.maxVendors, 'vendors');
+      break;
+    case 'invoices':
+      result = check(plan.maxInvoicesPerMonth, 'invoices per month');
+      break;
+    case 'bankAccounts':
+      result = check(plan.maxBankAccounts, 'bank accounts');
+      break;
+    case 'recurringTransactions':
+      result = check(plan.maxRecurringTransactions, 'recurring transactions');
+      break;
+    default:
+      result = { allowed: true };
+  }
+
+  return { ...result, planId: effectivePlanId };
+}
+
+/**
+ * Count email sends for a company in the current month.
+ */
+export async function getEmailSendCountAdmin(companyId: string): Promise<number> {
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+
+  const sentInvoicesSnap = await adminDb
+    .collection(`companies/${companyId}/invoices`)
+    .where('sentAt', '>=', startOfMonth)
+    .get();
+
+  return sentInvoicesSnap.size;
 }
 
 // ==========================================

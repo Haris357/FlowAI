@@ -19,6 +19,7 @@ import {
 import toast from 'react-hot-toast';
 import { executeAITool, ToolResult } from '@/services/ai-tools';
 import { RichResponse, ActionButton } from '@/lib/ai-config';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 // ==========================================
 // TOKEN USAGE TRACKING
@@ -148,6 +149,8 @@ interface ChatContextType {
   filteredSessions: Chat[];
   selectedModel: string;
   setSelectedModel: (model: string) => void;
+  tokenLimitReached: boolean;
+  dismissTokenLimit: () => void;
 }
 
 const defaultSettings: ChatSettings = {
@@ -165,6 +168,7 @@ const ChatContext = createContext<ChatContextType | null>(null);
 export function ChatProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const { company, refreshData } = useCompany();
+  const { refreshSubscription, refreshUsage } = useSubscription();
 
   const [sessions, setSessions] = useState<Chat[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -207,6 +211,9 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
     return 'gpt-4.1-mini';
   });
+
+  const [tokenLimitReached, setTokenLimitReached] = useState(false);
+  const dismissTokenLimit = useCallback(() => setTokenLimitReached(false), []);
 
   const filteredSessions = searchTerm
     ? sessions.filter(s => s.title.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -375,6 +382,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+
+          // Handle token limit specifically
+          if (response.status === 403 && errorData.error === 'token_limit_reached') {
+            refreshSubscription();
+            refreshUsage();
+            setTokenLimitReached(true);
+            setIsAITyping(false);
+            setThinkingSteps([]);
+            const limitMsg: ChatMessage = {
+              id: `temp-limit-${Date.now()}`,
+              role: 'assistant',
+              content: "You've reached your AI token limit for this month. Please upgrade your plan or purchase additional tokens to continue chatting.",
+              createdAt: { toDate: () => new Date() } as any,
+            };
+            setCurrentMessages(prev => [...prev, limitMsg]);
+            setIsSendingMessage(false);
+            return;
+          }
+
           throw new Error(errorData.error || 'Failed to get AI response');
         }
 
@@ -648,6 +674,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           actions: sanitizeForFirestore(actions),
           followUp,
         });
+
+        // Increment session counters for periodic modals
+        if (typeof window !== 'undefined') {
+          const fbCount = parseInt(localStorage.getItem('fb_chats_since_show') || '0');
+          localStorage.setItem('fb_chats_since_show', String(fbCount + 1));
+          const premiumCount = parseInt(localStorage.getItem('premium_chats_since_show') || '0');
+          localStorage.setItem('premium_chats_since_show', String(premiumCount + 1));
+        }
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Failed to send message';
         console.error('Error sending message:', error);
@@ -788,6 +822,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     filteredSessions,
     selectedModel,
     setSelectedModel,
+    tokenLimitReached,
+    dismissTokenLimit,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

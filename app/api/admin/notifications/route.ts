@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
+import { verifyAdminRequest } from '@/lib/admin-server';
 
 initAdmin();
 const db = getFirestore();
 
 export async function GET(req: Request) {
   try {
+    const authResult = await verifyAdminRequest(req);
+    if (!authResult.authorized) return authResult.response;
+
     const { searchParams } = new URL(req.url);
     const typeFilter = searchParams.get('type') || '';
     const categoryFilter = searchParams.get('category') || '';
@@ -79,6 +83,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
+    const authResult = await verifyAdminRequest(req);
+    if (!authResult.authorized) return authResult.response;
+
     const { userId, type, title, message, category, actionUrl } = await req.json();
 
     if (!userId || !type || !title || !message || !category) {
@@ -119,6 +126,9 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
+    const authResult = await verifyAdminRequest(req);
+    if (!authResult.authorized) return authResult.response;
+
     const { userId, notificationId } = await req.json();
 
     if (!userId || !notificationId) {

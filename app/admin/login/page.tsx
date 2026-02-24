@@ -2,7 +2,10 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { ShieldCheck, Moon, Sun, Eye, EyeOff } from 'lucide-react';
+import FlowBooksLogo from '@/components/FlowBooksLogo';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -48,6 +51,9 @@ export default function AdminLoginPage() {
         setError(data.error || 'Authentication failed.');
         return;
       }
+
+      // Also sign in via Firebase client SDK so ID tokens are available for API calls
+      await signInWithEmailAndPassword(auth, email, password);
 
       // Store admin session in sessionStorage (separate from Firebase auth)
       sessionStorage.setItem('adminSession', JSON.stringify({
@@ -107,10 +113,8 @@ export default function AdminLoginPage() {
               <ShieldCheck className="w-5 h-5 text-white" />
             </div>
             <div className="text-left">
-              <span className="text-2xl font-bold text-slate-900 dark:text-white block leading-tight">
-                Flow<em className="not-italic" style={{ fontStyle: 'italic' }}>books</em>
-              </span>
-              <span className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 uppercase tracking-wider">
+              <FlowBooksLogo showIcon={false} size="sm" />
+              <span className="text-[11px] font-semibold text-brand-600 dark:text-brand-400 uppercase tracking-wider block">
                 Admin Panel
               </span>
             </div>

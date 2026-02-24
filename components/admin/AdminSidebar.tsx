@@ -7,15 +7,17 @@ import {
   LayoutDashboard, Users, CreditCard, Zap, HelpCircle,
   MessageSquare, Settings, ArrowLeft, ShieldCheck,
   PanelLeftClose, PanelLeftOpen, FileText, Star, LogOut,
-  Mail, Bell, Activity, Megaphone,
+  Mail, Bell, Activity, Megaphone, Newspaper,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import NextLink from 'next/link';
+import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
   { label: 'Users', path: '/admin/users', icon: Users },
   { label: 'Email Center', path: '/admin/emails', icon: Mail },
+  { label: 'Newsletter', path: '/admin/newsletter', icon: Newspaper },
   { label: 'Announcements', path: '/admin/announcements', icon: Megaphone },
   { label: 'Subscriptions', path: '/admin/subscriptions', icon: CreditCard },
   { label: 'AI Usage', path: '/admin/ai-usage', icon: Zap },
@@ -84,9 +86,7 @@ export default function AdminSidebar({ collapsed = false, onToggle }: AdminSideb
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <ShieldCheck size={20} style={{ color: 'var(--joy-palette-primary-600)' }} />
               <Box>
-                <Typography level="title-md" fontWeight={700} sx={{ color: 'primary.700' }}>
-                  Flowbooks
-                </Typography>
+                <FlowBooksLogoJoy showIcon={false} iconSize={20} fontSize="1.1rem" />
                 <Typography level="body-xs" sx={{ color: 'primary.500' }}>
                   Admin Panel
                 </Typography>

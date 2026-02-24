@@ -4,20 +4,14 @@ import { useState, useMemo } from 'react';
 import {
   Modal,
   ModalDialog,
-  ModalClose,
   Box,
   Input,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemContent,
   Stack,
   Typography,
   IconButton,
-  Divider,
 } from '@mui/joy';
-import { Search, MessageSquare, Trash2, Edit2, X, Check } from 'lucide-react';
-import { format, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
+import { Search, MessageSquare, X } from 'lucide-react';
+import { formatDistanceToNow, isToday, isYesterday, isThisWeek, isThisMonth } from 'date-fns';
 import { Chat } from '@/types';
 
 interface ChatHistoryModalProps {
@@ -39,197 +33,105 @@ interface GroupedChats {
 }
 
 function groupChatsByDate(chats: Chat[]): GroupedChats {
-  const groups: GroupedChats = {
-    today: [],
-    yesterday: [],
-    thisWeek: [],
-    thisMonth: [],
-    older: [],
-  };
-
+  const groups: GroupedChats = { today: [], yesterday: [], thisWeek: [], thisMonth: [], older: [] };
   chats.forEach((chat) => {
     const date = chat.lastMessageAt?.toDate?.() || new Date();
-
-    if (isToday(date)) {
-      groups.today.push(chat);
-    } else if (isYesterday(date)) {
-      groups.yesterday.push(chat);
-    } else if (isThisWeek(date)) {
-      groups.thisWeek.push(chat);
-    } else if (isThisMonth(date)) {
-      groups.thisMonth.push(chat);
-    } else {
-      groups.older.push(chat);
-    }
+    if (isToday(date)) groups.today.push(chat);
+    else if (isYesterday(date)) groups.yesterday.push(chat);
+    else if (isThisWeek(date)) groups.thisWeek.push(chat);
+    else if (isThisMonth(date)) groups.thisMonth.push(chat);
+    else groups.older.push(chat);
   });
-
   return groups;
 }
 
-function ChatListItem({
+function getRelativeTime(chat: Chat): string {
+  const date = chat.lastMessageAt?.toDate?.() || new Date();
+  if (isToday(date)) return 'Today';
+  if (isYesterday(date)) return 'Yesterday';
+  return formatDistanceToNow(date, { addSuffix: true }).replace('about ', '');
+}
+
+function ChatRow({
   chat,
   isActive,
   onSelect,
-  onDelete,
-  onRename,
 }: {
   chat: Chat;
   isActive: boolean;
   onSelect: () => void;
-  onDelete: () => void;
-  onRename: (newTitle: string) => void;
 }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editTitle, setEditTitle] = useState(chat.title);
-  const [showActions, setShowActions] = useState(false);
-
-  const handleRename = () => {
-    if (editTitle.trim() && editTitle !== chat.title) {
-      onRename(editTitle.trim());
-    }
-    setIsEditing(false);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleRename();
-    } else if (e.key === 'Escape') {
-      setEditTitle(chat.title);
-      setIsEditing(false);
-    }
-  };
-
-  const date = chat.lastMessageAt?.toDate?.() || new Date();
-
   return (
-    <ListItem
-      onMouseEnter={() => setShowActions(true)}
-      onMouseLeave={() => setShowActions(false)}
+    <Box
+      onClick={onSelect}
+      sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5,
+        px: 2.5,
+        py: 1.5,
+        cursor: 'pointer',
+        transition: 'background 0.1s ease',
+        bgcolor: isActive ? 'primary.softBg' : 'transparent',
+        '&:hover': {
+          bgcolor: isActive ? 'primary.softBg' : 'neutral.softBg',
+        },
+      }}
     >
-      <ListItemButton
-        selected={isActive}
-        onClick={isEditing ? undefined : onSelect}
+      <MessageSquare size={16} style={{ flexShrink: 0, opacity: 0.35 }} />
+      <Typography
+        level="body-sm"
+        fontWeight={isActive ? 600 : 400}
         sx={{
-          borderRadius: 'md',
-          py: 1.5,
-          px: 2,
-          gap: 1.5,
-          '&.Mui-selected': {
-            bgcolor: 'primary.softBg',
-            '&:hover': {
-              bgcolor: 'primary.softHoverBg',
-            },
-          },
+          flex: 1,
+          minWidth: 0,
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          color: isActive ? 'primary.700' : 'text.primary',
         }}
       >
-        <MessageSquare size={18} style={{ flexShrink: 0, opacity: 0.6 }} />
-        <ListItemContent sx={{ minWidth: 0 }}>
-          {isEditing ? (
-            <Input
-              size="sm"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              onBlur={handleRename}
-              onKeyDown={handleKeyDown}
-              autoFocus
-              onClick={(e) => e.stopPropagation()}
-              sx={{ '--Input-minHeight': '28px' }}
-            />
-          ) : (
-            <>
-              <Typography level="body-sm" noWrap fontWeight="md">
-                {chat.title}
-              </Typography>
-              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                {format(date, 'MMM d, h:mm a')}
-              </Typography>
-            </>
-          )}
-        </ListItemContent>
-
-        {showActions && !isEditing && (
-          <Stack direction="row" spacing={0.5}>
-            <IconButton
-              size="sm"
-              variant="plain"
-              color="neutral"
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsEditing(true);
-                setEditTitle(chat.title);
-              }}
-              sx={{ '--IconButton-size': '28px' }}
-            >
-              <Edit2 size={14} />
-            </IconButton>
-            <IconButton
-              size="sm"
-              variant="plain"
-              color="danger"
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              sx={{ '--IconButton-size': '28px' }}
-            >
-              <Trash2 size={14} />
-            </IconButton>
-          </Stack>
-        )}
-      </ListItemButton>
-    </ListItem>
+        {chat.title}
+      </Typography>
+      <Typography
+        level="body-xs"
+        sx={{
+          flexShrink: 0,
+          color: 'text.tertiary',
+          whiteSpace: 'nowrap',
+        }}
+      >
+        {getRelativeTime(chat)}
+      </Typography>
+    </Box>
   );
 }
 
-function ChatGroup({
+function ChatSection({
   label,
   chats,
   currentSessionId,
   onSelectChat,
-  onDeleteChat,
-  onRenameChat,
   onClose,
 }: {
   label: string;
   chats: Chat[];
   currentSessionId: string | null;
   onSelectChat: (sessionId: string) => void;
-  onDeleteChat: (sessionId: string) => void;
-  onRenameChat: (sessionId: string, newTitle: string) => void;
   onClose: () => void;
 }) {
   if (chats.length === 0) return null;
 
   return (
-    <Box sx={{ mb: 1 }}>
-      <Typography
-        level="body-xs"
-        sx={{
-          px: 2,
-          py: 0.75,
-          color: 'text.tertiary',
-          fontWeight: 600,
-          textTransform: 'uppercase',
-          letterSpacing: '0.05em',
-        }}
-      >
-        {label}
-      </Typography>
-      <List size="sm" sx={{ '--List-padding': '0px', '--ListItem-paddingY': '2px', '--ListItem-paddingX': '8px' }}>
-        {chats.map((chat) => (
-          <ChatListItem
-            key={chat.id}
-            chat={chat}
-            isActive={chat.id === currentSessionId}
-            onSelect={() => {
-              onSelectChat(chat.id);
-              onClose();
-            }}
-            onDelete={() => onDeleteChat(chat.id)}
-            onRename={(newTitle) => onRenameChat(chat.id, newTitle)}
-          />
-        ))}
-      </List>
+    <Box>
+      {chats.map((chat) => (
+        <ChatRow
+          key={chat.id}
+          chat={chat}
+          isActive={chat.id === currentSessionId}
+          onSelect={() => { onSelectChat(chat.id); onClose(); }}
+        />
+      ))}
     </Box>
   );
 }
@@ -256,44 +158,71 @@ export default function ChatHistoryModal({
   return (
     <Modal open={open} onClose={onClose}>
       <ModalDialog
-        variant="outlined"
+        variant="plain"
         sx={{
-          width: 480,
-          maxHeight: '80vh',
+          width: { xs: '95vw', sm: 540 },
+          maxHeight: '70vh',
           p: 0,
           overflow: 'hidden',
-          borderRadius: 'lg',
+          borderRadius: 'xl',
+          boxShadow: 'lg',
+          border: '1px solid',
+          borderColor: 'divider',
+          gap: 0,
         }}
       >
-        {/* Header with search */}
-        <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
-          <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-            <Typography level="title-lg">Chat History</Typography>
-            <ModalClose sx={{ position: 'static' }} />
-          </Stack>
+        {/* Search header */}
+        <Box sx={{ p: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
           <Input
-            size="sm"
-            placeholder="Search conversations..."
+            autoFocus
+            size="md"
+            placeholder="Search chats and projects"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            startDecorator={<Search size={16} />}
+            startDecorator={
+              <Stack direction="row" spacing={0.75} alignItems="center">
+                <Search size={16} style={{ opacity: 0.4 }} />
+                {searchTerm && (
+                  <IconButton
+                    size="sm"
+                    variant="plain"
+                    color="neutral"
+                    onClick={() => setSearchTerm('')}
+                    sx={{ '--IconButton-size': '20px' }}
+                  >
+                    <X size={13} />
+                  </IconButton>
+                )}
+              </Stack>
+            }
             endDecorator={
-              searchTerm && (
-                <IconButton
-                  size="sm"
-                  variant="plain"
-                  onClick={() => setSearchTerm('')}
-                  sx={{ '--IconButton-size': '20px' }}
-                >
-                  <X size={14} />
-                </IconButton>
-              )
+              <IconButton
+                size="sm"
+                variant="plain"
+                color="neutral"
+                onClick={onClose}
+                sx={{ '--IconButton-size': '28px' }}
+              >
+                <X size={16} />
+              </IconButton>
             }
             sx={{
-              borderRadius: 'md',
-              '--Input-focusedHighlight': 'var(--joy-palette-primary-400)',
+              '--Input-minHeight': '44px',
+              border: 'none',
+              boxShadow: 'none',
+              bgcolor: 'transparent',
+              '&::before': { display: 'none' },
+              '&:focus-within': { boxShadow: 'none' },
             }}
           />
+        </Box>
+
+        {/* Count */}
+        <Box sx={{ px: 2.5, py: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+            {filteredSessions.length} chat{filteredSessions.length !== 1 ? 's' : ''}
+            {searchTerm && ` matching "${searchTerm}"`}
+          </Typography>
         </Box>
 
         {/* Chat list */}
@@ -301,10 +230,10 @@ export default function ChatHistoryModal({
           sx={{
             flex: 1,
             overflowY: 'auto',
-            py: 1,
             '&::-webkit-scrollbar': { width: 6 },
+            '&::-webkit-scrollbar-track': { bgcolor: 'transparent' },
             '&::-webkit-scrollbar-thumb': {
-              bgcolor: 'neutral.300',
+              bgcolor: 'neutral.200',
               borderRadius: 3,
             },
           }}
@@ -317,60 +246,13 @@ export default function ChatHistoryModal({
             </Box>
           ) : (
             <>
-              <ChatGroup
-                label="Today"
-                chats={groupedChats.today}
-                currentSessionId={currentSessionId}
-                onSelectChat={onSelectChat}
-                onDeleteChat={onDeleteChat}
-                onRenameChat={onRenameChat}
-                onClose={onClose}
-              />
-              <ChatGroup
-                label="Yesterday"
-                chats={groupedChats.yesterday}
-                currentSessionId={currentSessionId}
-                onSelectChat={onSelectChat}
-                onDeleteChat={onDeleteChat}
-                onRenameChat={onRenameChat}
-                onClose={onClose}
-              />
-              <ChatGroup
-                label="Previous 7 Days"
-                chats={groupedChats.thisWeek}
-                currentSessionId={currentSessionId}
-                onSelectChat={onSelectChat}
-                onDeleteChat={onDeleteChat}
-                onRenameChat={onRenameChat}
-                onClose={onClose}
-              />
-              <ChatGroup
-                label="This Month"
-                chats={groupedChats.thisMonth}
-                currentSessionId={currentSessionId}
-                onSelectChat={onSelectChat}
-                onDeleteChat={onDeleteChat}
-                onRenameChat={onRenameChat}
-                onClose={onClose}
-              />
-              <ChatGroup
-                label="Older"
-                chats={groupedChats.older}
-                currentSessionId={currentSessionId}
-                onSelectChat={onSelectChat}
-                onDeleteChat={onDeleteChat}
-                onRenameChat={onRenameChat}
-                onClose={onClose}
-              />
+              <ChatSection label="Today" chats={groupedChats.today} currentSessionId={currentSessionId} onSelectChat={onSelectChat} onClose={onClose} />
+              <ChatSection label="Yesterday" chats={groupedChats.yesterday} currentSessionId={currentSessionId} onSelectChat={onSelectChat} onClose={onClose} />
+              <ChatSection label="Past week" chats={groupedChats.thisWeek} currentSessionId={currentSessionId} onSelectChat={onSelectChat} onClose={onClose} />
+              <ChatSection label="Past month" chats={groupedChats.thisMonth} currentSessionId={currentSessionId} onSelectChat={onSelectChat} onClose={onClose} />
+              <ChatSection label="Older" chats={groupedChats.older} currentSessionId={currentSessionId} onSelectChat={onSelectChat} onClose={onClose} />
             </>
           )}
-        </Box>
-
-        {/* Footer */}
-        <Box sx={{ p: 2, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'background.level1' }}>
-          <Typography level="body-xs" sx={{ color: 'text.tertiary', textAlign: 'center' }}>
-            {sessions.length} conversation{sessions.length !== 1 ? 's' : ''}
-          </Typography>
         </Box>
       </ModalDialog>
     </Modal>

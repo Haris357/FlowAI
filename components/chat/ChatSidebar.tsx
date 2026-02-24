@@ -17,13 +17,13 @@ import {
   Plus,
   MessageSquare,
   Settings,
-  BookOpen,
   ChevronLeft,
   ChevronRight,
   History,
   ChevronDown,
   Zap,
 } from 'lucide-react';
+import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
 import { Chat } from '@/types';
 import FormShortcuts, { FormShortcut } from './FormShortcuts';
 import ChatHistoryModal from './ChatHistoryModal';
@@ -81,24 +81,7 @@ export default function ChatSidebar({
           sx={{ px: collapsed ? 1 : 2, py: 1.5, minHeight: 56 }}
         >
           {!collapsed && (
-            <Stack direction="row" alignItems="center" spacing={1}>
-              <Box
-                sx={{
-                  width: 28,
-                  height: 28,
-                  borderRadius: 'sm',
-                  bgcolor: 'primary.softBg',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <BookOpen size={16} style={{ color: 'var(--joy-palette-primary-600)' }} />
-              </Box>
-              <Typography level="title-sm" fontWeight="lg">
-                Flow AI
-              </Typography>
-            </Stack>
+            <FlowBooksLogoJoy iconSize={28} fontSize="1rem" />
           )}
           <Tooltip title={collapsed ? 'Expand' : 'Collapse'} placement="right">
             <IconButton

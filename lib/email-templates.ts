@@ -521,7 +521,8 @@ export type EmailTemplateType =
   | 'custom'
   | 'payment_receipt'
   | 'subscription_cancelled'
-  | 'password_reset';
+  | 'password_reset'
+  | 'newsletter';
 
 export interface EmailTemplateData {
   userName?: string;
@@ -548,6 +549,10 @@ export interface EmailTemplateData {
   warningMessage?: string;
   // Password reset
   resetLink?: string;
+  // Newsletter
+  newsletterTitle?: string;
+  newsletterSections?: Array<{ heading: string; body: string }>;
+  newsletterFooterNote?: string;
 }
 
 export interface EmailTemplateResult {
@@ -685,6 +690,17 @@ export const EMAIL_TEMPLATE_OPTIONS: EmailTemplateOption[] = [
     fields: [
       { key: 'userName', label: 'User Name', type: 'text', required: true, placeholder: 'John Doe' },
       { key: 'resetLink', label: 'Reset Link', type: 'text', required: true, placeholder: 'https://flowbooks.app/reset?token=...' },
+    ],
+  },
+  {
+    value: 'newsletter', type: 'newsletter',
+    label: 'Newsletter',
+    description: 'AI-generated weekly newsletter with updates and tips',
+    icon: 'newspaper',
+    color: '#D97757',
+    fields: [
+      { key: 'newsletterTitle', label: 'Newsletter Title', type: 'text', required: true, placeholder: 'This Week at Flowbooks' },
+      { key: 'announcementBody', label: 'Newsletter Content', type: 'textarea', required: true, placeholder: 'Newsletter content (supports sections separated by ## headings)' },
     ],
   },
 ];
@@ -1148,6 +1164,74 @@ ${pSignOff()}`;
   return { subject, html: pShell(subject, body) };
 }
 
+function tplNewsletter(d: EmailTemplateData): EmailTemplateResult {
+  const title = d.newsletterTitle || 'This Week at Flowbooks';
+  const subject = title;
+
+  // If sections are provided, render each; otherwise fall back to announcementBody
+  let sectionsHtml = '';
+  if (d.newsletterSections && d.newsletterSections.length > 0) {
+    sectionsHtml = d.newsletterSections.map(section => `
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                <tr>
+                  <td style="padding:20px 22px;background:${C.slateBg};border-radius:10px;border:1px solid ${C.border};">
+                    <h3 style="margin:0 0 10px;font-size:16px;font-weight:700;color:${C.text};letter-spacing:-0.01em;">${esc(section.heading)}</h3>
+                    <div style="font-size:14px;color:${C.textMid};line-height:1.75;">${nl2br(section.body)}</div>
+                  </td>
+                </tr>
+              </table>`).join('');
+  } else if (d.announcementBody) {
+    // Parse markdown-style ## headings into sections
+    const raw = d.announcementBody;
+    const parts = raw.split(/^## /m).filter(Boolean);
+    if (parts.length > 1 || raw.startsWith('## ')) {
+      sectionsHtml = parts.map(part => {
+        const [heading, ...rest] = part.split('\n');
+        return `
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                <tr>
+                  <td style="padding:20px 22px;background:${C.slateBg};border-radius:10px;border:1px solid ${C.border};">
+                    <h3 style="margin:0 0 10px;font-size:16px;font-weight:700;color:${C.text};letter-spacing:-0.01em;">${esc(heading.trim())}</h3>
+                    <div style="font-size:14px;color:${C.textMid};line-height:1.75;">${nl2br(rest.join('\n').trim())}</div>
+                  </td>
+                </tr>
+              </table>`;
+      }).join('');
+    } else {
+      sectionsHtml = `
+              <div style="font-size:14px;color:${C.textMid};line-height:1.75;margin:0 0 24px;">${nl2br(raw)}</div>`;
+    }
+  }
+
+  const footerNote = d.newsletterFooterNote
+    ? `${pNoteBox(d.newsletterFooterNote)}`
+    : '';
+
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const body = `
+              <!-- Newsletter date -->
+              <p style="margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${C.textLight};font-weight:600;">${esc(dateStr)}</p>
+
+              <!-- Title -->
+              <h2 style="margin:0 0 24px;font-size:24px;font-weight:700;color:${C.brand};letter-spacing:-0.02em;">${esc(title)}</h2>
+
+${pGreeting(d.userName)}
+${pParagraph('Here is your weekly update from Flowbooks — new features, tips, and insights to help you manage your finances smarter.')}
+${pDivider()}
+${sectionsHtml}
+${footerNote}
+${pButton('Open Flowbooks', 'https://flowbooks.app')}
+${pDivider()}
+              <p style="margin:0;font-size:12px;color:${C.textLight};line-height:1.6;text-align:center;">
+                You are receiving this because you are subscribed to Flowbooks updates.<br/>
+                <a href="https://flowbooks.app/settings" style="color:${C.brand};text-decoration:underline;">Manage email preferences</a>
+              </p>`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
 // ------------------------------------------
 // Main dispatcher
 // ------------------------------------------
@@ -1184,6 +1268,8 @@ export function getEmailTemplate(
       return tplSubscriptionCancelled(data);
     case 'password_reset':
       return tplPasswordReset(data);
+    case 'newsletter':
+      return tplNewsletter(data);
     default: {
       // Fallback to custom template for any unknown type
       const fallback: EmailTemplateData = {

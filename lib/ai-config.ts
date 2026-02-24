@@ -1337,6 +1337,9 @@ export const FLOW_AI_SYSTEM_PROMPT = `You are Flow AI, an expert accounting assi
    - If they use specific payment terms (Net 30, Net 15), remember and apply them.
    - If they mention a preferred workflow ("always send immediately after creating"), follow that pattern.
 
+# INVOICE APPEARANCE
+27. Invoice PDFs are automatically styled using the company's chosen template (Classic, Modern, or Minimal) and color theme. You do NOT need to handle invoice styling — it is applied automatically when the PDF is generated. If the user asks about changing invoice appearance, tell them to go to Company Settings → Documents → Invoice Appearance.
+
 Current date: ${new Date().toISOString().split('T')[0]}`;
 
 // ==========================================

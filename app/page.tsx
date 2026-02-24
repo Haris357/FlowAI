@@ -36,30 +36,15 @@ import {
   Paperclip,
   Mic,
   LayoutDashboard,
+  Info,
+  Lock,
+  Mail,
+  Home,
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
-
-// --- Brand Name ---
-const BrandName = ({ className = '', light = false }: { className?: string; light?: boolean }) => (
-  <span className={`font-bold tracking-tight ${className}`}>
-    <span
-      className={light ? 'text-white' : ''}
-      style={
-        !light
-          ? {
-              background: 'linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-            }
-          : {}
-      }
-    >
-      Flow<em className="not-italic" style={{ fontStyle: 'italic' }}>books</em>
-    </span>
-  </span>
-);
+import FlowBooksLogo from '@/components/FlowBooksLogo';
 
 // --- Accordion ---
 const AccordionItem = ({ question, answer, isOpen, onClick }: { question: string; answer: string; isOpen: boolean; onClick: () => void }) => (
@@ -124,6 +109,7 @@ export default function LandingPage() {
   const { user } = useAuth();
   const { mode, toggleMode } = useTheme();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [currentExample, setCurrentExample] = useState(0);
   const [typedText, setTypedText] = useState('');
@@ -200,23 +186,51 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-12">
             {/* Logo */}
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-brand-500 to-brand-600 shadow-lg shadow-brand-500/25">
-                <Sparkles className="w-3.5 h-3.5 text-white" />
-              </div>
-              <BrandName className="text-lg" />
-            </div>
+            <FlowBooksLogo size="sm" />
 
             {/* Desktop Links */}
-            <div className="hidden md:flex items-center gap-0.5">
-              <a href="#features" className="px-3.5 py-1.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition-all">Features</a>
-              <a href="#how-it-works" className="px-3.5 py-1.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition-all">How it Works</a>
-              <Link href="/pricing" className="px-3.5 py-1.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition-all">Pricing</Link>
-              <Link href="/blog" className="px-3.5 py-1.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition-all">Blog</Link>
+            <div className="hidden lg:flex items-center gap-1">
+              <Link href="/pricing" className="px-3 py-2 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition-all flex items-center gap-2">
+                <CreditCard className="w-4 h-4" />Pricing
+              </Link>
+              <Link href="/about" className="px-3 py-2 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition-all flex items-center gap-2">
+                <Info className="w-4 h-4" />About
+              </Link>
+              <Link href="/blog" className="px-3 py-2 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition-all flex items-center gap-2">
+                <BookOpen className="w-4 h-4" />Blog
+              </Link>
+              <Link href="/contact" className="px-3 py-2 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition-all flex items-center gap-2">
+                <Mail className="w-4 h-4" />Contact
+              </Link>
+
+              {/* More Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setIsMoreOpen(!isMoreOpen)}
+                  onBlur={() => setTimeout(() => setIsMoreOpen(false), 150)}
+                  className="px-3 py-2 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition-all flex items-center gap-2"
+                >
+                  More
+                  <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 ${isMoreOpen ? 'rotate-180' : ''}`} />
+                </button>
+                <div className={`absolute right-0 top-full mt-1.5 w-48 bg-white dark:bg-[#232220] border border-slate-200 dark:border-[#3D3A37] rounded-xl shadow-xl shadow-black/10 dark:shadow-black/30 overflow-hidden transition-all duration-200 origin-top ${isMoreOpen ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
+                  <div className="py-1.5">
+                    <Link href="/privacy" className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">
+                      <Shield className="w-4 h-4" />Privacy Policy
+                    </Link>
+                    <Link href="/terms" className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">
+                      <FileText className="w-4 h-4" />Terms of Service
+                    </Link>
+                    <Link href="/security" className="flex items-center gap-2.5 px-4 py-2.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">
+                      <Lock className="w-4 h-4" />Security
+                    </Link>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Right Side */}
-            <div className="hidden md:flex items-center gap-2.5">
+            <div className="hidden lg:flex items-center gap-2.5">
               <button
                 onClick={toggleMode}
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 dark:text-[#A8A29E] hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all"
@@ -247,7 +261,7 @@ export default function LandingPage() {
             </div>
 
             {/* Mobile */}
-            <div className="flex md:hidden items-center gap-1.5">
+            <div className="flex lg:hidden items-center gap-1.5">
               <button
                 onClick={toggleMode}
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 dark:text-[#A8A29E] hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all"
@@ -266,15 +280,20 @@ export default function LandingPage() {
 
         {/* Mobile Menu */}
         <div
-          className={`md:hidden bg-white/90 dark:bg-[#1A1915]/90 backdrop-blur-xl border-t border-slate-200/50 dark:border-white/[0.06] overflow-hidden transition-all duration-300 ${
-            isMenuOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
+          className={`lg:hidden bg-white/90 dark:bg-[#1A1915]/90 backdrop-blur-xl border-t border-slate-200/50 dark:border-white/[0.06] overflow-hidden transition-all duration-300 ${
+            isMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
           }`}
         >
           <div className="px-4 py-4 space-y-1">
-            <a href="#features" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04]">Features</a>
-            <a href="#how-it-works" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04]">How it Works</a>
-            <Link href="/pricing" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04]">Pricing</Link>
-            <Link href="/blog" onClick={() => setIsMenuOpen(false)} className="block px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04]">Blog</Link>
+            <Link href="/pricing" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><CreditCard className="w-[18px] h-[18px]" />Pricing</Link>
+            <Link href="/about" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><Info className="w-[18px] h-[18px]" />About</Link>
+            <Link href="/blog" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><BookOpen className="w-[18px] h-[18px]" />Blog</Link>
+            <Link href="/contact" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><Mail className="w-[18px] h-[18px]" />Contact</Link>
+            <hr className="border-slate-200/60 dark:border-white/[0.06] my-2" />
+            <p className="px-3 pt-1 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-[#5C5752]">Legal</p>
+            <Link href="/privacy" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><Shield className="w-[18px] h-[18px]" />Privacy Policy</Link>
+            <Link href="/terms" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><FileText className="w-[18px] h-[18px]" />Terms of Service</Link>
+            <Link href="/security" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><Lock className="w-[18px] h-[18px]" />Security</Link>
             <hr className="border-slate-200/60 dark:border-white/[0.06] my-2" />
             <button onClick={toggleMode} className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] w-full">
               {mode === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
@@ -923,50 +942,10 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="relative z-10 bg-slate-50 dark:bg-[#232220]/50 pt-16 pb-8 border-t border-slate-200 dark:border-[#2D2B28]">
+      <footer className="relative z-10 bg-slate-50 dark:bg-[#232220]/50 py-8 border-t border-slate-200 dark:border-[#2D2B28]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 mb-12">
-            <div className="col-span-2 lg:col-span-2">
-              <div className="flex items-center gap-2 mb-5">
-                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center">
-                  <Sparkles className="w-3.5 h-3.5 text-white" />
-                </div>
-                <BrandName className="text-lg" />
-              </div>
-              <p className="text-slate-500 dark:text-[#A8A29E] text-xs leading-relaxed max-w-xs mb-5">
-                AI-powered accounting for the modern business. We make bookkeeping as easy as sending a text.
-              </p>
-            </div>
-
-            <div>
-              <h4 className="font-bold text-slate-900 dark:text-white mb-5 text-sm">Product</h4>
-              <ul className="space-y-3 text-xs text-slate-600 dark:text-[#A8A29E]">
-                <li><a href="#features" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Features</a></li>
-                <li><Link href="/pricing" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Pricing</Link></li>
-                <li><a href="#how-it-works" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">How it Works</a></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-bold text-slate-900 dark:text-white mb-5 text-sm">Company</h4>
-              <ul className="space-y-3 text-xs text-slate-600 dark:text-[#A8A29E]">
-                <li><Link href="/about" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">About</Link></li>
-                <li><Link href="/blog" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Blog</Link></li>
-                <li><Link href="/contact" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Contact</Link></li>
-              </ul>
-            </div>
-
-            <div>
-              <h4 className="font-bold text-slate-900 dark:text-white mb-5 text-sm">Legal</h4>
-              <ul className="space-y-3 text-xs text-slate-600 dark:text-[#A8A29E]">
-                <li><Link href="/privacy" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Privacy Policy</Link></li>
-                <li><Link href="/terms" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Terms of Service</Link></li>
-                <li><Link href="/security" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Security</Link></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="pt-6 border-t border-slate-200 dark:border-[#2D2B28] flex flex-col md:flex-row justify-between items-center gap-3">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-3">
+            <FlowBooksLogo size="xs" />
             <p className="text-slate-500 dark:text-[#A8A29E] text-xs">
               &copy; {new Date().getFullYear()} Flowbooks Inc. All rights reserved.
             </p>

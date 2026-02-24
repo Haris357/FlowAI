@@ -27,10 +27,12 @@ import {
   Tag,
   CheckCircle,
   AlertCircle,
+  Sparkles,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { createPost } from '@/services/blog';
+import { adminFetch } from '@/lib/admin-fetch';
 import { serverTimestamp } from 'firebase/firestore';
 
 const CATEGORIES = ['News', 'Updates', 'Guides', 'Tips', 'Engineering'];
@@ -66,6 +68,43 @@ export default function AdminNewBlogPage() {
   const [saving, setSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [toast, setToast] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiTone, setAiTone] = useState('professional yet approachable');
+  const [aiLength, setAiLength] = useState('medium');
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+
+  const handleAiGenerate = async () => {
+    if (!aiTopic.trim()) {
+      setToast({ type: 'error', message: 'Enter a topic for AI generation.' });
+      return;
+    }
+    setAiGenerating(true);
+    setToast(null);
+    try {
+      const res = await adminFetch('/api/admin/blogs/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: aiTopic, category, tone: aiTone, length: aiLength }),
+      });
+      const data = await res.json();
+      if (data.error) {
+        setToast({ type: 'error', message: data.error });
+        return;
+      }
+      const g = data.generated;
+      if (g.title) { setTitle(g.title); setSlug(generateSlug(g.title)); }
+      if (g.excerpt) setExcerpt(g.excerpt);
+      if (g.content) setContent(g.content);
+      if (g.tags?.length) setTagsInput(g.tags.join(', '));
+      setToast({ type: 'success', message: 'AI content generated! Review and edit as needed.' });
+      setShowAiPanel(false);
+    } catch {
+      setToast({ type: 'error', message: 'AI generation failed. Please try again.' });
+    } finally {
+      setAiGenerating(false);
+    }
+  };
 
   const handleTitleChange = (value: string) => {
     setTitle(value);
@@ -104,11 +143,11 @@ export default function AdminNewBlogPage() {
         slug: slug.trim(),
         excerpt: excerpt.trim(),
         content: content.trim(),
-        coverImage: coverImage.trim() || undefined,
+        coverImage: coverImage.trim() || '',
         author: {
           name: user?.displayName || user?.email || 'Admin',
           email: user?.email || '',
-          avatar: user?.photoURL || undefined,
+          avatar: user?.photoURL || '',
         },
         category,
         tags,
@@ -153,6 +192,14 @@ export default function AdminNewBlogPage() {
           </Box>
           <Stack direction="row" spacing={1.5}>
             <Button
+              variant="soft"
+              color="primary"
+              startDecorator={<Sparkles size={14} />}
+              onClick={() => setShowAiPanel(!showAiPanel)}
+            >
+              {showAiPanel ? 'Hide AI' : 'Generate with AI'}
+            </Button>
+            <Button
               variant="outlined"
               color="neutral"
               startDecorator={<Eye size={14} />}
@@ -191,6 +238,77 @@ export default function AdminNewBlogPage() {
           >
             {toast.message}
           </Alert>
+        )}
+
+        {/* AI Generation Panel */}
+        {showAiPanel && (
+          <Card variant="outlined" sx={{ borderColor: 'primary.200', bgcolor: 'primary.50' }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Stack spacing={2}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Sparkles size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />
+                  <Typography level="title-sm" fontWeight={700}>
+                    Generate with AI
+                  </Typography>
+                </Stack>
+
+                <FormControl>
+                  <FormLabel>Topic / Title Idea</FormLabel>
+                  <Input
+                    placeholder="e.g. How AI is transforming small business accounting"
+                    value={aiTopic}
+                    onChange={(e) => setAiTopic(e.target.value)}
+                  />
+                </FormControl>
+
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                  <FormControl sx={{ flex: 1 }}>
+                    <FormLabel>Tone</FormLabel>
+                    <Select
+                      value={aiTone}
+                      onChange={(_, val) => val && setAiTone(val)}
+                    >
+                      <Option value="professional yet approachable">Professional & Approachable</Option>
+                      <Option value="casual and friendly">Casual & Friendly</Option>
+                      <Option value="formal and authoritative">Formal & Authoritative</Option>
+                      <Option value="educational and helpful">Educational & Helpful</Option>
+                    </Select>
+                  </FormControl>
+                  <FormControl sx={{ flex: 1 }}>
+                    <FormLabel>Length</FormLabel>
+                    <Select
+                      value={aiLength}
+                      onChange={(_, val) => val && setAiLength(val)}
+                    >
+                      <Option value="short">Short (~500 words)</Option>
+                      <Option value="medium">Medium (~1000 words)</Option>
+                      <Option value="long">Long (~1500 words)</Option>
+                    </Select>
+                  </FormControl>
+                </Stack>
+
+                <Stack direction="row" spacing={1.5} justifyContent="flex-end">
+                  <Button
+                    variant="plain"
+                    color="neutral"
+                    size="sm"
+                    onClick={() => setShowAiPanel(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    color="primary"
+                    size="sm"
+                    startDecorator={<Sparkles size={14} />}
+                    onClick={handleAiGenerate}
+                    loading={aiGenerating}
+                  >
+                    Generate Content
+                  </Button>
+                </Stack>
+              </Stack>
+            </CardContent>
+          </Card>
         )}
 
         {/* Content */}

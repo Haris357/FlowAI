@@ -41,7 +41,6 @@ import { RichResponse, ActionButton } from '@/lib/ai-config';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChat } from '@/contexts/ChatContext';
-import AnimatedLogo from './AnimatedLogo';
 import ChatDataGrid from './ChatDataGrid';
 import ChatActionButtons from './ChatActionButtons';
 import EntityDetailModal from './EntityDetailModal';
@@ -77,12 +76,12 @@ function RichText({ content }: { content: string }) {
 
   return (
     <Typography
-      level="body-sm"
+      level="body-md"
       component="div"
       sx={{
         whiteSpace: 'pre-wrap',
         wordBreak: 'break-word',
-        lineHeight: 1.55,
+        lineHeight: 1.6,
         color: 'text.primary',
         '& strong': {
           fontWeight: 600,
@@ -1083,16 +1082,16 @@ export default function ChatMessage({
                   bgcolor: '#D97757',
                   color: '#fff',
                   borderRadius: '16px 16px 4px 16px',
-                  px: 2,
-                  py: 1,
+                  px: 2.5,
+                  py: 1.25,
                 }}
               >
                 <Typography
-                  level="body-sm"
+                  level="body-md"
                   sx={{
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
-                    lineHeight: 1.5,
+                    lineHeight: 1.6,
                     color: 'inherit',
                   }}
                 >
@@ -1102,20 +1101,8 @@ export default function ChatMessage({
             </Box>
           </Stack>
         ) : (
-          /* ===== AI MESSAGE — Claude-style clean layout ===== */
-          <Stack direction="row" spacing={1.5} alignItems="flex-start">
-            <Box sx={{ flexShrink: 0, width: 28, height: 28, mt: 0.25 }}>
-              <AnimatedLogo size="sm" />
-            </Box>
-            <Box sx={{ flex: 1, minWidth: 0 }}>
-              {showTimestamp && (
-                <Stack direction="row" alignItems="center" spacing={0.75} sx={{ mb: 0.5 }}>
-                  <Typography level="body-xs" fontWeight={700} sx={{ color: 'text.primary' }}>Flow AI</Typography>
-                  <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '11px' }}>
-                    {format(timestamp, 'h:mm a')}
-                  </Typography>
-                </Stack>
-              )}
+          /* ===== AI MESSAGE — Clean layout, no avatar (shown once below) ===== */
+          <Box>
               <Box sx={{ position: 'relative' }}>
               {/* Main message text + inline suggestion buttons */}
               {message.content && (() => {
@@ -1358,9 +1345,9 @@ export default function ChatMessage({
                   }}
                 >
                   {copied ? (
-                    <Check size={14} style={{ color: 'var(--joy-palette-primary-500)' }} />
+                    <Check size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />
                   ) : (
-                    <Copy size={14} style={{ color: 'var(--joy-palette-text-tertiary)' }} />
+                    <Copy size={16} style={{ color: 'var(--joy-palette-text-tertiary)' }} />
                   )}
                 </Box>
                 <Box
@@ -1375,7 +1362,7 @@ export default function ChatMessage({
                   }}
                 >
                   <ThumbsUp
-                    size={14}
+                    size={16}
                     fill={feedback === 'like' ? 'var(--joy-palette-success-500)' : 'none'}
                     style={{ color: feedback === 'like' ? 'var(--joy-palette-success-500)' : 'var(--joy-palette-text-tertiary)' }}
                   />
@@ -1392,14 +1379,13 @@ export default function ChatMessage({
                   }}
                 >
                   <ThumbsDown
-                    size={14}
+                    size={16}
                     fill={feedback === 'dislike' ? 'var(--joy-palette-danger-500)' : 'none'}
                     style={{ color: feedback === 'dislike' ? 'var(--joy-palette-danger-500)' : 'var(--joy-palette-text-tertiary)' }}
                   />
                 </Box>
               </Stack>
-            </Box>
-          </Stack>
+          </Box>
         )}
       </Box>
 
@@ -1462,29 +1448,3 @@ export default function ChatMessage({
   );
 }
 
-// Typing indicator component
-export function TypingIndicator() {
-  return (
-    <Box sx={{ maxWidth: 768, mx: 'auto', px: { xs: 1.5, sm: 2.5 }, py: 0.5 }}>
-      <Stack direction="row" spacing={1.5} alignItems="flex-start">
-        <Box sx={{ flexShrink: 0, width: 28, height: 28, mt: 0.25 }}>
-          <AnimatedLogo size="sm" isResponding />
-        </Box>
-        <Box>
-          <Typography level="body-xs" fontWeight={700} sx={{ color: 'text.primary', mb: 0.75 }}>Flow AI</Typography>
-          <Stack spacing={0.75} sx={{ minWidth: 140 }}>
-            {[85, 60, 40].map((w, i) => (
-              <Box key={i} sx={{
-                height: 6, borderRadius: 3, width: `${w}%`,
-                background: 'linear-gradient(90deg, var(--joy-palette-neutral-200) 25%, var(--joy-palette-neutral-100) 50%, var(--joy-palette-neutral-200) 75%)',
-                backgroundSize: '200% 100%',
-                animation: `shimmer 1.5s ease-in-out ${i * 0.15}s infinite`,
-                '@keyframes shimmer': { '0%': { backgroundPosition: '200% 0' }, '100%': { backgroundPosition: '-200% 0' } },
-              }} />
-            ))}
-          </Stack>
-        </Box>
-      </Stack>
-    </Box>
-  );
-}

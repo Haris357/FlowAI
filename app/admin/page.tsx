@@ -9,6 +9,8 @@ import {
 } from 'lucide-react';
 import StatCard from '@/components/admin/StatCard';
 import { useRouter } from 'next/navigation';
+import { PLANS } from '@/lib/plans';
+import { adminFetch } from '@/lib/admin-fetch';
 
 interface AdminStats {
   totalUsers: number;
@@ -27,7 +29,7 @@ export default function AdminDashboard() {
   const router = useRouter();
 
   useEffect(() => {
-    fetch('/api/admin/stats')
+    adminFetch('/api/admin/stats')
       .then(res => res.json())
       .then(setStats)
       .catch(console.error)
@@ -36,7 +38,7 @@ export default function AdminDashboard() {
 
   const dist = stats?.planDistribution || { free: 0, pro: 0, max: 0 };
   const total = dist.free + dist.pro + dist.max;
-  const revenue = (dist.pro * 29.99) + (dist.max * 99.99);
+  const revenue = (dist.pro * PLANS.pro.price) + (dist.max * PLANS.max.price);
   const paidUsers = dist.pro + dist.max;
 
   const formatDate = (ts: any) => {

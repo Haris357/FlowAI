@@ -1,14 +1,19 @@
 import { NextResponse } from 'next/server';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
 import { sendEmail } from '@/lib/email';
 import { getEmailTemplate } from '@/lib/email-templates';
+import { PLANS } from '@/lib/plans';
+import { verifyAdminRequest } from '@/lib/admin-server';
 
 initAdmin();
 const db = getFirestore();
 
 export async function POST(req: Request, { params }: { params: Promise<{ userId: string }> }) {
   try {
+    const authResult = await verifyAdminRequest(req);
+    if (!authResult.authorized) return authResult.response;
+
     const { userId } = await params;
     const { planId } = await req.json();
 
@@ -16,43 +21,53 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
       return NextResponse.json({ error: 'Invalid plan ID' }, { status: 400 });
     }
 
-    const subRef = db.collection('users').doc(userId).collection('subscription').doc('current');
-    const now = new Date();
+    // Fetch user to get current plan and email
+    const userDoc = await db.collection('users').doc(userId).get();
+    const userData = userDoc.data();
+    if (!userData) {
+      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+    }
 
-    await subRef.set({
-      planId,
-      status: 'active',
-      lemonSqueezyCustomerId: null,
-      lemonSqueezySubscriptionId: null,
-      lemonSqueezyVariantId: null,
-      currentPeriodStart: now,
-      currentPeriodEnd: new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()),
-      cancelAt: null,
-      updatedAt: now,
-      adminOverride: true,
-    }, { merge: true });
+    const previousPlanId = userData.subscription?.planId || 'free';
+    const previousPlanLabel = PLANS[previousPlanId as keyof typeof PLANS]?.name || 'Free';
+    const newPlanLabel = PLANS[planId as keyof typeof PLANS]?.name || planId.charAt(0).toUpperCase() + planId.slice(1);
 
-    const planLabel = planId.charAt(0).toUpperCase() + planId.slice(1);
+    const now = Timestamp.now();
 
-    // Create notification
+    // Update subscription as a field on the user document (not subcollection)
+    await db.collection('users').doc(userId).update({
+      subscription: {
+        planId,
+        status: 'active',
+        lemonSqueezyCustomerId: userData.subscription?.lemonSqueezyCustomerId || null,
+        lemonSqueezySubscriptionId: userData.subscription?.lemonSqueezySubscriptionId || null,
+        lemonSqueezyVariantId: userData.subscription?.lemonSqueezyVariantId || null,
+        currentPeriodStart: now,
+        currentPeriodEnd: Timestamp.fromDate(new Date(new Date().getFullYear(), new Date().getMonth() + 1, new Date().getDate())),
+        cancelAt: null,
+        updatedAt: now,
+        adminOverride: true,
+      },
+    });
+
+    // Create in-app notification
     await db.collection('users').doc(userId).collection('notifications').doc().set({
       type: 'success',
       title: 'Plan Updated',
-      message: `Your plan has been changed to ${planLabel} by the admin team.`,
+      message: `Your plan has been changed from ${previousPlanLabel} to ${newPlanLabel} by the admin team.`,
       read: false,
       category: 'subscription',
       actionUrl: '/settings?section=subscription',
-      createdAt: now,
+      createdAt: new Date(),
     });
 
     // Send email notification
     try {
-      const userDoc = await db.collection('users').doc(userId).get();
-      const userData = userDoc.data();
-      if (userData?.email) {
+      if (userData.email) {
         const template = getEmailTemplate('plan_changed', {
           userName: userData.name || userData.email.split('@')[0],
-          planName: planLabel,
+          planName: newPlanLabel,
+          previousPlan: previousPlanLabel,
         });
         await sendEmail(userData.email, template.subject, template.html);
       }

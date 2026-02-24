@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
+import { verifyAdminRequest } from '@/lib/admin-server';
 
 initAdmin();
 const db = getFirestore();
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
+    const authResult = await verifyAdminRequest(req);
+    if (!authResult.authorized) return authResult.response;
+
     // Parallel fetch all counts
     const [usersSnap, ticketsSnap, feedbackSnap, companiesSnap] = await Promise.all([
       db.collection('users').count().get(),

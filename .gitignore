@@ -22,6 +22,7 @@
 .env.development.local
 .env.test.local
 .env.production.local
+.env.production
 
 # debug / logs
 npm-debug.log*
@@ -52,8 +53,9 @@ Desktop.ini
 *.tsbuildinfo
 next-env.d.ts
 
-# vercel
+# vercel / cloudflare
 .vercel
+.wrangler
 
 # firebase
 .firebase/

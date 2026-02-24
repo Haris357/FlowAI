@@ -6,7 +6,6 @@ import {
   CardContent,
   Typography,
   Stack,
-  Container,
   Input,
   Select,
   Option,
@@ -16,11 +15,6 @@ import {
   FormControl,
   FormLabel,
   FormHelperText,
-  Avatar,
-  Tabs,
-  TabList,
-  Tab,
-  TabPanel,
   IconButton,
   Modal,
   ModalDialog,
@@ -34,21 +28,20 @@ import {
   AccordionGroup,
   Textarea,
   Skeleton,
+  Autocomplete,
+  Grid,
+  Tooltip,
 } from '@mui/joy';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { countries } from '@/lib/countries';
 import { LoadingSpinner, ConfirmDialog, DangerousConfirmDialog, PageBreadcrumbs } from '@/components/common';
 import {
   Building2,
-  User,
-  CreditCard,
-  Bell,
-  Shield,
   Save,
-  LogOut,
   Settings2,
   Plus,
   Pencil,
@@ -56,12 +49,16 @@ import {
   RotateCcw,
   ChevronDown,
   FileText,
-  Receipt,
   AlertTriangle,
-  Sliders,
+  Globe,
+  Layers,
+  Calendar,
+  Hash,
+  ChevronLeft,
+  ChevronRight,
+  Palette,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { useSettings } from '@/hooks';
 import {
   getCompanySettings,
   addSettingOption,
@@ -76,80 +73,135 @@ import { getAccountPreferences, updateAccountPreferences } from '@/services/pref
 import { getAccounts } from '@/services/accounts';
 import { Account, AccountPreferences } from '@/types';
 
-const CURRENCIES = [
-  { code: 'USD', name: 'US Dollar', symbol: '$' },
-  { code: 'EUR', name: 'Euro', symbol: '€' },
-  { code: 'GBP', name: 'British Pound', symbol: '£' },
-  { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
-  { code: 'PKR', name: 'Pakistani Rupee', symbol: 'Rs' },
-  { code: 'AED', name: 'UAE Dirham', symbol: 'د.إ' },
-  { code: 'SAR', name: 'Saudi Riyal', symbol: '﷼' },
-  { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
-  { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
-  { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$' },
-  { code: 'MYR', name: 'Malaysian Ringgit', symbol: 'RM' },
-  { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
-  { code: 'CNY', name: 'Chinese Yuan', symbol: '¥' },
+// ─── Derived constants ───
+const BUSINESS_TYPES = ALL_SETTINGS.find(s => s.code === 'business_type')?.options.map(o => o.label) || [
+  'Freelancer', 'Consulting', 'Retail', 'Manufacturing', 'Services',
+  'Technology', 'Construction', 'Healthcare', 'Education', 'Hospitality',
+  'Real Estate', 'Restaurant', 'E-Commerce', 'Agency', 'Other',
 ];
 
+const CURRENCY_OPTIONS = Array.from(
+  new Map(
+    countries.map(c => [c.currency, { code: c.currency, name: c.currencyName, symbol: c.currencySymbol }])
+  ).values()
+).sort((a, b) => a.code.localeCompare(b.code));
+
 const FISCAL_YEAR_STARTS = [
-  { value: 1, label: 'January' },
-  { value: 2, label: 'February' },
-  { value: 3, label: 'March' },
-  { value: 4, label: 'April' },
-  { value: 5, label: 'May' },
-  { value: 6, label: 'June' },
-  { value: 7, label: 'July' },
-  { value: 8, label: 'August' },
-  { value: 9, label: 'September' },
-  { value: 10, label: 'October' },
-  { value: 11, label: 'November' },
-  { value: 12, label: 'December' },
+  { value: 1, label: 'January' }, { value: 2, label: 'February' }, { value: 3, label: 'March' },
+  { value: 4, label: 'April' }, { value: 5, label: 'May' }, { value: 6, label: 'June' },
+  { value: 7, label: 'July' }, { value: 8, label: 'August' }, { value: 9, label: 'September' },
+  { value: 10, label: 'October' }, { value: 11, label: 'November' }, { value: 12, label: 'December' },
 ];
 
 const PAYMENT_TERMS = [
-  { value: 0, label: 'Due on Receipt' },
-  { value: 7, label: 'Net 7' },
-  { value: 15, label: 'Net 15' },
-  { value: 30, label: 'Net 30' },
-  { value: 45, label: 'Net 45' },
-  { value: 60, label: 'Net 60' },
+  { value: 0, label: 'Due on Receipt' }, { value: 7, label: 'Net 7' }, { value: 15, label: 'Net 15' },
+  { value: 30, label: 'Net 30' }, { value: 45, label: 'Net 45' }, { value: 60, label: 'Net 60' },
   { value: 90, label: 'Net 90' },
 ];
 
+// ─── Sidebar nav config (same pattern as ReportsSidebar) ───
+type SettingsSection = 'general' | 'documents' | 'accounts' | 'customization' | 'danger';
+
+interface SettingsNavItem {
+  id: SettingsSection;
+  name: string;
+  icon: React.ElementType;
+}
+
+interface SettingsNavCategory {
+  name: string;
+  items: SettingsNavItem[];
+}
+
+const settingsCategories: SettingsNavCategory[] = [
+  {
+    name: 'Company',
+    items: [
+      { id: 'general', name: 'General', icon: Building2 },
+      { id: 'documents', name: 'Documents', icon: FileText },
+      { id: 'accounts', name: 'Account Defaults', icon: Layers },
+    ],
+  },
+  {
+    name: 'Advanced',
+    items: [
+      { id: 'customization', name: 'Customization', icon: Settings2 },
+      { id: 'danger', name: 'Danger Zone', icon: AlertTriangle },
+    ],
+  },
+];
+
+// ─── Section header card ───
+function SectionCard({ icon, title, description, children }: {
+  icon: React.ReactNode; title: string; description?: string; children: React.ReactNode;
+}) {
+  return (
+    <Card variant="outlined" sx={{ borderRadius: 'lg' }}>
+      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
+          <Box sx={{
+            width: 36, height: 36, borderRadius: 'md', display: 'flex', alignItems: 'center',
+            justifyContent: 'center', bgcolor: 'primary.softBg', color: 'primary.500', flexShrink: 0,
+          }}>
+            {icon}
+          </Box>
+          <Box>
+            <Typography level="title-md" fontWeight={600}>{title}</Typography>
+            {description && (
+              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>{description}</Typography>
+            )}
+          </Box>
+        </Stack>
+        {children}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function SettingsPage() {
-  const { user, loading: authLoading, signOut } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const { company, loading: companyLoading } = useCompany();
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState(0);
+  const [activeSection, setActiveSection] = useState<SettingsSection>('general');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  // Company settings state
+  // ─── General settings state ───
   const [companyName, setCompanyName] = useState('');
+  const [businessType, setBusinessType] = useState('');
+  const [country, setCountry] = useState('US');
   const [currency, setCurrency] = useState('USD');
+  const [description, setDescription] = useState('');
   const [fiscalYearStart, setFiscalYearStart] = useState(1);
   const [hasInventory, setHasInventory] = useState(false);
   const [hasEmployees, setHasEmployees] = useState(false);
+  const [enableTax, setEnableTax] = useState(true);
+  const [showDecimalPlaces, setShowDecimalPlaces] = useState(2);
+  const [dateFormat, setDateFormat] = useState('MM/dd/yyyy');
 
-  // Invoice settings state
+  // ─── Document settings state ───
   const [invoicePrefix, setInvoicePrefix] = useState('INV');
   const [invoiceNextNumber, setInvoiceNextNumber] = useState(1);
   const [invoiceDefaultTerms, setInvoiceDefaultTerms] = useState(30);
   const [invoiceDefaultTaxRate, setInvoiceDefaultTaxRate] = useState(0);
   const [invoiceNotes, setInvoiceNotes] = useState('');
   const [invoiceFooter, setInvoiceFooter] = useState('');
-
-  // Bill settings state
   const [billPrefix, setBillPrefix] = useState('BILL');
   const [billNextNumber, setBillNextNumber] = useState(1);
   const [billDefaultTerms, setBillDefaultTerms] = useState(30);
 
-  // Preferences state
-  const [enableTax, setEnableTax] = useState(true);
-  const [showDecimalPlaces, setShowDecimalPlaces] = useState(2);
-  const [dateFormat, setDateFormat] = useState('MM/dd/yyyy');
+  // ─── Invoice appearance state ───
+  const [invoiceTemplate, setInvoiceTemplate] = useState<'classic' | 'modern' | 'minimal'>('classic');
+  const [invoiceColorTheme, setInvoiceColorTheme] = useState('#D97757');
+  const [invoiceShowCompanyName, setInvoiceShowCompanyName] = useState(true);
+  const [invoiceShowCompanyAddress, setInvoiceShowCompanyAddress] = useState(true);
+  const [invoiceShowCompanyEmail, setInvoiceShowCompanyEmail] = useState(true);
+  const [invoiceShowCompanyPhone, setInvoiceShowCompanyPhone] = useState(true);
+  const [invoiceShowTaxId, setInvoiceShowTaxId] = useState(true);
+  const [invoiceShowFooter, setInvoiceShowFooter] = useState(true);
+  const [invoiceShowPoweredBy, setInvoiceShowPoweredBy] = useState(true);
 
-  // Custom options state
+  // ─── Custom options state ───
   const [customSettings, setCustomSettings] = useState<CompanySetting[]>([]);
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -161,64 +213,69 @@ export default function SettingsPage() {
   const [newOptionColor, setNewOptionColor] = useState('');
   const [savingOption, setSavingOption] = useState(false);
 
-  // Confirm dialog state
+  // ─── Confirm dialog state ───
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [resetConfirmOpen, setResetConfirmOpen] = useState(false);
   const [pendingDeleteOption, setPendingDeleteOption] = useState<{ categoryCode: string; optionCode: string } | null>(null);
   const [pendingResetCategory, setPendingResetCategory] = useState<string | null>(null);
 
-  // Validation state
+  // ─── Validation state ───
   const [labelError, setLabelError] = useState('');
   const [codeError, setCodeError] = useState('');
-  const [validatingCode, setValidatingCode] = useState(false);
 
-  // Account preferences state
+  // ─── Account preferences state ───
   const [accountPreferences, setAccountPreferences] = useState<AccountPreferences>({});
   const [allAccounts, setAllAccounts] = useState<Account[]>([]);
   const [loadingPreferences, setLoadingPreferences] = useState(true);
   const [savingPreferences, setSavingPreferences] = useState(false);
 
-  // Delete company data state
+  // ─── Delete company data state ───
   const [deleteDataConfirmOpen, setDeleteDataConfirmOpen] = useState(false);
   const [deletingData, setDeletingData] = useState(false);
   const [dataCounts, setDataCounts] = useState<Record<string, number> | null>(null);
   const [loadingCounts, setLoadingCounts] = useState(false);
 
+  // ─── Auth redirect ───
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.push('/login');
-    }
+    if (!authLoading && !user) router.push('/login');
   }, [user, authLoading, router]);
 
+  // ─── Load company data into state ───
   useEffect(() => {
     if (company) {
       setCompanyName(company.name || '');
+      setBusinessType(company.businessType || '');
+      setCountry(company.country || 'US');
       setCurrency(company.currency || 'USD');
+      setDescription(company.description || '');
       setFiscalYearStart(company.fiscalYearStart || 1);
       setHasInventory(company.hasInventory || false);
       setHasEmployees(company.hasEmployees || false);
-
-      // Invoice settings
+      setEnableTax(company.enableTax ?? true);
+      setShowDecimalPlaces(company.showDecimalPlaces ?? 2);
+      setDateFormat(company.dateFormat || 'MM/dd/yyyy');
       setInvoicePrefix(company.invoicePrefix || 'INV');
       setInvoiceNextNumber(company.invoiceNextNumber || 1);
       setInvoiceDefaultTerms(company.invoiceDefaultTerms ?? 30);
       setInvoiceDefaultTaxRate(company.invoiceDefaultTaxRate ?? 0);
       setInvoiceNotes(company.invoiceNotes || '');
       setInvoiceFooter(company.invoiceFooter || '');
-
-      // Bill settings
       setBillPrefix(company.billPrefix || 'BILL');
       setBillNextNumber(company.billNextNumber || 1);
       setBillDefaultTerms(company.billDefaultTerms ?? 30);
-
-      // Preferences
-      setEnableTax(company.enableTax ?? true);
-      setShowDecimalPlaces(company.showDecimalPlaces ?? 2);
-      setDateFormat(company.dateFormat || 'MM/dd/yyyy');
+      setInvoiceTemplate(company.invoiceTemplate || 'classic');
+      setInvoiceColorTheme(company.invoiceColorTheme || '#D97757');
+      setInvoiceShowCompanyName(company.invoiceShowCompanyName ?? true);
+      setInvoiceShowCompanyAddress(company.invoiceShowCompanyAddress ?? true);
+      setInvoiceShowCompanyEmail(company.invoiceShowCompanyEmail ?? true);
+      setInvoiceShowCompanyPhone(company.invoiceShowCompanyPhone ?? true);
+      setInvoiceShowTaxId(company.invoiceShowTaxId ?? true);
+      setInvoiceShowFooter(company.invoiceShowFooter ?? true);
+      setInvoiceShowPoweredBy(company.invoiceShowPoweredBy ?? true);
     }
   }, [company]);
 
-  // Load account preferences and accounts
+  // ─── Load account preferences ───
   useEffect(() => {
     async function loadPreferences() {
       if (!company?.id) return;
@@ -238,7 +295,7 @@ export default function SettingsPage() {
     loadPreferences();
   }, [company?.id]);
 
-  // Load custom settings
+  // ─── Load custom settings ───
   useEffect(() => {
     async function loadCustomSettings() {
       if (!company?.id) return;
@@ -267,97 +324,56 @@ export default function SettingsPage() {
     }
   };
 
-  // Validation functions
+  // ─── Validation ───
   const validateLabel = (label: string): string => {
-    if (!label.trim()) {
-      return 'Label is required';
-    }
-    if (label.trim().length < 2) {
-      return 'Label must be at least 2 characters';
-    }
-    if (label.trim().length > 50) {
-      return 'Label must be less than 50 characters';
-    }
+    if (!label.trim()) return 'Label is required';
+    if (label.trim().length < 2) return 'Label must be at least 2 characters';
+    if (label.trim().length > 50) return 'Label must be less than 50 characters';
     return '';
   };
 
   const validateCode = (code: string, categoryCode: string | null): string => {
-    if (!code.trim()) {
-      return 'Code is required';
-    }
-
-    // Only allow lowercase letters, numbers, and underscores
+    if (!code.trim()) return 'Code is required';
     const codeRegex = /^[a-z][a-z0-9_]*$/;
-    if (!codeRegex.test(code)) {
-      return 'Code must start with a letter and contain only lowercase letters, numbers, and underscores';
-    }
-
-    if (code.length < 2) {
-      return 'Code must be at least 2 characters';
-    }
-
-    if (code.length > 30) {
-      return 'Code must be less than 30 characters';
-    }
-
-    // Check for uniqueness within the category
+    if (!codeRegex.test(code)) return 'Code must start with a letter and contain only lowercase letters, numbers, and underscores';
+    if (code.length < 2) return 'Code must be at least 2 characters';
+    if (code.length > 30) return 'Code must be less than 30 characters';
     if (categoryCode) {
       const category = customSettings.find(s => s.categoryCode === categoryCode);
-      if (category?.options?.some(opt => opt.code === code)) {
-        return 'This code already exists in this category';
-      }
+      if (category?.options?.some(opt => opt.code === code)) return 'This code already exists in this category';
     }
-
     return '';
   };
 
   const handleLabelChange = (value: string) => {
     setNewOptionLabel(value);
-    const error = validateLabel(value);
-    setLabelError(error);
+    setLabelError(validateLabel(value));
   };
 
   const handleCodeChange = (value: string) => {
-    // Auto-format: convert to lowercase and replace spaces with underscores
     const formattedValue = value.toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/g, '');
     setNewOptionCode(formattedValue);
-    const error = validateCode(formattedValue, selectedCategory);
-    setCodeError(error);
+    setCodeError(validateCode(formattedValue, selectedCategory));
   };
 
+  // ─── Custom option CRUD ───
   const handleAddOption = async () => {
-    // Validate all fields
     const labelErr = validateLabel(newOptionLabel);
     const codeErr = validateCode(newOptionCode, selectedCategory);
-
     setLabelError(labelErr);
     setCodeError(codeErr);
-
-    if (labelErr || codeErr) {
-      return;
-    }
-
-    if (!company?.id || !selectedCategory) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
+    if (labelErr || codeErr || !company?.id || !selectedCategory) return;
 
     setSavingOption(true);
     try {
       await addSettingOption(company.id, selectedCategory, {
-        code: newOptionCode,
-        label: newOptionLabel.trim(),
-        color: newOptionColor || undefined,
-        isActive: true,
-        isDefault: false,
+        code: newOptionCode, label: newOptionLabel.trim(),
+        color: newOptionColor || undefined, isActive: true, isDefault: false,
       });
       toast.success('Option added successfully');
       setAddModalOpen(false);
-      setNewOptionLabel('');
-      setNewOptionCode('');
-      setNewOptionColor('');
-      setLabelError('');
-      setCodeError('');
+      setNewOptionLabel(''); setNewOptionCode(''); setNewOptionColor('');
+      setLabelError(''); setCodeError('');
       await refreshSettings();
     } catch (error: any) {
       toast.error(error.message || 'Failed to add option');
@@ -368,25 +384,17 @@ export default function SettingsPage() {
 
   const handleUpdateOption = async () => {
     if (!company?.id || !selectedCategory || !selectedOption) return;
-
-    // Validate label
     const labelErr = validateLabel(newOptionLabel);
     setLabelError(labelErr);
-
-    if (labelErr) {
-      return;
-    }
+    if (labelErr) return;
 
     setSavingOption(true);
     try {
       await updateSettingOption(company.id, selectedCategory, selectedOption.code, {
-        label: newOptionLabel.trim(),
-        color: newOptionColor || selectedOption.color,
+        label: newOptionLabel.trim(), color: newOptionColor || selectedOption.color,
       });
       toast.success('Option updated successfully');
-      setEditModalOpen(false);
-      setSelectedOption(null);
-      setLabelError('');
+      setEditModalOpen(false); setSelectedOption(null); setLabelError('');
       await refreshSettings();
     } catch (error: any) {
       toast.error(error.message || 'Failed to update option');
@@ -397,7 +405,6 @@ export default function SettingsPage() {
 
   const handleDeleteOption = async () => {
     if (!company?.id || !pendingDeleteOption) return;
-
     setSavingOption(true);
     try {
       await deleteSettingOption(company.id, pendingDeleteOption.categoryCode, pendingDeleteOption.optionCode);
@@ -414,7 +421,6 @@ export default function SettingsPage() {
 
   const handleResetCategory = async () => {
     if (!company?.id || !pendingResetCategory) return;
-
     setSavingOption(true);
     try {
       await resetCategoryToDefaults(company.id, pendingResetCategory);
@@ -429,23 +435,10 @@ export default function SettingsPage() {
     }
   };
 
-  const openDeleteConfirm = (categoryCode: string, optionCode: string) => {
-    setPendingDeleteOption({ categoryCode, optionCode });
-    setDeleteConfirmOpen(true);
-  };
-
-  const openResetConfirm = (categoryCode: string) => {
-    setPendingResetCategory(categoryCode);
-    setResetConfirmOpen(true);
-  };
-
   const openAddModal = (categoryCode: string) => {
     setSelectedCategory(categoryCode);
-    setNewOptionLabel('');
-    setNewOptionCode('');
-    setNewOptionColor('');
-    setLabelError('');
-    setCodeError('');
+    setNewOptionLabel(''); setNewOptionCode(''); setNewOptionColor('');
+    setLabelError(''); setCodeError('');
     setAddModalOpen(true);
   };
 
@@ -458,21 +451,28 @@ export default function SettingsPage() {
     setEditModalOpen(true);
   };
 
-  const handleSaveCompanySettings = async () => {
+  // ─── Save handlers ───
+  const handleSaveGeneral = async () => {
     if (!company?.id) return;
+    if (!companyName.trim()) { toast.error('Company name is required'); return; }
 
     setSaving(true);
     try {
-      const companyRef = doc(db, 'companies', company.id);
-      await updateDoc(companyRef, {
-        name: companyName,
+      await updateDoc(doc(db, 'companies', company.id), {
+        name: companyName.trim(),
+        businessType,
+        country,
         currency,
+        description: description.trim(),
         fiscalYearStart,
+        enableTax,
+        showDecimalPlaces,
+        dateFormat,
         hasInventory,
         hasEmployees,
         updatedAt: new Date(),
       });
-      toast.success('Company settings saved');
+      toast.success('General settings saved');
     } catch (error) {
       console.error('Error saving settings:', error);
       toast.error('Failed to save settings');
@@ -481,67 +481,24 @@ export default function SettingsPage() {
     }
   };
 
-  const handleSaveInvoiceSettings = async () => {
+  const handleSaveDocuments = async () => {
     if (!company?.id) return;
-
     setSaving(true);
     try {
-      const companyRef = doc(db, 'companies', company.id);
-      await updateDoc(companyRef, {
-        invoicePrefix,
-        invoiceNextNumber,
-        invoiceDefaultTerms,
-        invoiceDefaultTaxRate,
-        invoiceNotes,
-        invoiceFooter,
+      await updateDoc(doc(db, 'companies', company.id), {
+        invoicePrefix, invoiceNextNumber, invoiceDefaultTerms,
+        invoiceDefaultTaxRate, invoiceNotes, invoiceFooter,
+        invoiceTemplate, invoiceColorTheme,
+        invoiceShowCompanyName, invoiceShowCompanyAddress,
+        invoiceShowCompanyEmail, invoiceShowCompanyPhone,
+        invoiceShowTaxId, invoiceShowFooter, invoiceShowPoweredBy,
+        billPrefix, billNextNumber, billDefaultTerms,
         updatedAt: new Date(),
       });
-      toast.success('Invoice settings saved');
+      toast.success('Document settings saved');
     } catch (error) {
       console.error('Error saving settings:', error);
       toast.error('Failed to save settings');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSaveBillSettings = async () => {
-    if (!company?.id) return;
-
-    setSaving(true);
-    try {
-      const companyRef = doc(db, 'companies', company.id);
-      await updateDoc(companyRef, {
-        billPrefix,
-        billNextNumber,
-        billDefaultTerms,
-        updatedAt: new Date(),
-      });
-      toast.success('Bill settings saved');
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      toast.error('Failed to save settings');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleSavePreferences = async () => {
-    if (!company?.id) return;
-
-    setSaving(true);
-    try {
-      const companyRef = doc(db, 'companies', company.id);
-      await updateDoc(companyRef, {
-        enableTax,
-        showDecimalPlaces,
-        dateFormat,
-        updatedAt: new Date(),
-      });
-      toast.success('Preferences saved');
-    } catch (error) {
-      console.error('Error saving preferences:', error);
-      toast.error('Failed to save preferences');
     } finally {
       setSaving(false);
     }
@@ -549,7 +506,6 @@ export default function SettingsPage() {
 
   const handleSaveAccountPreferences = async () => {
     if (!company?.id) return;
-
     setSavingPreferences(true);
     try {
       await updateAccountPreferences(company.id, accountPreferences);
@@ -572,30 +528,17 @@ export default function SettingsPage() {
     }));
   };
 
-  const getAccountsByType = (typeCode: string) => {
-    return allAccounts.filter(a => a.isActive && a.typeCode === typeCode);
-  };
+  const getAccountsByType = (typeCode: string) => allAccounts.filter(a => a.isActive && a.typeCode === typeCode);
 
-  const handleSignOut = async () => {
-    try {
-      await signOut();
-      router.push('/login');
-    } catch (error) {
-      console.error('Error signing out:', error);
-      toast.error('Failed to sign out');
-    }
-  };
-
+  // ─── Delete company data ───
   const handleOpenDeleteDataConfirm = async () => {
     if (!company?.id) return;
-
     setLoadingCounts(true);
     try {
       const counts = await getCompanyDataCounts(company.id);
       setDataCounts(counts);
     } catch (error) {
       console.error('Error loading data counts:', error);
-      // Still open dialog even if counts fail - show generic warning
       setDataCounts(null);
     } finally {
       setLoadingCounts(false);
@@ -605,16 +548,13 @@ export default function SettingsPage() {
 
   const handleDeleteCompanyData = async () => {
     if (!company?.id) return;
-
     setDeletingData(true);
     try {
       const result = await deleteCompanyData(company.id);
       if (result.success) {
         toast.success('All company data has been deleted successfully');
         setDeleteDataConfirmOpen(false);
-        // Refresh settings after deletion
         await refreshSettings();
-        // Force reload the page to refresh all data
         window.location.reload();
       }
     } catch (error: any) {
@@ -627,9 +567,7 @@ export default function SettingsPage() {
 
   const getWarningItems = (): string[] => {
     const items: string[] = [];
-
     if (dataCounts) {
-      // Show actual counts if available
       if (dataCounts.invoices > 0) items.push(`${dataCounts.invoices} invoice(s)`);
       if (dataCounts.bills > 0) items.push(`${dataCounts.bills} bill(s)`);
       if (dataCounts.customers > 0) items.push(`${dataCounts.customers} customer(s)`);
@@ -638,635 +576,662 @@ export default function SettingsPage() {
       if (dataCounts.transactions > 0) items.push(`${dataCounts.transactions} transaction(s)`);
       if (dataCounts.journalEntries > 0) items.push(`${dataCounts.journalEntries} journal entry(ies)`);
       if (dataCounts.salarySlips > 0) items.push(`${dataCounts.salarySlips} salary slip(s)`);
-      if (dataCounts.customAccounts && dataCounts.customAccounts > 0) {
-        items.push(`${dataCounts.customAccounts} custom account(s)`);
-      }
-      if (dataCounts.customSubtypes && dataCounts.customSubtypes > 0) {
-        items.push(`${dataCounts.customSubtypes} custom subtype(s)`);
-      }
+      if (dataCounts.customAccounts && dataCounts.customAccounts > 0) items.push(`${dataCounts.customAccounts} custom account(s)`);
+      if (dataCounts.customSubtypes && dataCounts.customSubtypes > 0) items.push(`${dataCounts.customSubtypes} custom subtype(s)`);
     } else {
-      // Show generic warnings if counts couldn't be loaded
-      items.push('All invoices');
-      items.push('All bills');
-      items.push('All customers');
-      items.push('All vendors');
-      items.push('All employees');
-      items.push('All transactions');
-      items.push('All journal entries');
-      items.push('All salary slips');
+      items.push('All invoices', 'All bills', 'All customers', 'All vendors',
+        'All employees', 'All transactions', 'All journal entries', 'All salary slips');
     }
-
     items.push('Chart of Accounts (will be reset to defaults with proper mappings)');
     items.push('All custom settings (will be reset to defaults)');
     items.push('Invoice/Bill numbering counters (will reset to 1)');
-
     return items;
   };
 
+  // ─── Loading / auth guards ───
   if (authLoading || companyLoading) {
     return (
-      <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Box sx={{ py: 4, px: { xs: 2, sm: 3 } }}>
         <LoadingSpinner message="Loading settings..." />
-      </Container>
+      </Box>
     );
   }
+  if (!user) return null;
 
-  if (!user) {
-    return null;
-  }
+  const selectedCountry = countries.find(c => c.code === country);
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
-      <Stack spacing={3}>
-        {/* Breadcrumbs */}
-        <PageBreadcrumbs
-          items={[
-            { label: 'Company Settings', icon: <Settings2 size={14} /> },
-          ]}
-        />
+    <Box sx={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
 
-        {/* Header */}
-        <Box>
-          <Typography level="h2" sx={{ mb: 0.5 }}>
-            Company Settings
-          </Typography>
-          <Typography level="body-md" sx={{ color: 'text.secondary' }}>
-            Manage your company settings and preferences.
-          </Typography>
+      {/* ─── Sidebar (matches ReportsSidebar pattern) ─── */}
+      <Box
+        sx={{
+          width: sidebarCollapsed ? 60 : 280,
+          minWidth: sidebarCollapsed ? 60 : 280,
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          bgcolor: 'background.surface',
+          borderRight: '1px solid',
+          borderColor: 'divider',
+          transition: 'width 0.2s ease, min-width 0.2s ease',
+          overflow: 'hidden',
+          position: 'sticky',
+          top: 0,
+        }}
+      >
+            {/* Header */}
+            <Stack
+              direction="row"
+              alignItems="center"
+              justifyContent={sidebarCollapsed ? 'center' : 'space-between'}
+              sx={{ px: sidebarCollapsed ? 1 : 2, py: 2, minHeight: 64 }}
+            >
+              {!sidebarCollapsed && (
+                <Stack direction="row" alignItems="center" spacing={1}>
+                  <Box sx={{
+                    width: 32, height: 32, borderRadius: 'sm',
+                    bgcolor: 'primary.softBg', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Settings2 size={18} style={{ color: 'var(--joy-palette-primary-600)' }} />
+                  </Box>
+                  <Typography level="title-md" fontWeight="lg">Settings</Typography>
+                </Stack>
+              )}
+              <Tooltip title={sidebarCollapsed ? 'Expand' : 'Collapse'} placement="right">
+                <IconButton size="sm" variant="plain" onClick={() => setSidebarCollapsed(!sidebarCollapsed)} sx={{ borderRadius: 'sm' }}>
+                  {sidebarCollapsed ? <ChevronRight size={18} /> : <ChevronLeft size={18} />}
+                </IconButton>
+              </Tooltip>
+            </Stack>
+
+            {/* Nav items */}
+            <Box sx={{ flex: 1, overflowY: 'auto', px: sidebarCollapsed ? 1 : 1.5, pb: 2 }}>
+              <Stack spacing={2.5}>
+                {settingsCategories.map((category) => (
+                  <Box key={category.name}>
+                    {!sidebarCollapsed && (
+                      <Typography
+                        level="body-xs"
+                        sx={{ color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: 1, mb: 1, px: 1 }}
+                      >
+                        {category.name}
+                      </Typography>
+                    )}
+                    <Stack spacing={0.5}>
+                      {category.items.map((item) => {
+                        const Icon = item.icon;
+                        const isActive = activeSection === item.id;
+                        const isDanger = item.id === 'danger';
+
+                        return (
+                          <Tooltip key={item.id} title={sidebarCollapsed ? item.name : ''} placement="right">
+                            <Box
+                              onClick={() => setActiveSection(item.id)}
+                              sx={{
+                                p: sidebarCollapsed ? 1 : 1.5,
+                                borderRadius: 'md',
+                                cursor: 'pointer',
+                                transition: 'all 0.15s',
+                                bgcolor: isActive
+                                  ? (isDanger ? 'danger.softBg' : 'primary.softBg')
+                                  : 'transparent',
+                                color: isActive
+                                  ? (isDanger ? 'danger.600' : 'primary.600')
+                                  : (isDanger ? 'danger.500' : 'text.primary'),
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: sidebarCollapsed ? 'center' : 'flex-start',
+                                gap: 1.5,
+                                '&:hover': {
+                                  bgcolor: isActive
+                                    ? (isDanger ? 'danger.softHoverBg' : 'primary.softHoverBg')
+                                    : 'neutral.softBg',
+                                },
+                              }}
+                            >
+                              <Icon size={sidebarCollapsed ? 20 : 18} />
+                              {!sidebarCollapsed && (
+                                <>
+                                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                                    <Typography
+                                      level="body-sm"
+                                      fontWeight={isActive ? 600 : 400}
+                                      sx={{
+                                        whiteSpace: 'nowrap',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        color: isDanger && !isActive ? 'danger.500' : undefined,
+                                      }}
+                                    >
+                                      {item.name}
+                                    </Typography>
+                                  </Box>
+                                  {isActive && <ChevronRight size={16} />}
+                                </>
+                              )}
+                            </Box>
+                          </Tooltip>
+                        );
+                      })}
+                    </Stack>
+                  </Box>
+                ))}
+              </Stack>
+            </Box>
+
+            {/* Footer count */}
+            {!sidebarCollapsed && (
+              <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between">
+                  <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Total Sections</Typography>
+                  <Chip size="sm" variant="soft" color="primary">
+                    {settingsCategories.reduce((sum, cat) => sum + cat.items.length, 0)}
+                  </Chip>
+                </Stack>
+              </Box>
+            )}
+          </Box>
+
+      {/* ─── Content area ─── */}
+      <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {/* Header bar */}
+        <Box sx={{ px: 4, pt: 3, pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+          <PageBreadcrumbs items={[{ label: 'Company Settings', icon: <Settings2 size={14} /> }]} />
         </Box>
 
-        {/* Settings Tabs */}
-        <Card>
-          <Tabs
-            value={activeTab}
-            onChange={(_, value) => setActiveTab(value as number)}
-            sx={{ bgcolor: 'transparent' }}
-          >
-            <TabList>
-              <Tab>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Building2 size={16} />
-                  <span>Company</span>
-                </Stack>
-              </Tab>
-              <Tab>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <FileText size={16} />
-                  <span>Invoices</span>
-                </Stack>
-              </Tab>
-              <Tab>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Receipt size={16} />
-                  <span>Bills</span>
-                </Stack>
-              </Tab>
-              <Tab>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Sliders size={16} />
-                  <span>Preferences</span>
-                </Stack>
-              </Tab>
-              <Tab>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <Settings2 size={16} />
-                  <span>Customization</span>
-                </Stack>
-              </Tab>
-              <Tab>
-                <Stack direction="row" spacing={1} alignItems="center">
-                  <AlertTriangle size={16} style={{ color: 'var(--joy-palette-danger-500)' }} />
-                  <span style={{ color: 'var(--joy-palette-danger-500)' }}>Danger Zone</span>
-                </Stack>
-              </Tab>
-            </TabList>
+        {/* Scrollable content */}
+        <Box sx={{ flex: 1, overflow: 'auto', px: 4, py: 3 }}>
 
-            {/* Company Settings */}
-            <TabPanel value={0}>
-              <Stack spacing={3} sx={{ pt: 2 }}>
-                <Typography level="title-lg">Company Information</Typography>
+            {/* ═══════════════════════════════════════ */}
+            {/* GENERAL                                */}
+            {/* ═══════════════════════════════════════ */}
+            {activeSection === 'general' && (
+              <Stack spacing={3}>
+                {/* Company Profile */}
+                <SectionCard icon={<Building2 size={18} />} title="Company Profile" description="Basic information about your company">
+                  <Stack spacing={2}>
+                    <FormControl>
+                      <FormLabel>Company Name</FormLabel>
+                      <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Acme Inc." size="sm" />
+                    </FormControl>
 
-                <FormControl>
-                  <FormLabel>Company Name</FormLabel>
-                  <Input
-                    value={companyName}
-                    onChange={(e) => setCompanyName(e.target.value)}
-                    placeholder="Enter company name"
-                  />
-                </FormControl>
+                    <Grid container spacing={2}>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Business Type</FormLabel>
+                          <Autocomplete
+                            value={businessType}
+                            onChange={(_, v) => setBusinessType(v || '')}
+                            options={BUSINESS_TYPES}
+                            placeholder="Select type"
+                            size="sm"
+                            freeSolo
+                          />
+                        </FormControl>
+                      </Grid>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Country</FormLabel>
+                          <Autocomplete
+                            value={selectedCountry || null}
+                            onChange={(_, v) => {
+                              if (v) { setCountry(v.code); setCurrency(v.currency); }
+                            }}
+                            options={countries}
+                            getOptionLabel={(o) => `${o.flag} ${o.name}`}
+                            placeholder="Select country"
+                            size="sm"
+                            isOptionEqualToValue={(option, value) => option.code === value.code}
+                          />
+                        </FormControl>
+                      </Grid>
+                    </Grid>
 
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <FormControl sx={{ flex: 1 }}>
-                    <FormLabel>Currency</FormLabel>
-                    <Select
-                      value={currency}
-                      onChange={(_, value) => setCurrency(value || 'USD')}
-                    >
-                      {CURRENCIES.map((c) => (
-                        <Option key={c.code} value={c.code}>
-                          {c.symbol} {c.code} - {c.name}
-                        </Option>
-                      ))}
-                    </Select>
-                  </FormControl>
+                    <FormControl>
+                      <FormLabel>Currency</FormLabel>
+                      <Select value={currency} onChange={(_, v) => setCurrency(v || 'USD')} size="sm">
+                        {CURRENCY_OPTIONS.map(c => (
+                          <Option key={c.code} value={c.code}>{c.symbol} {c.code} — {c.name}</Option>
+                        ))}
+                      </Select>
+                      <FormHelperText>Auto-set when you change country. Override if needed.</FormHelperText>
+                    </FormControl>
 
-                  <FormControl sx={{ flex: 1 }}>
-                    <FormLabel>Fiscal Year Starts</FormLabel>
-                    <Select
-                      value={fiscalYearStart}
-                      onChange={(_, value) => setFiscalYearStart(value || 1)}
-                    >
-                      {FISCAL_YEAR_STARTS.map((f) => (
-                        <Option key={f.value} value={f.value}>
-                          {f.label}
-                        </Option>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Stack>
-
-                <Divider />
-
-                <Typography level="title-lg">Preferences</Typography>
-
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <FormControl sx={{ flex: 1 }}>
-                    <FormLabel>Date Format</FormLabel>
-                    <Select
-                      value={dateFormat}
-                      onChange={(_, value) => setDateFormat(value || 'MM/dd/yyyy')}
-                    >
-                      <Option value="MM/dd/yyyy">MM/DD/YYYY (01/31/2024)</Option>
-                      <Option value="dd/MM/yyyy">DD/MM/YYYY (31/01/2024)</Option>
-                      <Option value="yyyy-MM-dd">YYYY-MM-DD (2024-01-31)</Option>
-                      <Option value="dd MMM yyyy">DD MMM YYYY (31 Jan 2024)</Option>
-                    </Select>
-                  </FormControl>
-
-                  <FormControl sx={{ flex: 1 }}>
-                    <FormLabel>Decimal Places</FormLabel>
-                    <Select
-                      value={showDecimalPlaces}
-                      onChange={(_, value) => setShowDecimalPlaces(value ?? 2)}
-                    >
-                      <Option value={0}>0 (100)</Option>
-                      <Option value={2}>2 (100.00)</Option>
-                      <Option value={3}>3 (100.000)</Option>
-                    </Select>
-                  </FormControl>
-                </Stack>
-
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Box>
-                    <Typography level="body-md">Enable Tax Calculation</Typography>
-                    <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-                      Show tax fields on invoices and bills
-                    </Typography>
-                  </Box>
-                  <Switch
-                    checked={enableTax}
-                    onChange={(e) => setEnableTax(e.target.checked)}
-                  />
-                </Stack>
-
-                <Divider />
-
-                <Typography level="title-lg">Features</Typography>
-
-                <Stack spacing={2}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Box>
-                      <Typography level="body-md">Inventory Management</Typography>
-                      <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-                        Track stock levels and manage inventory
-                      </Typography>
-                    </Box>
-                    <Switch
-                      checked={hasInventory}
-                      onChange={(e) => setHasInventory(e.target.checked)}
-                    />
+                    <FormControl>
+                      <FormLabel>Business Description</FormLabel>
+                      <Textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Briefly describe what your company does..."
+                        minRows={2} maxRows={4} size="sm"
+                      />
+                      <FormHelperText>Used by AI to better understand your business context.</FormHelperText>
+                    </FormControl>
                   </Stack>
+                </SectionCard>
 
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Box>
-                      <Typography level="body-md">Employee Management</Typography>
-                      <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-                        Manage employees and payroll
-                      </Typography>
-                    </Box>
-                    <Switch
-                      checked={hasEmployees}
-                      onChange={(e) => setHasEmployees(e.target.checked)}
-                    />
+                {/* Financial Settings */}
+                <SectionCard icon={<Calendar size={18} />} title="Financial Settings" description="Configure fiscal year, dates, and number formatting">
+                  <Stack spacing={2}>
+                    <Grid container spacing={2}>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Fiscal Year Starts</FormLabel>
+                          <Select value={fiscalYearStart} onChange={(_, v) => setFiscalYearStart(v || 1)} size="sm">
+                            {FISCAL_YEAR_STARTS.map(f => (
+                              <Option key={f.value} value={f.value}>{f.label}</Option>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Date Format</FormLabel>
+                          <Select value={dateFormat} onChange={(_, v) => setDateFormat(v || 'MM/dd/yyyy')} size="sm">
+                            <Option value="MM/dd/yyyy">MM/DD/YYYY (01/31/2024)</Option>
+                            <Option value="dd/MM/yyyy">DD/MM/YYYY (31/01/2024)</Option>
+                            <Option value="yyyy-MM-dd">YYYY-MM-DD (2024-01-31)</Option>
+                            <Option value="dd MMM yyyy">DD MMM YYYY (31 Jan 2024)</Option>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+
+                    <Grid container spacing={2}>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Decimal Places</FormLabel>
+                          <Select value={showDecimalPlaces} onChange={(_, v) => setShowDecimalPlaces(v ?? 2)} size="sm">
+                            <Option value={0}>0 (100)</Option>
+                            <Option value={2}>2 (100.00)</Option>
+                            <Option value={3}>3 (100.000)</Option>
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+
+                    <Divider />
+
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Box>
+                        <Typography level="body-sm" fontWeight={600}>Enable Tax Calculation</Typography>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>Show tax fields on invoices and bills</Typography>
+                      </Box>
+                      <Switch checked={enableTax} onChange={(e) => setEnableTax(e.target.checked)} />
+                    </Stack>
                   </Stack>
-                </Stack>
+                </SectionCard>
 
-                <Stack direction="row" spacing={2} sx={{ pt: 2 }}>
-                  <Button
-                    onClick={handleSaveCompanySettings}
-                    loading={saving}
-                    startDecorator={<Save size={16} />}
-                  >
-                    Save Company Settings
-                  </Button>
-                  <Button
-                    variant="outlined"
-                    color="neutral"
-                    onClick={handleSavePreferences}
-                    loading={saving}
-                  >
-                    Save Preferences
-                  </Button>
-                </Stack>
-              </Stack>
-            </TabPanel>
+                {/* Features */}
+                <SectionCard icon={<Layers size={18} />} title="Features" description="Enable or disable optional modules">
+                  <Stack spacing={2}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Box>
+                        <Typography level="body-sm" fontWeight={600}>Inventory Management</Typography>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>Track stock levels and manage inventory</Typography>
+                      </Box>
+                      <Switch checked={hasInventory} onChange={(e) => setHasInventory(e.target.checked)} />
+                    </Stack>
+                    <Divider />
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Box>
+                        <Typography level="body-sm" fontWeight={600}>Employee Management</Typography>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>Manage employees and payroll</Typography>
+                      </Box>
+                      <Switch checked={hasEmployees} onChange={(e) => setHasEmployees(e.target.checked)} />
+                    </Stack>
+                  </Stack>
+                </SectionCard>
 
-            {/* Invoice Settings */}
-            <TabPanel value={1}>
-              <Stack spacing={3} sx={{ pt: 2 }}>
-                <Typography level="title-lg">Invoice Numbering</Typography>
-
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <FormControl sx={{ flex: 1 }}>
-                    <FormLabel>Invoice Prefix</FormLabel>
-                    <Input
-                      value={invoicePrefix}
-                      onChange={(e) => setInvoicePrefix(e.target.value.toUpperCase())}
-                      placeholder="INV"
-                    />
-                    <FormHelperText>Example: {invoicePrefix}-{String(invoiceNextNumber).padStart(4, '0')}</FormHelperText>
-                  </FormControl>
-
-                  <FormControl sx={{ flex: 1 }}>
-                    <FormLabel>Next Invoice Number</FormLabel>
-                    <Input
-                      type="number"
-                      value={invoiceNextNumber}
-                      onChange={(e) => setInvoiceNextNumber(parseInt(e.target.value) || 1)}
-                    />
-                  </FormControl>
-                </Stack>
-
-                <Divider />
-
-                <Typography level="title-lg">Invoice Defaults</Typography>
-
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <FormControl sx={{ flex: 1 }}>
-                    <FormLabel>Default Payment Terms</FormLabel>
-                    <Select
-                      value={invoiceDefaultTerms}
-                      onChange={(_, value) => setInvoiceDefaultTerms(value ?? 30)}
-                    >
-                      {PAYMENT_TERMS.map((t) => (
-                        <Option key={t.value} value={t.value}>
-                          {t.label}
-                        </Option>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <FormControl sx={{ flex: 1 }}>
-                    <FormLabel>Default Tax Rate (%)</FormLabel>
-                    <Input
-                      type="number"
-                      value={invoiceDefaultTaxRate}
-                      onChange={(e) => setInvoiceDefaultTaxRate(parseFloat(e.target.value) || 0)}
-                      endDecorator="%"
-                    />
-                  </FormControl>
-                </Stack>
-
-                <FormControl>
-                  <FormLabel>Default Invoice Notes</FormLabel>
-                  <Textarea
-                    value={invoiceNotes}
-                    onChange={(e) => setInvoiceNotes(e.target.value)}
-                    placeholder="Thank you for your business!"
-                    minRows={2}
-                  />
-                  <FormHelperText>These notes will appear on every invoice</FormHelperText>
-                </FormControl>
-
-                <FormControl>
-                  <FormLabel>Invoice Footer</FormLabel>
-                  <Textarea
-                    value={invoiceFooter}
-                    onChange={(e) => setInvoiceFooter(e.target.value)}
-                    placeholder="Payment terms and conditions..."
-                    minRows={2}
-                  />
-                  <FormHelperText>Footer text for printed/PDF invoices</FormHelperText>
-                </FormControl>
-
-                <Box sx={{ pt: 2 }}>
-                  <Button
-                    onClick={handleSaveInvoiceSettings}
-                    loading={saving}
-                    startDecorator={<Save size={16} />}
-                  >
-                    Save Invoice Settings
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button onClick={handleSaveGeneral} loading={saving} startDecorator={<Save size={16} />}>
+                    Save General Settings
                   </Button>
                 </Box>
               </Stack>
-            </TabPanel>
+            )}
 
-            {/* Bill Settings */}
-            <TabPanel value={2}>
-              <Stack spacing={3} sx={{ pt: 2 }}>
-                <Typography level="title-lg">Bill Numbering</Typography>
+            {/* ═══════════════════════════════════════ */}
+            {/* DOCUMENTS                              */}
+            {/* ═══════════════════════════════════════ */}
+            {activeSection === 'documents' && (
+              <Stack spacing={3}>
+                <SectionCard icon={<FileText size={18} />} title="Invoice Settings" description="Configure invoice numbering and defaults">
+                  <Stack spacing={2}>
+                    <Grid container spacing={2}>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Invoice Prefix</FormLabel>
+                          <Input value={invoicePrefix} onChange={(e) => setInvoicePrefix(e.target.value.toUpperCase())} placeholder="INV" size="sm" />
+                          <FormHelperText>Preview: {invoicePrefix}-{String(invoiceNextNumber).padStart(4, '0')}</FormHelperText>
+                        </FormControl>
+                      </Grid>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Next Invoice Number</FormLabel>
+                          <Input type="number" value={invoiceNextNumber} onChange={(e) => setInvoiceNextNumber(parseInt(e.target.value) || 1)} size="sm" />
+                        </FormControl>
+                      </Grid>
+                    </Grid>
 
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                  <FormControl sx={{ flex: 1 }}>
-                    <FormLabel>Bill Prefix</FormLabel>
-                    <Input
-                      value={billPrefix}
-                      onChange={(e) => setBillPrefix(e.target.value.toUpperCase())}
-                      placeholder="BILL"
-                    />
-                    <FormHelperText>Example: {billPrefix}-{String(billNextNumber).padStart(4, '0')}</FormHelperText>
-                  </FormControl>
+                    <Grid container spacing={2}>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Default Payment Terms</FormLabel>
+                          <Select value={invoiceDefaultTerms} onChange={(_, v) => setInvoiceDefaultTerms(v ?? 30)} size="sm">
+                            {PAYMENT_TERMS.map(t => (<Option key={t.value} value={t.value}>{t.label}</Option>))}
+                          </Select>
+                        </FormControl>
+                      </Grid>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Default Tax Rate</FormLabel>
+                          <Input type="number" value={invoiceDefaultTaxRate} onChange={(e) => setInvoiceDefaultTaxRate(parseFloat(e.target.value) || 0)} endDecorator="%" size="sm" />
+                        </FormControl>
+                      </Grid>
+                    </Grid>
 
-                  <FormControl sx={{ flex: 1 }}>
-                    <FormLabel>Next Bill Number</FormLabel>
-                    <Input
-                      type="number"
-                      value={billNextNumber}
-                      onChange={(e) => setBillNextNumber(parseInt(e.target.value) || 1)}
-                    />
-                  </FormControl>
-                </Stack>
+                    <FormControl>
+                      <FormLabel>Default Invoice Notes</FormLabel>
+                      <Textarea value={invoiceNotes} onChange={(e) => setInvoiceNotes(e.target.value)} placeholder="Thank you for your business!" minRows={2} size="sm" />
+                      <FormHelperText>These notes will appear on every invoice</FormHelperText>
+                    </FormControl>
 
-                <Divider />
+                    <FormControl>
+                      <FormLabel>Invoice Footer</FormLabel>
+                      <Textarea value={invoiceFooter} onChange={(e) => setInvoiceFooter(e.target.value)} placeholder="Payment terms and conditions..." minRows={2} size="sm" />
+                      <FormHelperText>Footer text for printed/PDF invoices</FormHelperText>
+                    </FormControl>
+                  </Stack>
+                </SectionCard>
 
-                <Typography level="title-lg">Bill Defaults</Typography>
+                <SectionCard icon={<Hash size={18} />} title="Bill Settings" description="Configure bill numbering and defaults">
+                  <Stack spacing={2}>
+                    <Grid container spacing={2}>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Bill Prefix</FormLabel>
+                          <Input value={billPrefix} onChange={(e) => setBillPrefix(e.target.value.toUpperCase())} placeholder="BILL" size="sm" />
+                          <FormHelperText>Preview: {billPrefix}-{String(billNextNumber).padStart(4, '0')}</FormHelperText>
+                        </FormControl>
+                      </Grid>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Next Bill Number</FormLabel>
+                          <Input type="number" value={billNextNumber} onChange={(e) => setBillNextNumber(parseInt(e.target.value) || 1)} size="sm" />
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+                    <FormControl sx={{ maxWidth: { sm: '50%' } }}>
+                      <FormLabel>Default Payment Terms</FormLabel>
+                      <Select value={billDefaultTerms} onChange={(_, v) => setBillDefaultTerms(v ?? 30)} size="sm">
+                        {PAYMENT_TERMS.map(t => (<Option key={t.value} value={t.value}>{t.label}</Option>))}
+                      </Select>
+                    </FormControl>
+                  </Stack>
+                </SectionCard>
 
-                <FormControl sx={{ maxWidth: 300 }}>
-                  <FormLabel>Default Payment Terms</FormLabel>
-                  <Select
-                    value={billDefaultTerms}
-                    onChange={(_, value) => setBillDefaultTerms(value ?? 30)}
-                  >
-                    {PAYMENT_TERMS.map((t) => (
-                      <Option key={t.value} value={t.value}>
-                        {t.label}
-                      </Option>
-                    ))}
-                  </Select>
-                </FormControl>
+                {/* Invoice Appearance */}
+                <SectionCard icon={<Palette size={18} />} title="Invoice Appearance" description="Customize how your invoices look when printed or exported as PDF">
+                  <Stack spacing={2.5}>
+                    <Grid container spacing={2}>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Template</FormLabel>
+                          <Select value={invoiceTemplate} onChange={(_, v) => setInvoiceTemplate(v as any || 'classic')} size="sm">
+                            <Option value="classic">Classic — Accent bars, grid table</Option>
+                            <Option value="modern">Modern — Color stripe, card-style totals</Option>
+                            <Option value="minimal">Minimal — Black & white, clean lines</Option>
+                          </Select>
+                          <FormHelperText>Choose the overall look of your invoice PDF</FormHelperText>
+                        </FormControl>
+                      </Grid>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Color Theme</FormLabel>
+                          <Select
+                            value={invoiceColorTheme}
+                            onChange={(_, v) => setInvoiceColorTheme(v || '#D97757')}
+                            size="sm"
+                            renderValue={(option) => {
+                              if (!option) return null;
+                              return (
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                  <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: option.value, border: '1px solid', borderColor: 'divider' }} />
+                                  <Typography level="body-sm">{option.label}</Typography>
+                                </Stack>
+                              );
+                            }}
+                          >
+                            {[
+                              { color: '#D97757', label: 'Terracotta' },
+                              { color: '#4A90D9', label: 'Ocean Blue' },
+                              { color: '#4AA86E', label: 'Forest Green' },
+                              { color: '#7B68D9', label: 'Royal Purple' },
+                              { color: '#5C6B7A', label: 'Slate Gray' },
+                              { color: '#2D2D2D', label: 'Midnight Black' },
+                            ].map(c => (
+                              <Option key={c.color} value={c.color}>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                  <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: c.color, flexShrink: 0 }} />
+                                  <span>{c.label}</span>
+                                </Stack>
+                              </Option>
+                            ))}
+                          </Select>
+                          <FormHelperText>Primary color used in the invoice template</FormHelperText>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
 
-                <Box sx={{ pt: 2 }}>
-                  <Button
-                    onClick={handleSaveBillSettings}
-                    loading={saving}
-                    startDecorator={<Save size={16} />}
-                  >
-                    Save Bill Settings
+                    <Divider />
+                    <Typography level="body-sm" fontWeight={600}>Visibility Options</Typography>
+
+                    <Grid container spacing={2}>
+                      <Grid xs={12} md={6}>
+                        <Stack spacing={1.5}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm">Show Company Name</Typography>
+                            <Switch size="sm" checked={invoiceShowCompanyName} onChange={(e) => setInvoiceShowCompanyName(e.target.checked)} />
+                          </Stack>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm">Show Company Address</Typography>
+                            <Switch size="sm" checked={invoiceShowCompanyAddress} onChange={(e) => setInvoiceShowCompanyAddress(e.target.checked)} />
+                          </Stack>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm">Show Company Email</Typography>
+                            <Switch size="sm" checked={invoiceShowCompanyEmail} onChange={(e) => setInvoiceShowCompanyEmail(e.target.checked)} />
+                          </Stack>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm">Show Company Phone</Typography>
+                            <Switch size="sm" checked={invoiceShowCompanyPhone} onChange={(e) => setInvoiceShowCompanyPhone(e.target.checked)} />
+                          </Stack>
+                        </Stack>
+                      </Grid>
+                      <Grid xs={12} md={6}>
+                        <Stack spacing={1.5}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm">Show Tax ID</Typography>
+                            <Switch size="sm" checked={invoiceShowTaxId} onChange={(e) => setInvoiceShowTaxId(e.target.checked)} />
+                          </Stack>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm">Show Invoice Footer</Typography>
+                            <Switch size="sm" checked={invoiceShowFooter} onChange={(e) => setInvoiceShowFooter(e.target.checked)} />
+                          </Stack>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm">Show &quot;Powered by Flowbooks&quot;</Typography>
+                            <Switch size="sm" checked={invoiceShowPoweredBy} onChange={(e) => setInvoiceShowPoweredBy(e.target.checked)} />
+                          </Stack>
+                        </Stack>
+                      </Grid>
+                    </Grid>
+                  </Stack>
+                </SectionCard>
+
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <Button onClick={handleSaveDocuments} loading={saving} startDecorator={<Save size={16} />}>
+                    Save Document Settings
                   </Button>
                 </Box>
               </Stack>
-            </TabPanel>
+            )}
 
-            {/* Account Preferences */}
-            <TabPanel value={3}>
-              <Stack spacing={3} sx={{ pt: 2 }}>
+            {/* ═══════════════════════════════════════ */}
+            {/* ACCOUNT DEFAULTS                       */}
+            {/* ═══════════════════════════════════════ */}
+            {activeSection === 'accounts' && (
+              <Stack spacing={3}>
                 <Box>
-                  <Typography level="title-lg">Account Preferences</Typography>
-                  <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-                    Set default accounts used across forms and AI assistant. These are used when creating transactions, invoices, bills, and salary payments.
+                  <Typography level="title-lg" fontWeight={600}>Account Defaults</Typography>
+                  <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.5 }}>
+                    Set default accounts used across forms and the AI assistant.
                   </Typography>
                 </Box>
 
                 {loadingPreferences ? (
                   <Stack spacing={2}>
                     {[...Array(4)].map((_, i) => (
-                      <Skeleton key={i} variant="rectangular" height={56} />
+                      <Skeleton key={i} variant="rectangular" height={56} sx={{ borderRadius: 'md' }} />
                     ))}
                   </Stack>
                 ) : (
                   <>
-                    {/* Transaction Defaults */}
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography level="title-md" sx={{ mb: 2 }}>Transaction Defaults</Typography>
-                        <Stack spacing={2}>
-                          <FormControl>
-                            <FormLabel>Default Cash / Bank Account</FormLabel>
-                            <Select
-                              value={accountPreferences.defaultCashAccountId || ''}
-                              onChange={(_, value) => handleAccountPrefChange('defaultCashAccountId', value || '')}
-                              placeholder="Select account..."
-                            >
-                              <Option value="">Not set (auto-detect)</Option>
-                              {getAccountsByType('asset').map(a => (
-                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
-                              ))}
-                            </Select>
-                            <FormHelperText>Used for expenses, payments received, and payments made</FormHelperText>
-                          </FormControl>
-                          <FormControl>
-                            <FormLabel>Default Revenue Account</FormLabel>
-                            <Select
-                              value={accountPreferences.defaultRevenueAccountId || ''}
-                              onChange={(_, value) => handleAccountPrefChange('defaultRevenueAccountId', value || '')}
-                              placeholder="Select account..."
-                            >
-                              <Option value="">Not set (auto-detect)</Option>
-                              {getAccountsByType('revenue').map(a => (
-                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
-                              ))}
-                            </Select>
-                            <FormHelperText>Used for income transactions and payments received</FormHelperText>
-                          </FormControl>
-                          <FormControl>
-                            <FormLabel>Default Expense Account</FormLabel>
-                            <Select
-                              value={accountPreferences.defaultExpenseAccountId || ''}
-                              onChange={(_, value) => handleAccountPrefChange('defaultExpenseAccountId', value || '')}
-                              placeholder="Select account..."
-                            >
-                              <Option value="">Not set (auto-detect)</Option>
-                              {getAccountsByType('expense').map(a => (
-                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
-                              ))}
-                            </Select>
-                            <FormHelperText>Used for expense transactions and recurring expenses</FormHelperText>
-                          </FormControl>
-                        </Stack>
-                      </CardContent>
-                    </Card>
+                    <SectionCard icon={<Layers size={18} />} title="Transaction Defaults">
+                      <Stack spacing={2}>
+                        <FormControl size="sm">
+                          <FormLabel>Default Cash / Bank Account</FormLabel>
+                          <Select value={accountPreferences.defaultCashAccountId || ''} onChange={(_, v) => handleAccountPrefChange('defaultCashAccountId', v || '')} placeholder="Select account..." size="sm">
+                            <Option value="">Not set (auto-detect)</Option>
+                            {getAccountsByType('asset').map(a => (<Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>))}
+                          </Select>
+                          <FormHelperText>Used for expenses, payments received, and payments made</FormHelperText>
+                        </FormControl>
+                        <FormControl size="sm">
+                          <FormLabel>Default Revenue Account</FormLabel>
+                          <Select value={accountPreferences.defaultRevenueAccountId || ''} onChange={(_, v) => handleAccountPrefChange('defaultRevenueAccountId', v || '')} placeholder="Select account..." size="sm">
+                            <Option value="">Not set (auto-detect)</Option>
+                            {getAccountsByType('revenue').map(a => (<Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>))}
+                          </Select>
+                          <FormHelperText>Used for income transactions and payments received</FormHelperText>
+                        </FormControl>
+                        <FormControl size="sm">
+                          <FormLabel>Default Expense Account</FormLabel>
+                          <Select value={accountPreferences.defaultExpenseAccountId || ''} onChange={(_, v) => handleAccountPrefChange('defaultExpenseAccountId', v || '')} placeholder="Select account..." size="sm">
+                            <Option value="">Not set (auto-detect)</Option>
+                            {getAccountsByType('expense').map(a => (<Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>))}
+                          </Select>
+                          <FormHelperText>Used for expense transactions and recurring expenses</FormHelperText>
+                        </FormControl>
+                      </Stack>
+                    </SectionCard>
 
-                    {/* Invoice & Bill Defaults */}
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography level="title-md" sx={{ mb: 2 }}>Invoice & Bill Defaults</Typography>
-                        <Stack spacing={2}>
-                          <FormControl>
-                            <FormLabel>Default Accounts Receivable</FormLabel>
-                            <Select
-                              value={accountPreferences.defaultReceivableAccountId || ''}
-                              onChange={(_, value) => handleAccountPrefChange('defaultReceivableAccountId', value || '')}
-                              placeholder="Select account..."
-                            >
-                              <Option value="">Not set (auto-detect)</Option>
-                              {getAccountsByType('asset').map(a => (
-                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
-                              ))}
-                            </Select>
-                            <FormHelperText>Used when sending invoices (Debit AR)</FormHelperText>
-                          </FormControl>
-                          <FormControl>
-                            <FormLabel>Default Accounts Payable</FormLabel>
-                            <Select
-                              value={accountPreferences.defaultPayableAccountId || ''}
-                              onChange={(_, value) => handleAccountPrefChange('defaultPayableAccountId', value || '')}
-                              placeholder="Select account..."
-                            >
-                              <Option value="">Not set (auto-detect)</Option>
-                              {getAccountsByType('liability').map(a => (
-                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
-                              ))}
-                            </Select>
-                            <FormHelperText>Used when creating bills (Credit AP)</FormHelperText>
-                          </FormControl>
-                        </Stack>
-                      </CardContent>
-                    </Card>
+                    <SectionCard icon={<FileText size={18} />} title="Invoice & Bill Defaults">
+                      <Stack spacing={2}>
+                        <FormControl size="sm">
+                          <FormLabel>Default Accounts Receivable</FormLabel>
+                          <Select value={accountPreferences.defaultReceivableAccountId || ''} onChange={(_, v) => handleAccountPrefChange('defaultReceivableAccountId', v || '')} placeholder="Select account..." size="sm">
+                            <Option value="">Not set (auto-detect)</Option>
+                            {getAccountsByType('asset').map(a => (<Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>))}
+                          </Select>
+                          <FormHelperText>Used when sending invoices (Debit AR)</FormHelperText>
+                        </FormControl>
+                        <FormControl size="sm">
+                          <FormLabel>Default Accounts Payable</FormLabel>
+                          <Select value={accountPreferences.defaultPayableAccountId || ''} onChange={(_, v) => handleAccountPrefChange('defaultPayableAccountId', v || '')} placeholder="Select account..." size="sm">
+                            <Option value="">Not set (auto-detect)</Option>
+                            {getAccountsByType('liability').map(a => (<Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>))}
+                          </Select>
+                          <FormHelperText>Used when creating bills (Credit AP)</FormHelperText>
+                        </FormControl>
+                      </Stack>
+                    </SectionCard>
 
-                    {/* Payroll Defaults */}
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography level="title-md" sx={{ mb: 2 }}>Payroll Defaults</Typography>
-                        <Stack spacing={2}>
-                          <FormControl>
-                            <FormLabel>Default Salary Expense Account</FormLabel>
-                            <Select
-                              value={accountPreferences.defaultSalaryExpenseAccountId || ''}
-                              onChange={(_, value) => handleAccountPrefChange('defaultSalaryExpenseAccountId', value || '')}
-                              placeholder="Select account..."
-                            >
-                              <Option value="">Not set (auto-detect)</Option>
-                              {getAccountsByType('expense').map(a => (
-                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
-                              ))}
-                            </Select>
-                            <FormHelperText>Debited when marking salary slips as paid</FormHelperText>
-                          </FormControl>
-                          <FormControl>
-                            <FormLabel>Default Tax Payable Account</FormLabel>
-                            <Select
-                              value={accountPreferences.defaultTaxPayableAccountId || ''}
-                              onChange={(_, value) => handleAccountPrefChange('defaultTaxPayableAccountId', value || '')}
-                              placeholder="Select account..."
-                            >
-                              <Option value="">Not set (auto-detect)</Option>
-                              {getAccountsByType('liability').map(a => (
-                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
-                              ))}
-                            </Select>
-                            <FormHelperText>Credited for tax withheld from salary</FormHelperText>
-                          </FormControl>
-                          <FormControl>
-                            <FormLabel>Default Provident Fund Payable Account</FormLabel>
-                            <Select
-                              value={accountPreferences.defaultPFPayableAccountId || ''}
-                              onChange={(_, value) => handleAccountPrefChange('defaultPFPayableAccountId', value || '')}
-                              placeholder="Select account..."
-                            >
-                              <Option value="">Not set (auto-detect)</Option>
-                              {getAccountsByType('liability').map(a => (
-                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
-                              ))}
-                            </Select>
-                            <FormHelperText>Credited for provident fund withheld from salary</FormHelperText>
-                          </FormControl>
-                          <FormControl>
-                            <FormLabel>Default Salary Bank Account</FormLabel>
-                            <Select
-                              value={accountPreferences.defaultSalaryBankAccountId || ''}
-                              onChange={(_, value) => handleAccountPrefChange('defaultSalaryBankAccountId', value || '')}
-                              placeholder="Select account..."
-                            >
-                              <Option value="">Not set (auto-detect)</Option>
-                              {getAccountsByType('asset').map(a => (
-                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
-                              ))}
-                            </Select>
-                            <FormHelperText>Credited when paying net salary</FormHelperText>
-                          </FormControl>
-                        </Stack>
-                      </CardContent>
-                    </Card>
+                    <SectionCard icon={<Layers size={18} />} title="Payroll Defaults">
+                      <Stack spacing={2}>
+                        <FormControl size="sm">
+                          <FormLabel>Default Salary Expense Account</FormLabel>
+                          <Select value={accountPreferences.defaultSalaryExpenseAccountId || ''} onChange={(_, v) => handleAccountPrefChange('defaultSalaryExpenseAccountId', v || '')} placeholder="Select account..." size="sm">
+                            <Option value="">Not set (auto-detect)</Option>
+                            {getAccountsByType('expense').map(a => (<Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>))}
+                          </Select>
+                          <FormHelperText>Debited when marking salary slips as paid</FormHelperText>
+                        </FormControl>
+                        <FormControl size="sm">
+                          <FormLabel>Default Tax Payable Account</FormLabel>
+                          <Select value={accountPreferences.defaultTaxPayableAccountId || ''} onChange={(_, v) => handleAccountPrefChange('defaultTaxPayableAccountId', v || '')} placeholder="Select account..." size="sm">
+                            <Option value="">Not set (auto-detect)</Option>
+                            {getAccountsByType('liability').map(a => (<Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>))}
+                          </Select>
+                          <FormHelperText>Credited for tax withheld from salary</FormHelperText>
+                        </FormControl>
+                        <FormControl size="sm">
+                          <FormLabel>Default Provident Fund Payable</FormLabel>
+                          <Select value={accountPreferences.defaultPFPayableAccountId || ''} onChange={(_, v) => handleAccountPrefChange('defaultPFPayableAccountId', v || '')} placeholder="Select account..." size="sm">
+                            <Option value="">Not set (auto-detect)</Option>
+                            {getAccountsByType('liability').map(a => (<Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>))}
+                          </Select>
+                          <FormHelperText>Credited for provident fund withheld from salary</FormHelperText>
+                        </FormControl>
+                        <FormControl size="sm">
+                          <FormLabel>Default Salary Bank Account</FormLabel>
+                          <Select value={accountPreferences.defaultSalaryBankAccountId || ''} onChange={(_, v) => handleAccountPrefChange('defaultSalaryBankAccountId', v || '')} placeholder="Select account..." size="sm">
+                            <Option value="">Not set (auto-detect)</Option>
+                            {getAccountsByType('asset').map(a => (<Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>))}
+                          </Select>
+                          <FormHelperText>Credited when paying net salary</FormHelperText>
+                        </FormControl>
+                      </Stack>
+                    </SectionCard>
 
-                    {/* Bank Account Defaults */}
-                    <Card variant="outlined">
-                      <CardContent>
-                        <Typography level="title-md" sx={{ mb: 2 }}>Bank Account Defaults</Typography>
-                        <Stack spacing={2}>
-                          <FormControl>
-                            <FormLabel>Default Linked Asset Account</FormLabel>
-                            <Select
-                              value={accountPreferences.defaultLinkedAssetAccountId || ''}
-                              onChange={(_, value) => handleAccountPrefChange('defaultLinkedAssetAccountId', value || '')}
-                              placeholder="Select account..."
-                            >
-                              <Option value="">Not set (auto-detect)</Option>
-                              {getAccountsByType('asset').map(a => (
-                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
-                              ))}
-                            </Select>
-                            <FormHelperText>Linked GL account when creating new bank accounts</FormHelperText>
-                          </FormControl>
-                          <FormControl>
-                            <FormLabel>Default Equity Account</FormLabel>
-                            <Select
-                              value={accountPreferences.defaultEquityAccountId || ''}
-                              onChange={(_, value) => handleAccountPrefChange('defaultEquityAccountId', value || '')}
-                              placeholder="Select account..."
-                            >
-                              <Option value="">Not set (auto-detect)</Option>
-                              {getAccountsByType('equity').map(a => (
-                                <Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>
-                              ))}
-                            </Select>
-                            <FormHelperText>Used for opening balance journal entries</FormHelperText>
-                          </FormControl>
-                        </Stack>
-                      </CardContent>
-                    </Card>
+                    <SectionCard icon={<Globe size={18} />} title="Bank Account Defaults">
+                      <Stack spacing={2}>
+                        <FormControl size="sm">
+                          <FormLabel>Default Linked Asset Account</FormLabel>
+                          <Select value={accountPreferences.defaultLinkedAssetAccountId || ''} onChange={(_, v) => handleAccountPrefChange('defaultLinkedAssetAccountId', v || '')} placeholder="Select account..." size="sm">
+                            <Option value="">Not set (auto-detect)</Option>
+                            {getAccountsByType('asset').map(a => (<Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>))}
+                          </Select>
+                          <FormHelperText>Linked GL account when creating new bank accounts</FormHelperText>
+                        </FormControl>
+                        <FormControl size="sm">
+                          <FormLabel>Default Equity Account</FormLabel>
+                          <Select value={accountPreferences.defaultEquityAccountId || ''} onChange={(_, v) => handleAccountPrefChange('defaultEquityAccountId', v || '')} placeholder="Select account..." size="sm">
+                            <Option value="">Not set (auto-detect)</Option>
+                            {getAccountsByType('equity').map(a => (<Option key={a.id} value={a.id}>{a.code} - {a.name}</Option>))}
+                          </Select>
+                          <FormHelperText>Used for opening balance journal entries</FormHelperText>
+                        </FormControl>
+                      </Stack>
+                    </SectionCard>
 
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-                      <Button
-                        variant="solid"
-                        color="primary"
-                        startDecorator={<Save size={16} />}
-                        onClick={handleSaveAccountPreferences}
-                        loading={savingPreferences}
-                      >
-                        Save Preferences
+                      <Button onClick={handleSaveAccountPreferences} loading={savingPreferences} startDecorator={<Save size={16} />}>
+                        Save Account Defaults
                       </Button>
                     </Box>
                   </>
                 )}
               </Stack>
-            </TabPanel>
+            )}
 
-            {/* Customization Settings */}
-            <TabPanel value={4}>
-              <Stack spacing={3} sx={{ pt: 2 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Box>
-                    <Typography level="title-lg">Customize Options</Typography>
-                    <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-                      Manage statuses, categories, and other dropdown options used throughout the app.
-                    </Typography>
-                  </Box>
-                </Stack>
+            {/* ═══════════════════════════════════════ */}
+            {/* CUSTOMIZATION                          */}
+            {/* ═══════════════════════════════════════ */}
+            {activeSection === 'customization' && (
+              <Stack spacing={3}>
+                <Box>
+                  <Typography level="title-lg" fontWeight={600}>Customize Options</Typography>
+                  <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.5 }}>
+                    Manage statuses, categories, and other dropdown options used throughout the app.
+                  </Typography>
+                </Box>
 
                 {loadingSettings ? (
                   <Stack spacing={2}>
-                    {[...Array(5)].map((_, index) => (
-                      <Card key={index} variant="outlined">
+                    {[...Array(5)].map((_, i) => (
+                      <Card key={i} variant="outlined">
                         <CardContent sx={{ py: 2 }}>
                           <Stack direction="row" justifyContent="space-between" alignItems="center">
                             <Box>
@@ -1286,7 +1251,10 @@ export default function SettingsPage() {
                   <AccordionGroup sx={{ maxWidth: '100%' }}>
                     {customSettings.map((setting) => (
                       <Accordion key={setting.id}>
-                        <AccordionSummary indicator={<ChevronDown />}>
+                        <AccordionSummary
+                          indicator={<ChevronDown />}
+                          slotProps={{ button: { component: 'div' } as any }}
+                        >
                           <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%' }}>
                             <Box sx={{ flex: 1 }}>
                               <Typography level="title-sm">{setting.categoryName}</Typography>
@@ -1296,25 +1264,15 @@ export default function SettingsPage() {
                             </Box>
                             <Stack direction="row" spacing={1} onClick={(e) => e.stopPropagation()}>
                               <Button
-                                size="sm"
-                                variant="soft"
-                                color="primary"
+                                size="sm" variant="soft" color="primary"
                                 startDecorator={<Plus size={14} />}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openAddModal(setting.categoryCode);
-                                }}
+                                onClick={(e) => { e.stopPropagation(); openAddModal(setting.categoryCode); }}
                               >
                                 Add
                               </Button>
                               <IconButton
-                                size="sm"
-                                variant="soft"
-                                color="neutral"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openResetConfirm(setting.categoryCode);
-                                }}
+                                size="sm" variant="soft" color="neutral"
+                                onClick={(e) => { e.stopPropagation(); setPendingResetCategory(setting.categoryCode); setResetConfirmOpen(true); }}
                               >
                                 <RotateCcw size={14} />
                               </IconButton>
@@ -1336,46 +1294,29 @@ export default function SettingsPage() {
                               <tbody>
                                 {setting.options?.map((option) => (
                                   <tr key={option.code}>
-                                    <td>
-                                      <Typography level="body-xs" fontFamily="monospace">
-                                        {option.code}
-                                      </Typography>
-                                    </td>
+                                    <td><Typography level="body-xs" fontFamily="monospace">{option.code}</Typography></td>
                                     <td>{option.label}</td>
                                     <td>
                                       {option.color && (
-                                        <Chip
-                                          size="sm"
-                                          variant="soft"
-                                          sx={{
-                                            bgcolor: option.color === 'green' ? 'success.softBg' :
-                                                     option.color === 'red' ? 'danger.softBg' :
-                                                     option.color === 'yellow' ? 'warning.softBg' :
-                                                     option.color === 'blue' ? 'primary.softBg' : 'neutral.softBg'
-                                          }}
-                                        >
+                                        <Chip size="sm" variant="soft" sx={{
+                                          bgcolor: option.color === 'green' ? 'success.softBg' :
+                                            option.color === 'red' ? 'danger.softBg' :
+                                            option.color === 'yellow' ? 'warning.softBg' :
+                                            option.color === 'blue' ? 'primary.softBg' : 'neutral.softBg'
+                                        }}>
                                           {option.color}
                                         </Chip>
                                       )}
                                     </td>
-                                    <td>
-                                      {option.isDefault && <Chip size="sm" color="success">Yes</Chip>}
-                                    </td>
+                                    <td>{option.isDefault && <Chip size="sm" color="success">Yes</Chip>}</td>
                                     <td style={{ textAlign: 'right' }}>
                                       <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                                        <IconButton
-                                          size="sm"
-                                          variant="plain"
-                                          onClick={() => openEditModal(setting.categoryCode, option)}
-                                        >
+                                        <IconButton size="sm" variant="plain" onClick={() => openEditModal(setting.categoryCode, option)}>
                                           <Pencil size={14} />
                                         </IconButton>
                                         {!option.isSystem && (
-                                          <IconButton
-                                            size="sm"
-                                            variant="plain"
-                                            color="danger"
-                                            onClick={() => openDeleteConfirm(setting.categoryCode, option.code)}
+                                          <IconButton size="sm" variant="plain" color="danger"
+                                            onClick={() => { setPendingDeleteOption({ categoryCode: setting.categoryCode, optionCode: option.code }); setDeleteConfirmOpen(true); }}
                                           >
                                             <Trash2 size={14} />
                                           </IconButton>
@@ -1393,36 +1334,21 @@ export default function SettingsPage() {
                   </AccordionGroup>
                 )}
               </Stack>
-            </TabPanel>
+            )}
 
-            {/* Danger Zone */}
-            <TabPanel value={5}>
-              <Stack spacing={3} sx={{ pt: 2 }}>
-                <Box
-                  sx={{
-                    border: '2px solid',
-                    borderColor: 'danger.300',
-                    borderRadius: 'md',
-                    p: 3,
-                    bgcolor: 'danger.50',
-                  }}
-                >
+            {/* ═══════════════════════════════════════ */}
+            {/* DANGER ZONE                            */}
+            {/* ═══════════════════════════════════════ */}
+            {activeSection === 'danger' && (
+              <Stack spacing={3}>
+                <Box sx={{ border: '2px solid', borderColor: 'danger.300', borderRadius: 'lg', p: 3, bgcolor: 'danger.50' }}>
                   <Stack spacing={3}>
                     <Stack direction="row" spacing={2} alignItems="flex-start">
-                      <Box
-                        sx={{
-                          p: 1.5,
-                          borderRadius: 'sm',
-                          bgcolor: 'danger.100',
-                          color: 'danger.600',
-                        }}
-                      >
+                      <Box sx={{ p: 1.5, borderRadius: 'md', bgcolor: 'danger.100', color: 'danger.600' }}>
                         <AlertTriangle size={24} />
                       </Box>
                       <Box>
-                        <Typography level="title-lg" sx={{ color: 'danger.700' }}>
-                          Danger Zone
-                        </Typography>
+                        <Typography level="title-lg" sx={{ color: 'danger.700' }}>Danger Zone</Typography>
                         <Typography level="body-sm" sx={{ color: 'danger.600' }}>
                           Actions in this section are destructive and cannot be undone.
                         </Typography>
@@ -1431,26 +1357,16 @@ export default function SettingsPage() {
 
                     <Divider />
 
-                    {/* Delete Company Data */}
-                    <Stack
-                      direction={{ xs: 'column', sm: 'row' }}
-                      spacing={2}
-                      justifyContent="space-between"
-                      alignItems={{ xs: 'flex-start', sm: 'center' }}
-                    >
+                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
                       <Box>
-                        <Typography level="title-md" sx={{ color: 'danger.700' }}>
-                          Delete All Company Data
-                        </Typography>
+                        <Typography level="title-md" sx={{ color: 'danger.700' }}>Delete All Company Data</Typography>
                         <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-                          This will permanently delete all your invoices, bills, customers, vendors,
-                          employees, transactions, and journal entries. The Chart of Accounts will be
-                          reset and reinitialized with default accounts properly mapped to types and subtypes.
+                          Permanently delete all invoices, bills, customers, vendors, employees, transactions,
+                          and journal entries. The Chart of Accounts will be reset to defaults.
                         </Typography>
                       </Box>
                       <Button
-                        color="danger"
-                        variant="solid"
+                        color="danger" variant="solid"
                         startDecorator={<Trash2 size={16} />}
                         onClick={handleOpenDeleteDataConfirm}
                         loading={loadingCounts}
@@ -1462,26 +1378,18 @@ export default function SettingsPage() {
                   </Stack>
                 </Box>
 
-                <Box
-                  sx={{
-                    bgcolor: 'warning.50',
-                    border: '1px solid',
-                    borderColor: 'warning.200',
-                    borderRadius: 'sm',
-                    p: 2,
-                  }}
-                >
+                <Box sx={{ bgcolor: 'warning.50', border: '1px solid', borderColor: 'warning.200', borderRadius: 'md', p: 2 }}>
                   <Typography level="body-sm" sx={{ color: 'warning.700' }}>
-                    <strong>Important:</strong> Before deleting data, consider exporting your
-                    data first. Once deleted, the data cannot be recovered. This action requires
-                    a two-step confirmation to prevent accidental deletion.
+                    <strong>Important:</strong> Before deleting data, consider exporting first. Once deleted, the data
+                    cannot be recovered. This action requires a two-step confirmation to prevent accidental deletion.
                   </Typography>
                 </Box>
               </Stack>
-            </TabPanel>
-          </Tabs>
-        </Card>
-      </Stack>
+            )}
+        </Box>
+      </Box>
+
+      {/* ═══════════════ Modals ═══════════════ */}
 
       {/* Add Option Modal */}
       <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)}>
@@ -1491,35 +1399,17 @@ export default function SettingsPage() {
           <Stack spacing={2} sx={{ mt: 2 }}>
             <FormControl required error={!!labelError} sx={{ minHeight: 80 }}>
               <FormLabel>Label</FormLabel>
-              <Input
-                value={newOptionLabel}
-                onChange={(e) => handleLabelChange(e.target.value)}
-                placeholder="e.g., Custom Status"
-                color={labelError ? 'danger' : undefined}
-              />
-              <FormHelperText sx={{ color: labelError ? 'danger.500' : 'text.tertiary', minHeight: 20 }}>
-                {labelError || ' '}
-              </FormHelperText>
+              <Input value={newOptionLabel} onChange={(e) => handleLabelChange(e.target.value)} placeholder="e.g., Custom Status" color={labelError ? 'danger' : undefined} />
+              <FormHelperText sx={{ color: labelError ? 'danger.500' : 'text.tertiary', minHeight: 20 }}>{labelError || ' '}</FormHelperText>
             </FormControl>
             <FormControl required error={!!codeError} sx={{ minHeight: 80 }}>
               <FormLabel>Code</FormLabel>
-              <Input
-                value={newOptionCode}
-                onChange={(e) => handleCodeChange(e.target.value)}
-                placeholder="e.g., custom_status"
-                color={codeError ? 'danger' : undefined}
-              />
-              <FormHelperText sx={{ color: codeError ? 'danger.500' : 'text.tertiary', minHeight: 20 }}>
-                {codeError || 'Lowercase letters, numbers, underscores only'}
-              </FormHelperText>
+              <Input value={newOptionCode} onChange={(e) => handleCodeChange(e.target.value)} placeholder="e.g., custom_status" color={codeError ? 'danger' : undefined} />
+              <FormHelperText sx={{ color: codeError ? 'danger.500' : 'text.tertiary', minHeight: 20 }}>{codeError || 'Lowercase letters, numbers, underscores only'}</FormHelperText>
             </FormControl>
             <FormControl sx={{ minHeight: 70 }}>
               <FormLabel>Color (Optional)</FormLabel>
-              <Select
-                value={newOptionColor}
-                onChange={(_, value) => setNewOptionColor(value || '')}
-                placeholder="Select a color"
-              >
+              <Select value={newOptionColor} onChange={(_, v) => setNewOptionColor(v || '')} placeholder="Select a color">
                 <Option value="">None</Option>
                 <Option value="green">Green</Option>
                 <Option value="blue">Blue</Option>
@@ -1531,16 +1421,8 @@ export default function SettingsPage() {
               </Select>
             </FormControl>
             <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ pt: 1 }}>
-              <Button variant="plain" color="neutral" onClick={() => setAddModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleAddOption}
-                loading={savingOption}
-                disabled={!!labelError || !!codeError || !newOptionLabel || !newOptionCode}
-              >
-                Add Option
-              </Button>
+              <Button variant="plain" color="neutral" onClick={() => setAddModalOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddOption} loading={savingOption} disabled={!!labelError || !!codeError || !newOptionLabel || !newOptionCode}>Add Option</Button>
             </Stack>
           </Stack>
         </ModalDialog>
@@ -1554,32 +1436,17 @@ export default function SettingsPage() {
           <Stack spacing={2} sx={{ mt: 2 }}>
             <FormControl sx={{ minHeight: 80 }}>
               <FormLabel>Code</FormLabel>
-              <Input
-                value={selectedOption?.code || ''}
-                disabled
-                sx={{ bgcolor: 'neutral.100' }}
-              />
+              <Input value={selectedOption?.code || ''} disabled sx={{ bgcolor: 'neutral.100' }} />
               <FormHelperText sx={{ minHeight: 20 }}>Code cannot be changed</FormHelperText>
             </FormControl>
             <FormControl required error={!!labelError} sx={{ minHeight: 80 }}>
               <FormLabel>Label</FormLabel>
-              <Input
-                value={newOptionLabel}
-                onChange={(e) => handleLabelChange(e.target.value)}
-                placeholder="Option label"
-                color={labelError ? 'danger' : undefined}
-              />
-              <FormHelperText sx={{ color: labelError ? 'danger.500' : 'text.tertiary', minHeight: 20 }}>
-                {labelError || ' '}
-              </FormHelperText>
+              <Input value={newOptionLabel} onChange={(e) => handleLabelChange(e.target.value)} placeholder="Option label" color={labelError ? 'danger' : undefined} />
+              <FormHelperText sx={{ color: labelError ? 'danger.500' : 'text.tertiary', minHeight: 20 }}>{labelError || ' '}</FormHelperText>
             </FormControl>
             <FormControl sx={{ minHeight: 70 }}>
               <FormLabel>Color (Optional)</FormLabel>
-              <Select
-                value={newOptionColor}
-                onChange={(_, value) => setNewOptionColor(value || '')}
-                placeholder="Select a color"
-              >
+              <Select value={newOptionColor} onChange={(_, v) => setNewOptionColor(v || '')} placeholder="Select a color">
                 <Option value="">None</Option>
                 <Option value="green">Green</Option>
                 <Option value="blue">Blue</Option>
@@ -1591,66 +1458,39 @@ export default function SettingsPage() {
               </Select>
             </FormControl>
             <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ pt: 1 }}>
-              <Button variant="plain" color="neutral" onClick={() => setEditModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleUpdateOption}
-                loading={savingOption}
-                disabled={!!labelError || !newOptionLabel}
-              >
-                Save Changes
-              </Button>
+              <Button variant="plain" color="neutral" onClick={() => setEditModalOpen(false)}>Cancel</Button>
+              <Button onClick={handleUpdateOption} loading={savingOption} disabled={!!labelError || !newOptionLabel}>Save Changes</Button>
             </Stack>
           </Stack>
         </ModalDialog>
       </Modal>
 
-      {/* Delete Option Confirmation Dialog */}
+      {/* Confirmation Dialogs */}
       <ConfirmDialog
         open={deleteConfirmOpen}
-        onClose={() => {
-          setDeleteConfirmOpen(false);
-          setPendingDeleteOption(null);
-        }}
+        onClose={() => { setDeleteConfirmOpen(false); setPendingDeleteOption(null); }}
         onConfirm={handleDeleteOption}
         title="Delete Option"
         description="Are you sure you want to delete this option? This action cannot be undone."
-        confirmText="Delete"
-        cancelText="Cancel"
-        variant="danger"
-        loading={savingOption}
+        confirmText="Delete" cancelText="Cancel" variant="danger" loading={savingOption}
       />
-
-      {/* Reset Category Confirmation Dialog */}
       <ConfirmDialog
         open={resetConfirmOpen}
-        onClose={() => {
-          setResetConfirmOpen(false);
-          setPendingResetCategory(null);
-        }}
+        onClose={() => { setResetConfirmOpen(false); setPendingResetCategory(null); }}
         onConfirm={handleResetCategory}
         title="Reset to Defaults"
         description="Are you sure you want to reset this category to defaults? All custom options will be removed and replaced with the default options."
-        confirmText="Reset"
-        cancelText="Cancel"
-        variant="warning"
-        loading={savingOption}
+        confirmText="Reset" cancelText="Cancel" variant="warning" loading={savingOption}
       />
-
-      {/* Delete Company Data Confirmation Dialog */}
       <DangerousConfirmDialog
         open={deleteDataConfirmOpen}
         onClose={() => setDeleteDataConfirmOpen(false)}
         onConfirm={handleDeleteCompanyData}
         title="Delete All Company Data"
         description="This action will permanently delete all your business data. This cannot be undone."
-        confirmPhrase="DELETE ALL DATA"
-        confirmText="Delete Everything"
-        cancelText="Cancel"
-        loading={deletingData}
-        warningItems={getWarningItems()}
+        confirmPhrase="DELETE ALL DATA" confirmText="Delete Everything" cancelText="Cancel"
+        loading={deletingData} warningItems={getWarningItems()}
       />
-    </Container>
+    </Box>
   );
 }

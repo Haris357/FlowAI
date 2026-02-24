@@ -51,6 +51,7 @@ import FormEntityDetailModal from '@/components/FormEntityDetailModal';
 import { useSettingsCategory, useFormatting } from '@/hooks';
 import { canEdit as canEditStatus, canDelete as canDeleteStatus, getStatusColor as getStatusMgmtColor, formatStatus } from '@/lib/status-management';
 import { format } from 'date-fns';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import toast from 'react-hot-toast';
 import { Timestamp } from 'firebase/firestore';
 
@@ -82,6 +83,7 @@ const emptyItem: InvoiceItem = {
 export default function InvoicesPage() {
   const { user, loading: authLoading } = useAuth();
   const { company } = useCompany();
+  const { checkLimit, showUpgradeModal } = useSubscription();
   const router = useRouter();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -341,6 +343,15 @@ export default function InvoicesPage() {
   // Handle save
   const handleSave = async () => {
     if (!validateForm() || !company?.id || !selectedCustomer) return;
+
+    // Check plan limit (only for new invoices, not edits)
+    if (!editingInvoice) {
+      const limitCheck = checkLimit('invoices', invoices.filter(i => i.status !== 'draft').length);
+      if (!limitCheck.allowed) {
+        showUpgradeModal(limitCheck.reason || 'Invoice limit reached. Please upgrade.');
+        return;
+      }
+    }
 
     setSaving(true);
     try {

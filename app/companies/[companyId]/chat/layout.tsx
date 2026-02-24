@@ -4,6 +4,7 @@ import { Box, Stack } from '@mui/joy';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompany } from '@/contexts/CompanyContext';
 import { ChatProvider } from '@/contexts/ChatContext';
+import TokenLimitModal from '@/components/subscription/TokenLimitModal';
 
 export default function ChatLayout({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
@@ -49,6 +50,7 @@ export default function ChatLayout({ children }: { children: React.ReactNode }) 
   return (
     <ChatProvider>
       {children}
+      <TokenLimitModal />
     </ChatProvider>
   );
 }

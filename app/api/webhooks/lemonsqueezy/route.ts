@@ -3,6 +3,8 @@ import crypto from 'crypto';
 import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
 import { getPlanByVariantId, getTokenPackByVariantId } from '@/lib/plans';
+import { sendEmail } from '@/lib/email';
+import { getEmailTemplate } from '@/lib/email-templates';
 
 initAdmin();
 const adminDb = getFirestore();
@@ -96,6 +98,18 @@ export async function POST(request: NextRequest) {
           lemonSqueezyEventId: eventId,
           invoiceUrl: attrs.urls?.customer_portal || null,
         });
+
+        // Send subscription confirmation email + payment receipt
+        notifyUser(userId, 'payment_receipt', {
+          amount: `$${plan.price.toFixed(2)}`,
+          planName: plan.name,
+          invoiceId: eventId,
+        }, {
+          type: 'success',
+          title: `Welcome to ${plan.name}!`,
+          message: `Your ${plan.name} subscription is now active. Enjoy your upgraded features!`,
+          category: 'subscription',
+        });
         break;
       }
 
@@ -128,6 +142,19 @@ export async function POST(request: NextRequest) {
           lemonSqueezyEventId: eventId,
           invoiceUrl: null,
         });
+
+        // Send plan change email if plan changed
+        if (plan) {
+          notifyUser(userId, 'plan_changed', {
+            planName: plan.name,
+            previousPlan: 'Previous Plan',
+          }, {
+            type: 'info',
+            title: 'Plan Updated',
+            message: `Your subscription has been updated to the ${plan.name} plan.`,
+            category: 'subscription',
+          });
+        }
         break;
       }
 
@@ -148,6 +175,16 @@ export async function POST(request: NextRequest) {
           lemonSqueezyEventId: eventId,
           invoiceUrl: null,
         });
+
+        // Send cancellation email
+        notifyUser(userId, 'subscription_cancelled', {
+          planName: 'your plan',
+        }, {
+          type: 'warning',
+          title: 'Subscription Cancelled',
+          message: 'Your subscription has been cancelled. You can resubscribe anytime from your billing settings.',
+          category: 'subscription',
+        });
         break;
       }
 
@@ -156,6 +193,17 @@ export async function POST(request: NextRequest) {
           'subscription.status': 'active',
           'subscription.cancelAt': null,
           'subscription.updatedAt': Timestamp.now(),
+        });
+
+        // Send resumption notification
+        notifyUser(userId, 'custom', {
+          customSubject: 'Your Flowbooks subscription has been resumed',
+          customMessage: 'Great news! Your subscription is active again. All premium features have been restored. Thank you for continuing with Flowbooks!',
+        }, {
+          type: 'success',
+          title: 'Subscription Resumed',
+          message: 'Your subscription is active again. All features have been restored.',
+          category: 'subscription',
         });
         break;
       }
@@ -170,13 +218,27 @@ export async function POST(request: NextRequest) {
           'subscription.updatedAt': Timestamp.now(),
         });
 
+        const paymentAmount = parseFloat(attrs.total || '0') / 100;
+
         await addBillingEvent(userId, {
           type: 'subscription_renewed',
           description: 'Subscription payment successful',
-          amount: parseFloat(attrs.total || '0') / 100,
+          amount: paymentAmount,
           currency: 'USD',
           lemonSqueezyEventId: eventId,
           invoiceUrl: attrs.urls?.invoice || null,
+        });
+
+        // Send payment receipt email
+        notifyUser(userId, 'payment_receipt', {
+          amount: `$${paymentAmount.toFixed(2)}`,
+          planName: 'Flowbooks',
+          invoiceId: eventId,
+        }, {
+          type: 'success',
+          title: 'Payment Received',
+          message: `Your payment of $${paymentAmount.toFixed(2)} has been processed successfully.`,
+          category: 'subscription',
         });
         break;
       }
@@ -194,6 +256,17 @@ export async function POST(request: NextRequest) {
           currency: 'USD',
           lemonSqueezyEventId: eventId,
           invoiceUrl: null,
+        });
+
+        // Send payment failed warning email
+        notifyUser(userId, 'account_warning', {
+          warningType: 'Payment Failed',
+          warningMessage: 'Your latest subscription payment could not be processed. Please update your payment method to avoid service interruption. Visit your billing settings to resolve this issue.',
+        }, {
+          type: 'warning',
+          title: 'Payment Failed',
+          message: 'Your subscription payment failed. Please update your payment method to continue your service.',
+          category: 'subscription',
         });
         break;
       }
@@ -240,17 +313,40 @@ export async function POST(request: NextRequest) {
           lemonSqueezyEventId: eventId,
           invoiceUrl: attrs.urls?.receipt || null,
         });
+
+        // Send token pack receipt email
+        notifyUser(userId, 'tokens_granted', {
+          tokenAmount: pack.tokens,
+        }, {
+          type: 'success',
+          title: 'Token Pack Purchased',
+          message: `${(pack.tokens / 1000).toFixed(0)}K tokens have been added to your account.`,
+          category: 'subscription',
+        });
         break;
       }
 
       case 'order_refunded': {
+        const refundAmount = parseFloat(attrs.total || '0') / 100;
+
         await addBillingEvent(userId, {
           type: 'refund',
           description: 'Order refunded',
-          amount: -(parseFloat(attrs.total || '0') / 100),
+          amount: -refundAmount,
           currency: 'USD',
           lemonSqueezyEventId: eventId,
           invoiceUrl: null,
+        });
+
+        // Send refund notification email
+        notifyUser(userId, 'custom', {
+          customSubject: 'Refund Processed — Flowbooks',
+          customMessage: `A refund of $${refundAmount.toFixed(2)} has been processed for your account. Please allow 3–5 business days for the amount to appear in your payment method.\n\nIf you have any questions about this refund, please contact our support team.`,
+        }, {
+          type: 'info',
+          title: 'Refund Processed',
+          message: `A refund of $${refundAmount.toFixed(2)} has been processed to your account.`,
+          category: 'subscription',
         });
         break;
       }
@@ -300,4 +396,43 @@ async function addBillingEvent(userId: string, event: {
     ...event,
     createdAt: Timestamp.now(),
   });
+}
+
+/** Get user email and name from Firestore (for sending transactional emails) */
+async function getUserInfo(userId: string): Promise<{ email: string; name: string } | null> {
+  try {
+    const snap = await adminDb.doc(`users/${userId}`).get();
+    if (!snap.exists) return null;
+    const data = snap.data()!;
+    return {
+      email: data.email || '',
+      name: data.name || data.displayName || data.email?.split('@')[0] || 'User',
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Send an email + in-app notification (non-blocking, won't fail the webhook) */
+async function notifyUser(
+  userId: string,
+  templateType: Parameters<typeof getEmailTemplate>[0],
+  templateData: Parameters<typeof getEmailTemplate>[1],
+  notification: { type: 'info' | 'success' | 'warning'; title: string; message: string; category: string },
+) {
+  try {
+    const user = await getUserInfo(userId);
+    if (!user?.email) return;
+
+    const { subject, html } = getEmailTemplate(templateType, { ...templateData, userName: user.name });
+    await sendEmail(user.email, subject, html);
+
+    await adminDb.collection(`users/${userId}/notifications`).add({
+      ...notification,
+      read: false,
+      createdAt: Timestamp.now(),
+    });
+  } catch (err) {
+    console.error(`[LS Webhook] Failed to notify user ${userId}:`, err);
+  }
 }

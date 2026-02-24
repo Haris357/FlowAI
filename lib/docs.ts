@@ -133,30 +133,115 @@ export const DOC_ARTICLES: DocArticle[] = [
   },
 ];
 
-export const TUTORIAL_STEPS = [
+export interface TutorialStep {
+  id: string;
+  title: string;
+  description: string;
+  /** data-tour attribute value on the target DOM element (null = full-screen overlay step) */
+  target: string | null;
+  features?: string[];
+  tip?: string;
+}
+
+export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'welcome',
-    title: 'Welcome to Flowbooks',
-    description: 'AI-first accounting software that helps you manage your business finances effortlessly.',
+    title: 'Welcome to Flowbooks!',
+    description: 'Your AI-powered accounting platform. Let us show you around — it only takes a minute.',
+    target: null,
+    features: [
+      'AI-powered financial assistant',
+      'Professional invoices & quotes',
+      'Bill tracking & purchase orders',
+      'Bank account management',
+      'Employee payroll',
+      'Financial reports & insights',
+    ],
   },
   {
-    id: 'create-company',
-    title: 'Create Your Company',
-    description: 'Start by setting up your business. Click "+ New Company" to begin.',
+    id: 'dashboard',
+    title: 'Your Dashboard',
+    description: 'Get a real-time overview of your business — revenue, expenses, cash flow, and recent activity all in one place.',
+    target: 'dashboard',
+    tip: 'The dashboard updates automatically as you add transactions.',
   },
   {
-    id: 'add-customer',
-    title: 'Add Your First Customer',
-    description: 'Go to Sales > Customers and add a customer to start invoicing.',
+    id: 'flow-ai',
+    title: 'Flow AI — Your Smart Assistant',
+    description: 'Ask questions in plain English like "Create an invoice for $500" or "What\'s my profit this month?" — Flow AI handles it instantly.',
+    target: 'flow-ai',
+    features: [
+      'Create invoices & bills by chatting',
+      'Get instant financial summaries',
+      'Ask accounting questions naturally',
+    ],
+    tip: 'Try asking: "Show me a summary of my business"',
   },
   {
-    id: 'create-invoice',
-    title: 'Create an Invoice',
-    description: 'Navigate to Sales > Invoices to create and send your first invoice.',
+    id: 'sales',
+    title: 'Sales & Invoicing',
+    description: 'Create and send professional invoices, quotes, and credit notes. Manage your customers and track payments effortlessly.',
+    target: 'sales',
+    features: [
+      'Invoices — Create, send, and track payments',
+      'Quotes — Send estimates that convert to invoices',
+      'Customers — Manage your client directory',
+      'Credit Notes — Handle returns and adjustments',
+    ],
   },
   {
-    id: 'try-ai',
-    title: 'Try the AI Assistant',
-    description: 'Open Flow AI and ask: "Show me a summary of my business" to see it in action.',
+    id: 'purchases',
+    title: 'Purchases & Bills',
+    description: 'Track what you owe. Record bills, create purchase orders, and manage your vendors all in one place.',
+    target: 'purchases',
+    features: [
+      'Bills — Record and track what you owe',
+      'Purchase Orders — Create orders for vendors',
+      'Vendors — Manage your supplier directory',
+    ],
+  },
+  {
+    id: 'banking',
+    title: 'Banking',
+    description: 'Connect your bank accounts, record transactions, and reconcile everything to keep your books accurate.',
+    target: 'banking',
+    features: [
+      'Bank Accounts — Track balances and activity',
+      'Transactions — Record deposits & withdrawals',
+    ],
+  },
+  {
+    id: 'people',
+    title: 'People & Payroll',
+    description: 'Add employees, set salaries, and run payroll with automated salary slip generation.',
+    target: 'people',
+    features: [
+      'Employees — Manage your team directory',
+      'Payroll — Generate salary slips and track payments',
+    ],
+  },
+  {
+    id: 'accounting',
+    title: 'Accounting',
+    description: 'Your full chart of accounts, journal entries, and recurring transactions — the backbone of your books.',
+    target: 'accounting',
+    features: [
+      'Chart of Accounts — Organize your finances',
+      'Journal Entries — Record manual adjustments',
+      'Recurring — Automate repeated transactions',
+    ],
+  },
+  {
+    id: 'reports',
+    title: 'Reports & Insights',
+    description: 'Profit & Loss, Balance Sheet, Cash Flow, Trial Balance — generate any report with a single click.',
+    target: 'reports',
+    tip: 'Export reports to PDF or Excel on Pro and Max plans.',
+  },
+  {
+    id: 'completion',
+    title: 'You\'re All Set!',
+    description: 'You now know your way around Flowbooks. Start by exploring your dashboard or chatting with Flow AI.',
+    target: null,
   },
 ];

@@ -3,6 +3,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
 import { sendEmail } from '@/lib/email';
 import { getEmailTemplate, type EmailTemplateType, type EmailTemplateData } from '@/lib/email-templates';
+import { verifyAdminRequest } from '@/lib/admin-server';
 
 initAdmin();
 const db = getFirestore();
@@ -60,6 +61,7 @@ async function createNotification(
     payment_receipt: 'subscription',
     subscription_cancelled: 'subscription',
     password_reset: 'system',
+    newsletter: 'system',
   };
 
   const typeMap: Record<EmailTemplateType, string> = {
@@ -73,6 +75,7 @@ async function createNotification(
     payment_receipt: 'success',
     subscription_cancelled: 'warning',
     password_reset: 'action',
+    newsletter: 'info',
   };
 
   await db.collection('users').doc(userId).collection('notifications').doc().set({
@@ -91,6 +94,9 @@ async function createNotification(
 
 export async function POST(req: Request) {
   try {
+    const authResult = await verifyAdminRequest(req);
+    if (!authResult.authorized) return authResult.response;
+
     const body = await req.json();
     const { templateType, templateData, recipients, preview } = body;
 

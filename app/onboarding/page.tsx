@@ -5,8 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { db } from '@/lib/firebase';
 import { collection, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { getDefaultChartOfAccounts } from '@/lib/chart-of-accounts';
-import { countries, Country } from '@/lib/countries';
+import { getDefaultChartOfAccounts, type ChartAccount } from '@/lib/chart-of-accounts';
+import { countries } from '@/lib/countries';
 import toast from 'react-hot-toast';
 import {
   Box,
@@ -14,206 +14,121 @@ import {
   CardContent,
   Typography,
   Input,
+  Textarea,
   Button,
   Stack,
   Grid,
   Autocomplete,
-  Chip,
   FormControl,
   FormLabel,
   LinearProgress,
   IconButton,
+  Chip,
+  CircularProgress,
 } from '@mui/joy';
-import { Building2, CheckCircle2, ArrowRight, ArrowLeft, Moon, Sun, FileText, Users, Package, BookOpen, Check } from 'lucide-react';
+import {
+  Building2, CheckCircle2, ArrowRight, Moon, Sun, Sparkles, Loader2,
+} from 'lucide-react';
+import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
+
+// ─── Enhanced boxes background ───
+const BOXES = [
+  { w: 64, h: 64, left: '6%', top: '10%', rot: 12, filled: false },
+  { w: 48, h: 48, left: '20%', top: '65%', rot: 35, filled: true },
+  { w: 80, h: 80, left: '72%', top: '6%', rot: -8, filled: false },
+  { w: 44, h: 44, left: '85%', top: '42%', rot: 22, filled: true },
+  { w: 56, h: 56, left: '3%', top: '76%', rot: -15, filled: false },
+  { w: 100, h: 100, left: '58%', top: '70%', rot: 18, filled: false },
+  { w: 36, h: 36, left: '40%', top: '4%', rot: 40, filled: true },
+  { w: 72, h: 72, left: '88%', top: '78%', rot: -25, filled: false },
+  { w: 52, h: 52, left: '14%', top: '36%', rot: 30, filled: false },
+  { w: 44, h: 44, left: '66%', top: '33%', rot: -12, filled: true },
+  { w: 60, h: 60, left: '48%', top: '86%', rot: 8, filled: false },
+  { w: 32, h: 32, left: '33%', top: '50%', rot: 45, filled: false },
+  { w: 90, h: 90, left: '80%', top: '15%', rot: -20, filled: false },
+  { w: 42, h: 42, left: '53%', top: '52%', rot: 15, filled: true },
+  { w: 70, h: 70, left: '26%', top: '20%', rot: -35, filled: false },
+  { w: 50, h: 50, left: '92%', top: '60%', rot: 28, filled: false },
+];
+
+const BoxesBackground = () => (
+  <Box sx={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
+    {BOXES.map((box, i) => (
+      <Box
+        key={i}
+        sx={{
+          position: 'absolute',
+          width: box.w,
+          height: box.h,
+          left: box.left,
+          top: box.top,
+          borderRadius: '12px',
+          transform: `rotate(${box.rot}deg)`,
+          border: box.filled ? 'none' : '1.5px solid',
+          borderColor: box.filled ? 'transparent' : 'var(--joy-palette-primary-200)',
+          bgcolor: box.filled ? 'primary.50' : 'transparent',
+        }}
+      />
+    ))}
+    {/* Soft radial glow */}
+    <Box sx={{
+      position: 'absolute', inset: 0,
+      background: 'radial-gradient(circle at 25% 35%, var(--joy-palette-primary-50), transparent 55%), radial-gradient(circle at 75% 65%, var(--joy-palette-primary-50), transparent 55%)',
+      opacity: 0.35,
+    }} />
+  </Box>
+);
 
 interface OnboardingData {
   companyName: string;
   businessType: string;
-  industry: string;
   country: string;
   currency: string;
-  address: string;
-  city: string;
-  zipCode: string;
-  phone: string;
-  email: string;
-  website: string;
-  taxId: string;
-  fiscalYearStart: number;
-  hasInvoices: boolean;
-  hasEmployees: boolean;
-  tracksInventory: boolean;
-  invoicePrefix: string;
-  invoiceStartNumber: number;
+  description: string;
 }
 
 const businessTypes = [
   'Freelancer', 'Consulting', 'Retail', 'Manufacturing', 'Services',
   'Technology', 'Construction', 'Healthcare', 'Education', 'Hospitality',
-  'Real Estate', 'Other'
+  'Real Estate', 'Restaurant', 'E-Commerce', 'Agency', 'Other',
 ];
-
-const months = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
-
-const AccountingBackground = () => {
-  const calculations = [
-    'Assets = Liabilities + Equity',
-    'Revenue - Expenses = Net Income',
-    'Debit = Credit',
-    'Cash Flow = Inflows - Outflows',
-    'Gross Profit = Revenue - COGS',
-    'ROA = Net Income / Total Assets',
-  ];
-
-  const numbers = ['$1,234.56', '₹45,678', '€3,456', '£2,345', '$987.65', '¥12,345'];
-  const ledgerItems = ['DR', 'CR', 'Bal', 'A/R', 'A/P', 'GL', 'P&L', 'COA'];
-
-  return (
-    <Box
-      sx={{
-        position: 'fixed',
-        inset: 0,
-        overflow: 'hidden',
-        pointerEvents: 'none',
-        zIndex: 0,
-      }}
-    >
-      {/* Floating calculations */}
-      {calculations.map((calc, i) => (
-        <Box
-          key={i}
-          sx={{
-            position: 'absolute',
-            fontSize: '13px',
-            fontFamily: 'monospace',
-            fontWeight: 600,
-            color: 'primary.400',
-            opacity: 0.15,
-            left: `${10 + Math.random() * 80}%`,
-            top: `${10 + Math.random() * 80}%`,
-            animation: 'float 20s ease-in-out infinite',
-            animationDelay: `${i * 3}s`,
-            '@keyframes float': {
-              '0%, 100%': { transform: 'translateY(0px)' },
-              '50%': { transform: 'translateY(-30px)' },
-            },
-          }}
-        >
-          {calc}
-        </Box>
-      ))}
-
-      {/* Floating numbers */}
-      {numbers.map((num, i) => (
-        <Box
-          key={`num-${i}`}
-          sx={{
-            position: 'absolute',
-            fontSize: '24px',
-            fontWeight: 700,
-            color: 'primary.500',
-            left: `${15 + Math.random() * 70}%`,
-            top: `${15 + Math.random() * 70}%`,
-            animation: 'pulse 4s ease-in-out infinite',
-            animationDelay: `${i * 0.7}s`,
-            '@keyframes pulse': {
-              '0%, 100%': { opacity: 0.1 },
-              '50%': { opacity: 0.25 },
-            },
-          }}
-        >
-          {num}
-        </Box>
-      ))}
-
-      {/* Ledger abbreviations */}
-      {ledgerItems.map((item, i) => (
-        <Box
-          key={`ledger-${i}`}
-          sx={{
-            position: 'absolute',
-            fontSize: '20px',
-            fontWeight: 800,
-            fontFamily: 'monospace',
-            color: 'primary.600',
-            opacity: 0.12,
-            left: `${20 + Math.random() * 60}%`,
-            top: `${20 + Math.random() * 60}%`,
-            animation: 'float 25s ease-in-out infinite',
-            animationDelay: `${i * 2.5}s`,
-            '@keyframes float': {
-              '0%, 100%': { transform: 'translateY(0px) rotate(0deg)' },
-              '50%': { transform: 'translateY(-40px) rotate(10deg)' },
-            },
-          }}
-        >
-          {item}
-        </Box>
-      ))}
-
-      {/* Gradient background */}
-      <Box
-        sx={{
-          position: 'absolute',
-          inset: 0,
-          background: 'radial-gradient(circle at 30% 40%, var(--joy-palette-primary-50), transparent 50%), radial-gradient(circle at 70% 70%, var(--joy-palette-primary-100), transparent 50%)',
-          opacity: 0.4,
-        }}
-      />
-    </Box>
-  );
-};
 
 export default function OnboardingPage() {
   const { user, loading: authLoading } = useAuth();
   const { mode, toggleMode } = useTheme();
   const router = useRouter();
-  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAccounts, setAiAccounts] = useState<ChartAccount[]>([]);
   const [draftLoaded, setDraftLoaded] = useState(false);
 
   const [formData, setFormData] = useState<OnboardingData>({
     companyName: '',
     businessType: '',
-    industry: '',
     country: 'US',
     currency: 'USD',
-    address: '',
-    city: '',
-    zipCode: '',
-    phone: '',
-    email: user?.email || '',
-    website: '',
-    taxId: '',
-    fiscalYearStart: 1,
-    hasInvoices: true,
-    hasEmployees: false,
-    tracksInventory: false,
-    invoicePrefix: 'INV',
-    invoiceStartNumber: 1000,
+    description: '',
   });
 
-  // Load draft data on mount
+  // Load draft on mount
   useEffect(() => {
     if (!user || draftLoaded) return;
-
     const loadDraft = async () => {
       try {
         const draftRef = doc(db, 'users', user.uid, 'drafts', 'onboarding');
         const draftSnap = await getDoc(draftRef);
-
         if (draftSnap.exists()) {
-          const draftData = draftSnap.data();
-          setFormData(prev => ({
-            ...prev,
-            ...draftData,
-            email: user.email || prev.email,
-          }));
-          if (draftData.step) setStep(draftData.step);
-          toast.success('Draft loaded');
+          const d = draftSnap.data();
+          if (!d.deleted) {
+            setFormData(prev => ({
+              ...prev,
+              companyName: d.companyName || prev.companyName,
+              businessType: d.businessType || prev.businessType,
+              country: d.country || prev.country,
+              currency: d.currency || prev.currency,
+              description: d.description || prev.description,
+            }));
+          }
         }
       } catch (error) {
         console.error('Error loading draft:', error);
@@ -221,135 +136,127 @@ export default function OnboardingPage() {
         setDraftLoaded(true);
       }
     };
-
     loadDraft();
   }, [user, draftLoaded]);
 
-  // Save draft whenever form data changes
-  const saveDraft = useCallback(async (data: OnboardingData, currentStep: number) => {
+  // Save draft on changes
+  const saveDraft = useCallback(async (data: OnboardingData) => {
     if (!user) return;
-
     try {
       const draftRef = doc(db, 'users', user.uid, 'drafts', 'onboarding');
-      await setDoc(draftRef, {
-        ...data,
-        step: currentStep,
-        updatedAt: serverTimestamp(),
-      });
+      await setDoc(draftRef, { ...data, updatedAt: serverTimestamp() });
     } catch (error) {
       console.error('Error saving draft:', error);
     }
   }, [user]);
 
-  // Debounced save effect
   useEffect(() => {
     if (!draftLoaded) return;
-
-    const timeoutId = setTimeout(() => {
-      saveDraft(formData, step);
-    }, 1000);
-
-    return () => clearTimeout(timeoutId);
-  }, [formData, step, saveDraft, draftLoaded]);
+    const t = setTimeout(() => saveDraft(formData), 1500);
+    return () => clearTimeout(t);
+  }, [formData, saveDraft, draftLoaded]);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace('/login');
-    }
+    if (!authLoading && !user) router.replace('/login');
   }, [user, authLoading, router]);
 
-  const handleInputChange = (field: keyof OnboardingData, value: any) => {
+  const handleChange = (field: keyof OnboardingData, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const validateStep = (): boolean => {
-    switch (step) {
-      case 1:
-        if (!formData.companyName.trim()) {
-          toast.error('Please enter your company name');
-          return false;
-        }
-        if (!formData.businessType) {
-          toast.error('Please select a business type');
-          return false;
-        }
-        return true;
-      case 2:
-        if (!formData.country) {
-          toast.error('Please select a country');
-          return false;
-        }
-        return true;
-      case 3:
-        return true;
-      default:
-        return true;
+  // AI account suggestion
+  const generateAiAccounts = async () => {
+    if (!formData.description.trim()) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch('/api/onboarding/suggest-accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          description: formData.description,
+          businessType: formData.businessType,
+        }),
+      });
+      const data = await res.json();
+      if (data.accounts?.length) {
+        setAiAccounts(data.accounts.map((a: any) => ({
+          ...a,
+          isActive: true,
+          isSystem: false,
+          balance: 0,
+        })));
+        toast.success(`${data.accounts.length} custom accounts suggested!`);
+      } else {
+        toast.success('Default accounts will work great for your business.');
+      }
+    } catch {
+      toast.error('Could not generate suggestions. Default accounts will be used.');
+    } finally {
+      setAiLoading(false);
     }
-  };
-
-  const nextStep = () => {
-    if (validateStep()) {
-      setStep(prev => Math.min(prev + 1, 3));
-    }
-  };
-
-  const prevStep = () => {
-    setStep(prev => Math.max(prev - 1, 1));
   };
 
   const handleSubmit = async () => {
     if (!user) return;
+    if (!formData.companyName.trim()) {
+      toast.error('Please enter your company name');
+      return;
+    }
+    if (!formData.businessType) {
+      toast.error('Please select a business type');
+      return;
+    }
 
     setLoading(true);
     try {
       const companyId = doc(collection(db, 'companies')).id;
 
-      // Create company document
       await setDoc(doc(db, 'companies', companyId), {
         name: formData.companyName,
         businessType: formData.businessType,
-        industry: formData.industry,
         country: formData.country,
         currency: formData.currency,
-        address: formData.address,
-        city: formData.city,
-        zipCode: formData.zipCode,
-        phone: formData.phone,
-        email: formData.email,
-        website: formData.website,
-        taxId: formData.taxId,
-        fiscalYearStart: formData.fiscalYearStart,
-        hasInvoices: formData.hasInvoices,
-        hasEmployees: formData.hasEmployees,
-        tracksInventory: formData.tracksInventory,
-        invoicePrefix: formData.invoicePrefix,
-        invoiceNextNumber: formData.invoiceStartNumber,
+        description: formData.description,
         ownerId: user.uid,
+        fiscalYearStart: 1,
+        hasInvoices: true,
+        hasEmployees: false,
+        tracksInventory: false,
+        invoicePrefix: 'INV',
+        invoiceNextNumber: 1000,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
-      // Create default chart of accounts
-      const accounts = getDefaultChartOfAccounts(formData.businessType);
-      const accountsPromises = accounts.map((account) =>
-        setDoc(doc(db, 'companies', companyId, 'accounts', account.code), {
-          ...account,
-          createdAt: serverTimestamp(),
-        })
+      // Create chart of accounts: base + business-specific + AI-suggested
+      const baseAccounts = getDefaultChartOfAccounts(formData.businessType.toLowerCase());
+      const allAccounts = [...baseAccounts, ...aiAccounts];
+
+      // Deduplicate by code
+      const seen = new Set<string>();
+      const uniqueAccounts = allAccounts.filter(a => {
+        if (seen.has(a.code)) return false;
+        seen.add(a.code);
+        return true;
+      });
+
+      await Promise.all(
+        uniqueAccounts.map(account =>
+          setDoc(doc(db, 'companies', companyId, 'accounts', account.code), {
+            ...account,
+            createdAt: serverTimestamp(),
+          })
+        )
       );
 
-      await Promise.all(accountsPromises);
-
-      // Delete the draft after successful completion
+      // Clean up draft
       try {
-        const draftRef = doc(db, 'users', user.uid, 'drafts', 'onboarding');
-        await setDoc(draftRef, { deleted: true, deletedAt: serverTimestamp() });
-      } catch (error) {
-        console.error('Error deleting draft:', error);
-      }
+        await setDoc(doc(db, 'users', user.uid, 'drafts', 'onboarding'), {
+          deleted: true, deletedAt: serverTimestamp(),
+        });
+      } catch {}
 
       toast.success('Company created successfully!');
-      // Store the company ID and redirect to dashboard
       localStorage.setItem('selectedCompanyId', companyId);
       router.push(`/companies/${companyId}/dashboard`);
     } catch (error) {
@@ -360,553 +267,183 @@ export default function OnboardingPage() {
     }
   };
 
-  if (authLoading || !user) {
-    return null;
-  }
+  if (authLoading || !user) return null;
 
   const selectedCountry = countries.find(c => c.code === formData.country);
-  const progress = (step / 3) * 100;
 
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.body', position: 'relative', overflow: 'hidden' }}>
-      <AccountingBackground />
+      <BoxesBackground />
 
-      {/* Dark Mode Toggle - Top Right */}
+      {/* Dark Mode Toggle */}
       <Box sx={{ position: 'absolute', top: 12, right: 12, zIndex: 100 }}>
-        <IconButton
-          onClick={toggleMode}
-          variant="soft"
-          color="primary"
-          size="sm"
-          sx={{
-            borderRadius: 'lg',
-            boxShadow: 'sm',
-          }}
-        >
+        <IconButton onClick={toggleMode} variant="soft" color="primary" size="sm" sx={{ borderRadius: 'lg', boxShadow: 'sm' }}>
           {mode === 'light' ? <Moon size={18} /> : <Sun size={18} />}
         </IconButton>
       </Box>
 
       {/* Header */}
-      <Box sx={{ pt: 1.5, pb: 1, px: 2, position: 'relative', zIndex: 10 }}>
+      <Box sx={{ pt: 2, pb: 1, px: 2, position: 'relative', zIndex: 10 }}>
         <Stack alignItems="center" spacing={0.25}>
-          <Box sx={{ width: 32, height: 32, background: 'linear-gradient(135deg, var(--joy-palette-primary-500), var(--joy-palette-primary-600))', borderRadius: 'md', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: 'sm' }}>
-            <BookOpen size={18} color="white" strokeWidth={2.5} />
-          </Box>
-          <Typography level="title-lg" fontWeight="bold" sx={{ fontFamily: 'var(--font-inter)', letterSpacing: '-1px' }}>
-            Flow<span style={{ fontStyle: 'italic' }}>books</span>
-          </Typography>
+          <FlowBooksLogoJoy iconSize={32} fontSize="1.25rem" />
         </Stack>
-
-        {/* Progress */}
-        <Box sx={{ maxWidth: 650, mx: 'auto', mt: 1.5 }}>
-          <Stack direction="row" justifyContent="space-between" mb={0.25}>
-            <Typography level="body-xs" fontWeight="md">Step {step} of 3</Typography>
-            <Typography level="body-xs" sx={{ opacity: 0.7 }}>
-              {step === 1 && 'Company Details'}
-              {step === 2 && 'Location & Settings'}
-              {step === 3 && 'Features & Preferences'}
-            </Typography>
-          </Stack>
-          <LinearProgress determinate value={progress} size="sm" />
-        </Box>
       </Box>
 
       {/* Main Content */}
-      <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2, pt: 0.5, position: 'relative', zIndex: 10 }}>
+      <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2, pt: 0, position: 'relative', zIndex: 10 }}>
         <Card
           variant="outlined"
           sx={{
-            maxWidth: 650,
+            maxWidth: 560,
             width: '100%',
-            maxHeight: 'calc(100vh - 160px)',
+            maxHeight: 'calc(100vh - 120px)',
             display: 'flex',
             flexDirection: 'column',
             boxShadow: 'md',
             overflow: 'hidden',
           }}
         >
-          <CardContent sx={{ flex: 1, p: 2, overflowY: 'auto', overflowX: 'hidden' }}>
-            {/* Step 1 */}
-            {step === 1 && (
-              <Stack spacing={1.5}>
-                <Box textAlign="center" mb={0.5}>
-                  <Building2 size={28} style={{ margin: '0 auto 6px', color: 'var(--joy-palette-primary-500)' }} />
-                  <Typography level="title-lg" mb={0.25}>Company Details</Typography>
-                  <Typography level="body-xs" sx={{ opacity: 0.7 }}>Tell us about your business</Typography>
+          <CardContent sx={{ flex: 1, p: 3, overflowY: 'auto', overflowX: 'hidden' }}>
+            <Stack spacing={2}>
+              <Box textAlign="center" mb={0.5}>
+                <Box sx={{
+                  width: 48, height: 48, borderRadius: '50%', mx: 'auto', mb: 1.5,
+                  bgcolor: 'primary.softBg', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Building2 size={24} style={{ color: 'var(--joy-palette-primary-500)' }} />
                 </Box>
+                <Typography level="h4" fontWeight={700}>Create Your Company</Typography>
+                <Typography level="body-sm" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                  Just the basics — you can update everything else in settings later.
+                </Typography>
+              </Box>
 
-                <Grid container spacing={1.5}>
-                  <Grid xs={12}>
-                    <FormControl required size="sm">
-                      <FormLabel>Company Name</FormLabel>
-                      <Input
-                        value={formData.companyName}
-                        onChange={(e) => handleInputChange('companyName', e.target.value)}
-                        placeholder="Acme Inc."
-                        size="sm"
-                      />
-                    </FormControl>
-                  </Grid>
-
-                  <Grid xs={12} md={6}>
-                    <FormControl size="sm">
-                      <FormLabel>Email</FormLabel>
-                      <Input
-                        type="email"
-                        value={formData.email}
-                        onChange={(e) => handleInputChange('email', e.target.value)}
-                        placeholder="hello@company.com"
-                        size="sm"
-                      />
-                    </FormControl>
-                  </Grid>
-
-                  <Grid xs={12} md={6}>
-                    <FormControl size="sm">
-                      <FormLabel>Phone</FormLabel>
-                      <Input
-                        type="tel"
-                        value={formData.phone}
-                        onChange={(e) => handleInputChange('phone', e.target.value)}
-                        placeholder="+1 (555) 123-4567"
-                        size="sm"
-                      />
-                    </FormControl>
-                  </Grid>
-
-                  <Grid xs={12} md={6}>
-                    <FormControl size="sm">
-                      <FormLabel>Website</FormLabel>
-                      <Input
-                        type="url"
-                        value={formData.website}
-                        onChange={(e) => handleInputChange('website', e.target.value)}
-                        placeholder="https://company.com"
-                        size="sm"
-                      />
-                    </FormControl>
-                  </Grid>
-
-                  <Grid xs={12} md={6}>
-                    <FormControl size="sm">
-                      <FormLabel>Tax ID / EIN</FormLabel>
-                      <Input
-                        value={formData.taxId}
-                        onChange={(e) => handleInputChange('taxId', e.target.value)}
-                        placeholder="12-3456789"
-                        size="sm"
-                      />
-                    </FormControl>
-                  </Grid>
-
-                  <Grid xs={12}>
-                    <FormControl required size="sm">
-                      <FormLabel>Business Type</FormLabel>
-                      <Autocomplete
-                        value={formData.businessType}
-                        onChange={(e, newValue) => handleInputChange('businessType', newValue)}
-                        options={businessTypes}
-                        placeholder="Select business type"
-                        size="sm"
-                      />
-                    </FormControl>
-                  </Grid>
+              <Grid container spacing={1.5}>
+                {/* Company Name */}
+                <Grid xs={12}>
+                  <FormControl required size="sm">
+                    <FormLabel>Company Name</FormLabel>
+                    <Input
+                      value={formData.companyName}
+                      onChange={(e) => handleChange('companyName', e.target.value)}
+                      placeholder="Acme Inc."
+                      size="sm"
+                    />
+                  </FormControl>
                 </Grid>
-              </Stack>
-            )}
 
-            {/* Step 2 */}
-            {step === 2 && (
-              <Stack spacing={1.5}>
-                <Box textAlign="center" mb={0.5}>
-                  <Typography level="title-lg" mb={0.25}>Location & Settings</Typography>
-                  <Typography level="body-xs" sx={{ opacity: 0.7 }}>Configure regional preferences</Typography>
-                </Box>
-
-                <Grid container spacing={1.5}>
-                  <Grid xs={12}>
-                    <FormControl required size="sm">
-                      <FormLabel>Country</FormLabel>
-                      <Autocomplete
-                        value={selectedCountry}
-                        onChange={(e, newValue) => {
-                          if (newValue) {
-                            handleInputChange('country', newValue.code);
-                            handleInputChange('currency', newValue.currency);
-                          }
-                        }}
-                        options={countries}
-                        getOptionLabel={(option) => `${option.flag} ${option.name} (${option.currency})`}
-                        placeholder="Search country..."
-                        size="sm"
-                      />
-                    </FormControl>
-                  </Grid>
-
-                  <Grid xs={12}>
-                    <FormControl size="sm">
-                      <FormLabel>Address</FormLabel>
-                      <Input
-                        value={formData.address}
-                        onChange={(e) => handleInputChange('address', e.target.value)}
-                        placeholder="123 Main Street"
-                        size="sm"
-                      />
-                    </FormControl>
-                  </Grid>
-
-                  <Grid xs={12} md={6}>
-                    <FormControl size="sm">
-                      <FormLabel>City</FormLabel>
-                      <Input
-                        value={formData.city}
-                        onChange={(e) => handleInputChange('city', e.target.value)}
-                        placeholder="New York"
-                        size="sm"
-                      />
-                    </FormControl>
-                  </Grid>
-
-                  <Grid xs={12} md={6}>
-                    <FormControl size="sm">
-                      <FormLabel>ZIP / Postal Code</FormLabel>
-                      <Input
-                        value={formData.zipCode}
-                        onChange={(e) => handleInputChange('zipCode', e.target.value)}
-                        placeholder="10001"
-                        size="sm"
-                      />
-                    </FormControl>
-                  </Grid>
-
-                  <Grid xs={12}>
-                    <FormControl size="sm">
-                      <FormLabel>Fiscal Year Start Month</FormLabel>
-                      <Autocomplete
-                        value={months[formData.fiscalYearStart - 1]}
-                        onChange={(e, newValue) => {
-                          const index = months.indexOf(newValue || '');
-                          if (index >= 0) handleInputChange('fiscalYearStart', index + 1);
-                        }}
-                        options={months}
-                        placeholder="Select month"
-                        size="sm"
-                      />
-                    </FormControl>
-                  </Grid>
+                {/* Business Type */}
+                <Grid xs={12} md={6}>
+                  <FormControl required size="sm">
+                    <FormLabel>Business Type</FormLabel>
+                    <Autocomplete
+                      value={formData.businessType}
+                      onChange={(_, v) => handleChange('businessType', v || '')}
+                      options={businessTypes}
+                      placeholder="Select type"
+                      size="sm"
+                    />
+                  </FormControl>
                 </Grid>
-              </Stack>
-            )}
 
-            {/* Step 3 */}
-            {step === 3 && (
-              <Stack spacing={1.5}>
-                <Box textAlign="center" mb={0.5}>
-                  <Typography level="title-lg" mb={0.25}>Features & Preferences</Typography>
-                  <Typography level="body-xs" sx={{ opacity: 0.7 }}>Choose what you need</Typography>
-                </Box>
-
-                <Stack spacing={1}>
-                  <Grid container spacing={1.25}>
-                    <Grid xs={12} sm={4}>
-                      <Card
-                        variant="outlined"
-                        onClick={() => handleInputChange('hasInvoices', !formData.hasInvoices)}
-                        sx={{
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          position: 'relative',
-                          borderWidth: 2,
-                          borderColor: formData.hasInvoices ? 'primary.500' : 'neutral.outlinedBorder',
-                          bgcolor: formData.hasInvoices ? 'primary.50' : 'background.surface',
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: 'md',
-                            borderColor: 'primary.400',
-                          },
-                        }}
-                      >
-                        <CardContent sx={{ textAlign: 'center', py: 1.5, px: 1, position: 'relative' }}>
-                          {formData.hasInvoices && (
-                            <Box
-                              sx={{
-                                position: 'absolute',
-                                top: 4,
-                                right: 4,
-                                width: 16,
-                                height: 16,
-                                borderRadius: '50%',
-                                bgcolor: 'primary.500',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              <Check size={10} color="white" strokeWidth={3} />
-                            </Box>
-                          )}
-                          <Box
-                            sx={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: 'md',
-                              bgcolor: formData.hasInvoices ? 'primary.100' : 'neutral.100',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              margin: '0 auto 8px',
-                            }}
-                          >
-                            <FileText size={18} style={{ color: formData.hasInvoices ? 'var(--joy-palette-primary-600)' : 'var(--joy-palette-neutral-600)' }} />
-                          </Box>
-                          <Typography level="title-sm" fontWeight={600} fontSize="13px">Invoicing</Typography>
-                          <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.15, fontSize: '11px' }}>
-                            Send invoices
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                    <Grid xs={12} sm={4}>
-                      <Card
-                        variant="outlined"
-                        onClick={() => handleInputChange('hasEmployees', !formData.hasEmployees)}
-                        sx={{
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          position: 'relative',
-                          borderWidth: 2,
-                          borderColor: formData.hasEmployees ? 'primary.500' : 'neutral.outlinedBorder',
-                          bgcolor: formData.hasEmployees ? 'primary.50' : 'background.surface',
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: 'md',
-                            borderColor: 'primary.400',
-                          },
-                        }}
-                      >
-                        <CardContent sx={{ textAlign: 'center', py: 1.5, px: 1, position: 'relative' }}>
-                          {formData.hasEmployees && (
-                            <Box
-                              sx={{
-                                position: 'absolute',
-                                top: 4,
-                                right: 4,
-                                width: 16,
-                                height: 16,
-                                borderRadius: '50%',
-                                bgcolor: 'primary.500',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              <Check size={10} color="white" strokeWidth={3} />
-                            </Box>
-                          )}
-                          <Box
-                            sx={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: 'md',
-                              bgcolor: formData.hasEmployees ? 'primary.100' : 'neutral.100',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              margin: '0 auto 8px',
-                            }}
-                          >
-                            <Users size={18} style={{ color: formData.hasEmployees ? 'var(--joy-palette-primary-600)' : 'var(--joy-palette-neutral-600)' }} />
-                          </Box>
-                          <Typography level="title-sm" fontWeight={600} fontSize="13px">Payroll</Typography>
-                          <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.15, fontSize: '11px' }}>
-                            Manage employees
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                    <Grid xs={12} sm={4}>
-                      <Card
-                        variant="outlined"
-                        onClick={() => handleInputChange('tracksInventory', !formData.tracksInventory)}
-                        sx={{
-                          cursor: 'pointer',
-                          transition: 'all 0.2s',
-                          position: 'relative',
-                          borderWidth: 2,
-                          borderColor: formData.tracksInventory ? 'primary.500' : 'neutral.outlinedBorder',
-                          bgcolor: formData.tracksInventory ? 'primary.50' : 'background.surface',
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: 'md',
-                            borderColor: 'primary.400',
-                          },
-                        }}
-                      >
-                        <CardContent sx={{ textAlign: 'center', py: 1.5, px: 1, position: 'relative' }}>
-                          {formData.tracksInventory && (
-                            <Box
-                              sx={{
-                                position: 'absolute',
-                                top: 4,
-                                right: 4,
-                                width: 16,
-                                height: 16,
-                                borderRadius: '50%',
-                                bgcolor: 'primary.500',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                              }}
-                            >
-                              <Check size={10} color="white" strokeWidth={3} />
-                            </Box>
-                          )}
-                          <Box
-                            sx={{
-                              width: 36,
-                              height: 36,
-                              borderRadius: 'md',
-                              bgcolor: formData.tracksInventory ? 'primary.100' : 'neutral.100',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              margin: '0 auto 8px',
-                            }}
-                          >
-                            <Package size={18} style={{ color: formData.tracksInventory ? 'var(--joy-palette-primary-600)' : 'var(--joy-palette-neutral-600)' }} />
-                          </Box>
-                          <Typography level="title-sm" fontWeight={600} fontSize="13px">Inventory</Typography>
-                          <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.15, fontSize: '11px' }}>
-                            Track products
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  </Grid>
-
-                  {formData.hasInvoices && (
-                    <Card
-                      variant="outlined"
-                      sx={{
-                        borderColor: 'primary.300',
-                        bgcolor: 'primary.50',
+                {/* Country */}
+                <Grid xs={12} md={6}>
+                  <FormControl required size="sm">
+                    <FormLabel>Country</FormLabel>
+                    <Autocomplete
+                      value={selectedCountry}
+                      onChange={(_, v) => {
+                        if (v) {
+                          handleChange('country', v.code);
+                          handleChange('currency', v.currency);
+                        }
                       }}
-                    >
-                      <CardContent sx={{ p: 1.25 }}>
-                        <Stack direction="row" alignItems="center" spacing={0.75} mb={0.75}>
-                          <Box
-                            sx={{
-                              width: 24,
-                              height: 24,
-                              borderRadius: 'sm',
-                              bgcolor: 'primary.100',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                            }}
-                          >
-                            <FileText size={14} style={{ color: 'var(--joy-palette-primary-600)' }} />
-                          </Box>
-                          <Typography level="title-sm" fontWeight={600} fontSize="13px">
-                            Invoice Settings
-                          </Typography>
-                        </Stack>
+                      options={countries}
+                      getOptionLabel={(o) => `${o.flag} ${o.name}`}
+                      placeholder="Select country"
+                      size="sm"
+                    />
+                  </FormControl>
+                </Grid>
 
-                        <Grid container spacing={0.75}>
-                          <Grid xs={6}>
-                            <FormControl size="sm">
-                              <FormLabel sx={{ fontSize: '11px', mb: 0.25 }}>Prefix</FormLabel>
-                              <Input
-                                value={formData.invoicePrefix}
-                                onChange={(e) => handleInputChange('invoicePrefix', e.target.value)}
-                                size="sm"
-                                sx={{ fontWeight: 500 }}
-                              />
-                            </FormControl>
-                          </Grid>
-                          <Grid xs={6}>
-                            <FormControl size="sm">
-                              <FormLabel sx={{ fontSize: '11px', mb: 0.25 }}>Start #</FormLabel>
-                              <Input
-                                type="number"
-                                value={formData.invoiceStartNumber}
-                                onChange={(e) => handleInputChange('invoiceStartNumber', parseInt(e.target.value))}
-                                size="sm"
-                                sx={{ fontWeight: 500 }}
-                              />
-                            </FormControl>
-                          </Grid>
-                          <Grid xs={12}>
-                            <Box
-                              sx={{
-                                mt: 0.5,
-                                p: 0.5,
-                                borderRadius: 'sm',
-                                bgcolor: 'background.surface',
-                                border: '1px dashed',
-                                borderColor: 'primary.300',
-                              }}
-                            >
-                              <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.1, fontSize: '10px' }}>
-                                Preview
-                              </Typography>
-                              <Typography
-                                level="body-sm"
-                                fontWeight={600}
-                                sx={{
-                                  fontFamily: 'monospace',
-                                  color: 'primary.700',
-                                  letterSpacing: '0.5px',
-                                  fontSize: '12px',
-                                }}
-                              >
-                                {formData.invoicePrefix}-{formData.invoiceStartNumber}
-                              </Typography>
-                            </Box>
-                          </Grid>
-                        </Grid>
-                      </CardContent>
+                {/* AI Business Description */}
+                <Grid xs={12}>
+                  <FormControl size="sm">
+                    <FormLabel sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                      Describe Your Business
+                      <Chip
+                        size="sm"
+                        variant="soft"
+                        color="primary"
+                        startDecorator={<Sparkles size={10} />}
+                        sx={{ fontSize: '0.65rem', height: 18, '--Chip-gap': '2px' }}
+                      >
+                        AI
+                      </Chip>
+                    </FormLabel>
+                    <Textarea
+                      value={formData.description}
+                      onChange={(e) => handleChange('description', e.target.value)}
+                      placeholder="e.g. I run a web design agency with 3 employees. We do monthly retainer contracts and project-based work. We also resell hosting services..."
+                      minRows={3}
+                      maxRows={5}
+                      size="sm"
+                    />
+                    <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.5 }}>
+                      Optional — AI will customize your chart of accounts based on this description.
+                    </Typography>
+                  </FormControl>
+                </Grid>
+
+                {/* AI Suggested Accounts */}
+                {formData.description.trim().length > 20 && (
+                  <Grid xs={12}>
+                    <Button
+                      variant="soft"
+                      color="primary"
+                      size="sm"
+                      fullWidth
+                      onClick={generateAiAccounts}
+                      loading={aiLoading}
+                      startDecorator={aiLoading ? <Loader2 size={14} /> : <Sparkles size={14} />}
+                      sx={{ borderRadius: 'md' }}
+                    >
+                      {aiLoading ? 'Generating Custom Accounts...' : 'Generate Custom Accounts'}
+                    </Button>
+                  </Grid>
+                )}
+
+                {aiAccounts.length > 0 && (
+                  <Grid xs={12}>
+                    <Card variant="soft" color="primary" sx={{ p: 1.5 }}>
+                      <Typography level="body-xs" fontWeight={600} sx={{ mb: 0.75, color: 'primary.700' }}>
+                        AI-Suggested Accounts ({aiAccounts.length})
+                      </Typography>
+                      <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.5}>
+                        {aiAccounts.map((a, i) => (
+                          <Chip key={i} size="sm" variant="outlined" color="primary" sx={{ fontSize: '0.7rem' }}>
+                            {a.name}
+                          </Chip>
+                        ))}
+                      </Stack>
                     </Card>
-                  )}
-                </Stack>
-              </Stack>
-            )}
+                  </Grid>
+                )}
+              </Grid>
+            </Stack>
           </CardContent>
 
-          {/* Compact Navigation */}
-          <Box sx={{ borderTop: 1, borderColor: 'divider', p: 1.5, display: 'flex', justifyContent: 'space-between' }}>
+          {/* Footer */}
+          <Box sx={{ borderTop: 1, borderColor: 'divider', p: 2, display: 'flex', justifyContent: 'flex-end' }}>
             <Button
-              variant="outlined"
-              color="neutral"
-              startDecorator={<ArrowLeft size={16} />}
-              onClick={prevStep}
-              disabled={step === 1}
-              size="sm"
+              color="primary"
+              endDecorator={loading ? <CircularProgress size="sm" /> : <CheckCircle2 size={16} />}
+              onClick={handleSubmit}
+              loading={loading}
+              sx={{ px: 3 }}
             >
-              Back
+              Create Company
             </Button>
-
-            {step < 3 ? (
-              <Button
-                color="primary"
-                endDecorator={<ArrowRight size={16} />}
-                onClick={nextStep}
-                size="sm"
-              >
-                Continue
-              </Button>
-            ) : (
-              <Button
-                color="primary"
-                endDecorator={<CheckCircle2 size={16} />}
-                onClick={handleSubmit}
-                loading={loading}
-                size="sm"
-              >
-                Complete
-              </Button>
-            )}
           </Box>
         </Card>
       </Box>

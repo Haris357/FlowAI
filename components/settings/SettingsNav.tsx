@@ -9,6 +9,7 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
 
 export type SettingsSection =
   | 'profile' | 'preferences' | 'notifications' | 'security'
@@ -92,9 +93,7 @@ export default function SettingsNav({ active, onSelect }: SettingsNavProps) {
         <Stack direction="row" spacing={1} alignItems="center">
           <Settings size={20} style={{ color: 'var(--joy-palette-primary-600)' }} />
           <Box>
-            <Typography level="title-md" fontWeight={700} sx={{ color: 'primary.700' }}>
-              Flowbooks
-            </Typography>
+            <FlowBooksLogoJoy showIcon={false} iconSize={20} fontSize="1.1rem" />
             <Typography level="body-xs" sx={{ color: 'primary.500' }}>
               Account Settings
             </Typography>

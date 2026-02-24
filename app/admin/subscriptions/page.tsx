@@ -5,13 +5,15 @@ import {
 } from '@mui/joy';
 import { CreditCard, TrendingUp, Users } from 'lucide-react';
 import StatCard from '@/components/admin/StatCard';
+import { PLANS } from '@/lib/plans';
+import { adminFetch } from '@/lib/admin-fetch';
 
 export default function AdminSubscriptionsPage() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch('/api/admin/stats')
+    adminFetch('/api/admin/stats')
       .then(res => res.json())
       .then(setStats)
       .catch(console.error)
@@ -20,7 +22,7 @@ export default function AdminSubscriptionsPage() {
 
   const dist = stats?.planDistribution || { free: 0, pro: 0, max: 0 };
   const total = dist.free + dist.pro + dist.max;
-  const revenue = (dist.pro * 29.99) + (dist.max * 99.99);
+  const revenue = (dist.pro * PLANS.pro.price) + (dist.max * PLANS.max.price);
 
   return (
     <Box sx={{ p: { xs: 2.5, md: 4 }, maxWidth: 960, mx: 'auto' }}>
@@ -52,9 +54,9 @@ export default function AdminSubscriptionsPage() {
 
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               {[
-                { label: 'Free', price: '$0', count: dist.free, color: 'neutral' as const },
-                { label: 'Pro', price: '$29.99/mo', count: dist.pro, color: 'primary' as const },
-                { label: 'Max', price: '$99.99/mo', count: dist.max, color: 'success' as const },
+                { label: 'Free', price: `$${PLANS.free.price}`, count: dist.free, color: 'neutral' as const },
+                { label: 'Pro', price: `$${PLANS.pro.price}/mo`, count: dist.pro, color: 'primary' as const },
+                { label: 'Max', price: `$${PLANS.max.price}/mo`, count: dist.max, color: 'success' as const },
               ].map(plan => (
                 <Card key={plan.label} variant="soft" sx={{ flex: 1, textAlign: 'center', p: 3 }}>
                   {loading ? (

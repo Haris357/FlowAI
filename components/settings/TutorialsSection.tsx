@@ -1,13 +1,16 @@
 'use client';
 import { Box, Card, CardContent, Typography, Stack } from '@mui/joy';
 import {
-  Rocket, Building2, Users, FileText, MessageCircle,
+  Rocket, LayoutDashboard, MessageCircle, ShoppingCart, Receipt,
+  Landmark, Briefcase, Calculator, BarChart3, FileText, PartyPopper,
 } from 'lucide-react';
 import { TUTORIAL_STEPS } from '@/lib/docs';
 
 const STEP_ICONS: Record<string, React.ElementType> = {
-  welcome: Rocket, 'create-company': Building2, 'add-customer': Users,
-  'create-invoice': FileText, 'try-ai': MessageCircle,
+  welcome: Rocket, dashboard: LayoutDashboard, 'flow-ai': MessageCircle,
+  sales: ShoppingCart, purchases: Receipt, banking: Landmark,
+  people: Briefcase, accounting: Calculator, reports: BarChart3,
+  completion: PartyPopper,
 };
 
 export default function TutorialsSection() {

@@ -19,6 +19,7 @@ interface Company {
   businessType: string;
   country: string;
   currency: string;
+  description?: string;
   fiscalYearStart: number;
   logo?: string;
   address?: string;
@@ -34,6 +35,16 @@ interface Company {
   invoiceDefaultTaxRate?: number;
   invoiceNotes?: string;
   invoiceFooter?: string;
+  invoiceTemplate?: 'classic' | 'modern' | 'minimal';
+  invoiceColorTheme?: string;
+  invoiceShowCompanyName?: boolean;
+  invoiceShowCompanyAddress?: boolean;
+  invoiceShowCompanyEmail?: boolean;
+  invoiceShowCompanyPhone?: boolean;
+  invoiceShowLogo?: boolean;
+  invoiceShowTaxId?: boolean;
+  invoiceShowFooter?: boolean;
+  invoiceShowPoweredBy?: boolean;
   billPrefix?: string;
   billNextNumber?: number;
   billDefaultTerms?: number;

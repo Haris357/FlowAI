@@ -22,7 +22,7 @@ import { Settings, Trash2, Clock, Mic, MessageSquare, Database, RefreshCw, Alert
 import { ChatSettings as ChatSettingsType } from '@/types';
 import DangerousConfirmDialog from '@/components/common/DangerousConfirmDialog';
 import { useMemoryStats } from '@/hooks/useMemoryStats';
-import { clearAllConversationMemory } from '@/lib/ai-memory';
+import { clearAllConversationMemory, MEMORY_CONFIG } from '@/lib/ai-memory';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -110,43 +110,41 @@ export default function ChatSettings({
           }}
         >
           <ModalClose />
-          <Stack spacing={0.5}>
-            <Stack direction="row" alignItems="center" spacing={1.5}>
-              <Box
-                sx={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 'md',
-                  bgcolor: 'primary.100',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}
-              >
-                <Settings size={20} style={{ color: 'var(--joy-palette-primary-600)' }} />
-              </Box>
-              <Typography level="title-lg">Chat Settings</Typography>
-            </Stack>
+          <Stack direction="row" alignItems="center" spacing={1.5}>
+            <Box
+              sx={{
+                width: 36,
+                height: 36,
+                borderRadius: 'md',
+                bgcolor: 'primary.softBg',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Settings size={18} style={{ color: 'var(--joy-palette-primary-500)' }} />
+            </Box>
+            <Typography level="title-lg">Chat Settings</Typography>
           </Stack>
 
           <Divider sx={{ my: 2 }} />
 
-          <Stack spacing={3}>
+          <Stack spacing={2.5} sx={{ overflowY: 'auto', maxHeight: '70vh', pr: 0.5 }}>
             {/* Display Settings */}
             <Box>
-              <Typography level="title-sm" sx={{ mb: 1.5, color: 'text.secondary' }}>
+              <Typography level="body-xs" fontWeight={600} textTransform="uppercase" letterSpacing="0.05em" sx={{ mb: 1.5, color: 'text.tertiary' }}>
                 Display
               </Typography>
-              <Stack spacing={2}>
+              <Stack spacing={1.5}>
                 <FormControl orientation="horizontal" sx={{ justifyContent: 'space-between' }}>
-                  <Stack spacing={0.5}>
+                  <Stack spacing={0.25}>
                     <FormLabel>
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <Clock size={16} />
+                        <Clock size={15} style={{ color: 'var(--joy-palette-neutral-500)' }} />
                         <span>Show timestamps</span>
                       </Stack>
                     </FormLabel>
-                    <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                    <Typography level="body-xs" sx={{ color: 'text.tertiary', pl: 3.25 }}>
                       Display time for each message
                     </Typography>
                   </Stack>
@@ -158,14 +156,14 @@ export default function ChatSettings({
                 </FormControl>
 
                 <FormControl orientation="horizontal" sx={{ justifyContent: 'space-between' }}>
-                  <Stack spacing={0.5}>
+                  <Stack spacing={0.25}>
                     <FormLabel>
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <MessageSquare size={16} />
+                        <MessageSquare size={15} style={{ color: 'var(--joy-palette-neutral-500)' }} />
                         <span>Welcome greeting</span>
                       </Stack>
                     </FormLabel>
-                    <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                    <Typography level="body-xs" sx={{ color: 'text.tertiary', pl: 3.25 }}>
                       Show welcome message on new chats
                     </Typography>
                   </Stack>
@@ -182,29 +180,27 @@ export default function ChatSettings({
 
             {/* Input Settings */}
             <Box>
-              <Typography level="title-sm" sx={{ mb: 1.5, color: 'text.secondary' }}>
+              <Typography level="body-xs" fontWeight={600} textTransform="uppercase" letterSpacing="0.05em" sx={{ mb: 1.5, color: 'text.tertiary' }}>
                 Input
               </Typography>
-              <Stack spacing={2}>
-                <FormControl orientation="horizontal" sx={{ justifyContent: 'space-between' }}>
-                  <Stack spacing={0.5}>
-                    <FormLabel>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Mic size={16} />
-                        <span>Voice input</span>
-                      </Stack>
-                    </FormLabel>
-                    <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                      Enable speech-to-text for messages
-                    </Typography>
-                  </Stack>
-                  <Switch
-                    checked={settings.voiceInputEnabled}
-                    onChange={(e) => onUpdateSettings({ voiceInputEnabled: e.target.checked })}
-                    color="primary"
-                  />
-                </FormControl>
-              </Stack>
+              <FormControl orientation="horizontal" sx={{ justifyContent: 'space-between' }}>
+                <Stack spacing={0.25}>
+                  <FormLabel>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Mic size={15} style={{ color: 'var(--joy-palette-neutral-500)' }} />
+                      <span>Voice input</span>
+                    </Stack>
+                  </FormLabel>
+                  <Typography level="body-xs" sx={{ color: 'text.tertiary', pl: 3.25 }}>
+                    Enable speech-to-text for messages
+                  </Typography>
+                </Stack>
+                <Switch
+                  checked={settings.voiceInputEnabled}
+                  onChange={(e) => onUpdateSettings({ voiceInputEnabled: e.target.checked })}
+                  color="primary"
+                />
+              </FormControl>
             </Box>
 
             <Divider />
@@ -212,7 +208,7 @@ export default function ChatSettings({
             {/* AI Memory Statistics */}
             <Box>
               <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
-                <Typography level="title-sm" sx={{ color: 'text.secondary' }}>
+                <Typography level="body-xs" fontWeight={600} textTransform="uppercase" letterSpacing="0.05em" sx={{ color: 'text.tertiary' }}>
                   AI Memory
                 </Typography>
                 <IconButton
@@ -222,6 +218,7 @@ export default function ChatSettings({
                   onClick={refreshStats}
                   disabled={loadingStats}
                   sx={{
+                    '--IconButton-size': '28px',
                     '@keyframes spin': {
                       from: { transform: 'rotate(0deg)' },
                       to: { transform: 'rotate(360deg)' },
@@ -231,7 +228,7 @@ export default function ChatSettings({
                     },
                   }}
                 >
-                  <RefreshCw size={14} />
+                  <RefreshCw size={13} />
                 </IconButton>
               </Stack>
 
@@ -245,24 +242,25 @@ export default function ChatSettings({
                     p: 2,
                     borderRadius: 'md',
                     border: '1px solid',
-                    borderColor: `${getMemoryHealthColor(stats.memoryHealth)}.200`,
-                    bgcolor: `${getMemoryHealthColor(stats.memoryHealth)}.50`,
+                    borderColor: 'divider',
+                    bgcolor: 'background.level1',
                   }}
                 >
                   <Stack spacing={2}>
                     {/* Memory Health Badge */}
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                       <Stack direction="row" spacing={1} alignItems="center">
-                        <Database size={18} />
-                        <Typography level="title-sm">Memory Status</Typography>
+                        <Database size={16} style={{ color: 'var(--joy-palette-neutral-500)' }} />
+                        <Typography level="body-sm" fontWeight={600}>Memory Status</Typography>
                       </Stack>
                       <Chip
                         size="sm"
                         variant="soft"
                         color={getMemoryHealthColor(stats.memoryHealth)}
                         startDecorator={
-                          stats.memoryHealth === 'critical' ? <AlertTriangle size={14} /> : null
+                          stats.memoryHealth === 'critical' ? <AlertTriangle size={12} /> : null
                         }
+                        sx={{ fontWeight: 500, fontSize: '0.7rem' }}
                       >
                         {stats.memoryHealth === 'healthy' && 'Healthy'}
                         {stats.memoryHealth === 'warning' && 'High Usage'}
@@ -272,41 +270,47 @@ export default function ChatSettings({
 
                     {/* Memory Usage Bar */}
                     <Box>
-                      <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
-                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                      <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.75 }}>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
                           Token Usage
                         </Typography>
-                        <Typography level="body-xs" fontWeight="bold">
-                          {formatNumber(stats.totalTokens)} / 100,000
+                        <Typography level="body-xs" fontWeight={600} sx={{ color: 'text.secondary' }}>
+                          {formatNumber(stats.totalTokens)} / {formatNumber(MEMORY_CONFIG.CONTEXT_BUDGET)}
                         </Typography>
                       </Stack>
                       <LinearProgress
                         determinate
                         value={stats.usagePercentage * 100}
                         color={getMemoryHealthColor(stats.memoryHealth)}
-                        sx={{ height: 6 }}
+                        sx={{
+                          height: 5,
+                          borderRadius: 'sm',
+                          bgcolor: 'background.level2',
+                        }}
                       />
-                      <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.5 }}>
-                        {(stats.usagePercentage * 100).toFixed(1)}% of capacity used
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.5, fontSize: '0.675rem' }}>
+                        {(stats.usagePercentage * 100).toFixed(1)}% of context capacity used
                       </Typography>
                     </Box>
+
+                    <Divider />
 
                     {/* Stats Grid */}
                     <Stack direction="row" spacing={2}>
                       <Box sx={{ flex: 1 }}>
-                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>
                           Conversations
                         </Typography>
-                        <Typography level="h4" fontWeight="bold">
+                        <Typography level="title-lg" fontWeight={700}>
                           {stats.totalConversations}
                         </Typography>
                       </Box>
                       <Divider orientation="vertical" />
                       <Box sx={{ flex: 1 }}>
-                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>
                           Messages
                         </Typography>
-                        <Typography level="h4" fontWeight="bold">
+                        <Typography level="title-lg" fontWeight={700}>
                           {formatNumber(stats.totalMessages)}
                         </Typography>
                       </Box>
@@ -317,18 +321,16 @@ export default function ChatSettings({
                       <>
                         <Divider />
                         <Button
-                          variant="outlined"
+                          variant="plain"
                           color="danger"
                           size="sm"
-                          startDecorator={<Trash2 size={16} />}
+                          startDecorator={<Trash2 size={14} />}
                           onClick={() => setShowMemoryResetConfirm(true)}
                           fullWidth
+                          sx={{ fontWeight: 500 }}
                         >
-                          Factory Reset Memory
+                          Reset Memory
                         </Button>
-                        <Typography level="body-xs" sx={{ color: 'text.tertiary', textAlign: 'center' }}>
-                          Clears all AI conversation history and context
-                        </Typography>
                       </>
                     )}
                   </Stack>
@@ -344,34 +346,35 @@ export default function ChatSettings({
 
             {/* Danger Zone */}
             <Box>
-              <Typography level="title-sm" sx={{ mb: 1.5, color: 'danger.500' }}>
-                Danger Zone
+              <Typography level="body-xs" fontWeight={600} textTransform="uppercase" letterSpacing="0.05em" sx={{ mb: 1.5, color: 'text.tertiary' }}>
+                Data
               </Typography>
               <Box
                 sx={{
                   p: 2,
                   borderRadius: 'md',
                   border: '1px solid',
-                  borderColor: 'danger.200',
-                  bgcolor: 'danger.50',
+                  borderColor: 'divider',
+                  bgcolor: 'background.level1',
                 }}
               >
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Stack spacing={0.5}>
-                    <Typography level="title-sm">Clear all chats</Typography>
+                  <Stack spacing={0.25}>
+                    <Typography level="body-sm" fontWeight={600}>Clear all chats</Typography>
                     <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
                       {chatCount > 0
-                        ? `Delete all ${chatCount} chat${chatCount > 1 ? 's' : ''} and their messages`
+                        ? `Delete all ${chatCount} chat${chatCount > 1 ? 's' : ''} and messages`
                         : 'No chats to delete'}
                     </Typography>
                   </Stack>
                   <Button
-                    variant="solid"
+                    variant="soft"
                     color="danger"
                     size="sm"
-                    startDecorator={<Trash2 size={16} />}
+                    startDecorator={<Trash2 size={14} />}
                     disabled={chatCount === 0}
                     onClick={() => setShowClearConfirm(true)}
+                    sx={{ fontWeight: 500 }}
                   >
                     Clear All
                   </Button>

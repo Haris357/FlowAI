@@ -1,10 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
 import {
-  Box, Typography, Stack, Card, CardContent, Chip, Button, Skeleton,
+  Box, Typography, Stack, Card, CardContent, Chip, Button, Skeleton, Switch,
 } from '@mui/joy';
 import { MessageSquare, Star, CheckCircle, Inbox } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { adminFetch } from '@/lib/admin-fetch';
 
 const TYPE_COLORS: Record<string, 'primary' | 'success' | 'danger' | 'warning'> = {
   suggestion: 'primary', praise: 'success', complaint: 'danger', bug_report: 'warning',
@@ -17,19 +18,45 @@ export default function AdminFeedbackPage() {
   const [feedbackList, setFeedbackList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
+  const [promptEnabled, setPromptEnabled] = useState(true);
+  const [togglingPrompt, setTogglingPrompt] = useState(false);
 
   useEffect(() => {
-    fetch('/api/admin/feedback')
+    adminFetch('/api/admin/feedback')
       .then(res => res.json())
       .then(d => setFeedbackList(d.feedback || []))
       .catch(console.error)
       .finally(() => setLoading(false));
+
+    adminFetch('/api/admin/feedback/settings')
+      .then(res => res.json())
+      .then(d => setPromptEnabled(d.settings?.enabled !== false))
+      .catch(() => {});
   }, []);
+
+  const toggleFeedbackPrompt = async () => {
+    setTogglingPrompt(true);
+    try {
+      const res = await adminFetch('/api/admin/feedback/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !promptEnabled }),
+      });
+      if (res.ok) {
+        setPromptEnabled(prev => !prev);
+        toast.success(promptEnabled ? 'Feedback prompt disabled' : 'Feedback prompt enabled');
+      }
+    } catch {
+      toast.error('Failed to update setting');
+    } finally {
+      setTogglingPrompt(false);
+    }
+  };
 
   const handleUpdate = async (feedbackId: string, status: string) => {
     setUpdating(feedbackId);
     try {
-      const res = await fetch('/api/admin/feedback', {
+      const res = await adminFetch('/api/admin/feedback', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ feedbackId, status }),
@@ -59,6 +86,26 @@ export default function AdminFeedbackPage() {
             Review user feedback and suggestions.
           </Typography>
         </Box>
+
+        {/* Feedback Prompt Settings */}
+        <Card variant="outlined">
+          <CardContent sx={{ p: 2.5 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center">
+              <Box>
+                <Typography level="body-sm" fontWeight={700}>In-App Feedback Prompt</Typography>
+                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                  Periodically ask users to rate their experience
+                </Typography>
+              </Box>
+              <Switch
+                checked={promptEnabled}
+                onChange={toggleFeedbackPrompt}
+                disabled={togglingPrompt}
+                color="primary"
+              />
+            </Stack>
+          </CardContent>
+        </Card>
 
         {loading ? (
           <Stack spacing={1.5}>

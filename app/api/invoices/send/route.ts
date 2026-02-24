@@ -4,6 +4,7 @@ import { initAdmin } from '@/lib/firebase-admin';
 import { generateInvoicePDF } from '@/lib/invoice-pdf';
 import { invoiceEmailTemplate } from '@/lib/email-templates';
 import { sendEmail } from '@/lib/email';
+import { checkPlanLimitAdmin, getEmailSendCountAdmin } from '@/services/subscription-admin';
 
 initAdmin();
 const adminDb = getFirestore();
@@ -51,6 +52,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
     const company = companySnap.data() as any;
+
+    // Check email send limit for this plan
+    const emailCount = await getEmailSendCountAdmin(companyId);
+    const limitCheck = await checkPlanLimitAdmin(company.ownerId, 'emailSends', emailCount);
+    if (!limitCheck.allowed) {
+      return NextResponse.json(
+        { error: limitCheck.reason || 'Email send limit reached. Please upgrade your plan.' },
+        { status: 403 }
+      );
+    }
 
     // Generate PDF
     const pdfBuffer = generateInvoicePDF(invoice, company);

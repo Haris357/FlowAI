@@ -14,13 +14,11 @@ import {
 import { useParams, useRouter } from 'next/navigation';
 import SendEmailModal from '@/components/admin/SendEmailModal';
 import toast from 'react-hot-toast';
+import { PLANS, getPlan, formatTokens as fmtTokens } from '@/lib/plans';
+import { adminFetch } from '@/lib/admin-fetch';
 
 const PLAN_COLORS: Record<string, 'neutral' | 'primary' | 'success'> = {
   free: 'neutral', pro: 'primary', max: 'success',
-};
-
-const PLAN_TOKENS: Record<string, number> = {
-  free: 50_000, pro: 500_000, max: 2_000_000,
 };
 
 const TICKET_STATUS_COLORS: Record<string, 'warning' | 'success' | 'neutral' | 'primary'> = {
@@ -89,7 +87,7 @@ export default function AdminUserDetailPage() {
 
   const fetchData = () => {
     setLoading(true);
-    fetch(`/api/admin/users/${userId}`)
+    adminFetch(`/api/admin/users/${userId}`)
       .then(res => res.json())
       .then(d => {
         setData(d);
@@ -106,7 +104,7 @@ export default function AdminUserDetailPage() {
     if (!amount || amount <= 0) { toast.error('Enter a valid token amount'); return; }
     setGrantingTokens(true);
     try {
-      const res = await fetch(`/api/admin/users/${userId}/grant-tokens`, {
+      const res = await adminFetch(`/api/admin/users/${userId}/grant-tokens`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tokens: amount }),
@@ -122,7 +120,7 @@ export default function AdminUserDetailPage() {
   const handleChangePlan = async () => {
     setChangingPlan(true);
     try {
-      const res = await fetch(`/api/admin/users/${userId}/change-plan`, {
+      const res = await adminFetch(`/api/admin/users/${userId}/change-plan`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ planId: newPlan }),
@@ -137,7 +135,7 @@ export default function AdminUserDetailPage() {
   const handleDelete = async () => {
     if (!confirm('Are you sure you want to delete this user? This cannot be undone.')) return;
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       toast.success('User deleted');
       router.push('/admin/users');
@@ -188,7 +186,8 @@ export default function AdminUserDetailPage() {
   const usage = data?.usage;
   const authInfo = data?.authInfo;
 
-  const tokenAllocation = PLAN_TOKENS[plan] || 50_000;
+  const planConfig = getPlan(plan as any);
+  const tokenAllocation = planConfig.tokenAllocation;
   const tokensUsed = usage?.tokensUsed || 0;
   const bonusTokens = usage?.bonusTokens || 0;
   const tokensRemaining = Math.max(0, tokenAllocation - tokensUsed) + bonusTokens;
@@ -502,7 +501,7 @@ export default function AdminUserDetailPage() {
                 <Divider sx={{ my: 2 }} />
 
                 <Stack spacing={1} sx={{ mb: 2 }}>
-                  <InfoRow label="Current Plan" value={`${plan.charAt(0).toUpperCase() + plan.slice(1)} ($${plan === 'free' ? '0' : plan === 'pro' ? '29.99' : '99.99'}/mo)`} />
+                  <InfoRow label="Current Plan" value={`${planConfig.name} ($${planConfig.price}/mo)`} />
                   <InfoRow label="Status" value={sub?.status || 'active'} />
                   <InfoRow label="Period Start" value={formatDate(sub?.currentPeriodStart)} />
                   <InfoRow label="Period End" value={formatDate(sub?.currentPeriodEnd)} />
@@ -517,9 +516,9 @@ export default function AdminUserDetailPage() {
                 <Typography level="body-xs" fontWeight={600} sx={{ mb: 1 }}>Change Plan</Typography>
                 <Stack spacing={1.5}>
                   <Select value={newPlan} onChange={(_, v) => v && setNewPlan(v)} size="sm">
-                    <Option value="free">Free ($0/mo)</Option>
-                    <Option value="pro">Pro ($29.99/mo)</Option>
-                    <Option value="max">Max ($99.99/mo)</Option>
+                    <Option value="free">{PLANS.free.name} (${PLANS.free.price}/mo)</Option>
+                    <Option value="pro">{PLANS.pro.name} (${PLANS.pro.price}/mo)</Option>
+                    <Option value="max">{PLANS.max.name} (${PLANS.max.price}/mo)</Option>
                   </Select>
                   <Button size="sm" onClick={handleChangePlan} loading={changingPlan} disabled={newPlan === plan}
                     fullWidth>

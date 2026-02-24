@@ -10,22 +10,28 @@ import { ThemeProvider } from '@/contexts/ThemeContext';
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
 export const metadata: Metadata = {
-  title: 'Flowbooks - AI-First Accounting',
+  title: {
+    default: 'Flowbooks - AI-First Accounting',
+    template: '%s | Flowbooks',
+  },
   description: 'Just say it. Done. - AI-powered accounting that understands natural language.',
-  openGraph: {
-    images: [
-      {
-        url: 'https://bolt.new/static/og_default.png',
-      },
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+      { url: '/favicon-96x96.png', sizes: '96x96', type: 'image/png' },
     ],
+    apple: '/apple-touch-icon.png',
+  },
+  manifest: '/site.webmanifest',
+  openGraph: {
+    type: 'website',
+    siteName: 'Flowbooks',
+    title: 'Flowbooks - AI-First Accounting',
+    description: 'AI-powered accounting that understands natural language.',
   },
   twitter: {
     card: 'summary_large_image',
-    images: [
-      {
-        url: 'https://bolt.new/static/og_default.png',
-      },
-    ],
   },
 };
 

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Box, Stack, Typography } from '@mui/joy';
 import { ChevronDown, ChevronRight, Check, Circle, Loader2 } from 'lucide-react';
 import { ThinkingStep } from '@/types';
-import AnimatedLogo from './AnimatedLogo';
+import FlowAIAvatar from './FlowAIAvatar';
 
 interface ThinkingStepsProps {
   steps: ThinkingStep[];
@@ -90,8 +90,8 @@ export default function ThinkingSteps({ steps }: ThinkingStepsProps) {
       }}
     >
       <Stack direction="row" spacing={2} alignItems="flex-start">
-        <Box sx={{ flexShrink: 0, width: 32, height: 32 }}>
-          <AnimatedLogo size="sm" isResponding />
+        <Box sx={{ flexShrink: 0, width: 56, height: 56 }}>
+          <FlowAIAvatar size={56} isThinking />
         </Box>
         <Box sx={{ flex: 1 }}>
           <Typography level="title-sm" fontWeight="lg" sx={{ mb: 0.75 }}>

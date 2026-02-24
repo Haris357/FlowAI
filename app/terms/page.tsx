@@ -1,16 +1,9 @@
 'use client';
 import React from 'react';
-import { Sparkles, Moon, Sun, ArrowLeft, FileText, UserCheck, CreditCard, ShieldCheck, Lightbulb, Scale, XCircle, Landmark, Mail } from 'lucide-react';
+import { Moon, Sun, Home, FileText, UserCheck, CreditCard, ShieldCheck, Lightbulb, Scale, XCircle, Landmark, Mail } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import Link from 'next/link';
-
-const BrandName = () => (
-  <span className="font-bold tracking-tight">
-    <span style={{ background: 'linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-      Flow<em className="not-italic" style={{ fontStyle: 'italic' }}>books</em>
-    </span>
-  </span>
-);
+import FlowBooksLogo from '@/components/FlowBooksLogo';
 
 const sections = [
   {
@@ -183,15 +176,12 @@ export default function TermsPage() {
           <div className="flex items-center justify-between h-12">
             <div className="flex items-center gap-2">
               <Link href="/" className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-brand-500 to-brand-600 shadow-lg shadow-brand-500/25">
-                  <Sparkles className="w-3.5 h-3.5 text-white" />
-                </div>
-                <BrandName />
+                <FlowBooksLogo size="sm" />
               </Link>
             </div>
             <div className="flex items-center gap-2.5">
               <Link href="/" className="px-3.5 py-1.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition-all flex items-center gap-1.5">
-                <ArrowLeft className="w-3.5 h-3.5" /> Home
+                <Home className="w-3.5 h-3.5" /> Home
               </Link>
               <button
                 onClick={toggleMode}
@@ -277,19 +267,13 @@ export default function TermsPage() {
       <footer className="relative z-10 bg-slate-50 dark:bg-[#232220]/50 py-8 border-t border-slate-200 dark:border-[#2D2B28]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center">
-                <Sparkles className="w-3 h-3 text-white" />
-              </div>
-              <BrandName />
-            </div>
+            <FlowBooksLogo size="xs" />
             <p className="text-slate-500 dark:text-[#A8A29E] text-xs">
               &copy; {new Date().getFullYear()} Flowbooks Inc. All rights reserved.
             </p>
-            <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-[#A8A29E]">
-              <Link href="/privacy" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Privacy</Link>
-              <Link href="/security" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Security</Link>
-              <Link href="/contact" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">Contact</Link>
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-[#A8A29E]">
+              <div className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />
+              System Operational
             </div>
           </div>
         </div>

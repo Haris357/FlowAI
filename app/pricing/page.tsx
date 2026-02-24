@@ -1,7 +1,6 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import {
-  Sparkles,
   Check,
   X,
   ArrowRight,
@@ -17,21 +16,7 @@ import {
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
-
-// --- Brand Name ---
-const BrandName = ({ className = '' }: { className?: string }) => (
-  <span className={`font-bold tracking-tight ${className}`}>
-    <span
-      style={{
-        background: 'linear-gradient(135deg, var(--brand-500) 0%, var(--brand-600) 100%)',
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-      }}
-    >
-      Flow<em className="not-italic" style={{ fontStyle: 'italic' }}>books</em>
-    </span>
-  </span>
-);
+import FlowBooksLogo from '@/components/FlowBooksLogo';
 
 // --- Accordion Item ---
 const AccordionItem = ({
@@ -75,6 +60,7 @@ interface PricingPlan {
   features: string[];
   cta: string;
   popular: boolean;
+  href: string;
 }
 
 const pricingPlans: PricingPlan[] = [
@@ -86,13 +72,14 @@ const pricingPlans: PricingPlan[] = [
     features: [
       '1 company',
       '~100 AI messages/month',
-      '20 customers & vendors',
-      '10 invoices/month',
+      '10 customers & vendors',
+      '5 invoices/month',
       'Basic reports (P&L)',
       'Community support',
     ],
     cta: 'Start Free',
     popular: false,
+    href: '/signup',
   },
   {
     name: 'Pro',
@@ -111,6 +98,7 @@ const pricingPlans: PricingPlan[] = [
     ],
     cta: 'Start Free Trial',
     popular: true,
+    href: '/signup?plan=pro',
   },
   {
     name: 'Max',
@@ -128,6 +116,7 @@ const pricingPlans: PricingPlan[] = [
     ],
     cta: 'Start Free Trial',
     popular: false,
+    href: '/signup?plan=max',
   },
 ];
 
@@ -141,12 +130,12 @@ interface ComparisonRow {
 const comparisonData: ComparisonRow[] = [
   { feature: 'Companies', free: '1', pro: '3', max: '10' },
   { feature: 'AI Messages', free: '~100/mo', pro: '~1,000/mo', max: '~4,000/mo' },
-  { feature: 'Customers', free: '20', pro: 'Unlimited', max: 'Unlimited' },
-  { feature: 'Invoices', free: '10/mo', pro: 'Unlimited', max: 'Unlimited' },
+  { feature: 'Customers', free: '10', pro: 'Unlimited', max: 'Unlimited' },
+  { feature: 'Invoices', free: '5/mo', pro: 'Unlimited', max: 'Unlimited' },
   { feature: 'Reports', free: 'P&L only', pro: 'All reports', max: 'All reports' },
   { feature: 'Payroll', free: false, pro: true, max: true },
   { feature: 'Collaborators', free: '0', pro: '3', max: 'Unlimited' },
-  { feature: 'Email Sends', free: '5/mo', pro: '50/mo', max: 'Unlimited' },
+  { feature: 'Email Sends', free: false, pro: '50/mo', max: 'Unlimited' },
   { feature: 'Chat History', free: '7 days', pro: '90 days', max: 'Unlimited' },
   { feature: 'Token Purchases', free: false, pro: true, max: true },
   { feature: 'Custom Branding', free: false, pro: true, max: true },
@@ -221,36 +210,16 @@ export default function PricingPage() {
       </div>
 
       {/* ============ NAVBAR ============ */}
-      <nav
-        className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled
-            ? 'py-1.5 bg-white/70 dark:bg-[#1A1915]/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-white/[0.06] shadow-sm'
-            : 'py-3 bg-transparent'
-        }`}
-      >
+      <nav className="sticky top-0 z-50 py-1.5 bg-white/70 dark:bg-[#1A1915]/70 backdrop-blur-xl border-b border-slate-200/50 dark:border-white/[0.06] shadow-sm">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-12">
-            {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 group">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-gradient-to-br from-brand-500 to-brand-600 shadow-lg shadow-brand-500/25">
-                <Sparkles className="w-3.5 h-3.5 text-white" />
-              </div>
-              <BrandName className="text-lg" />
+            <Link href="/" className="flex items-center gap-2">
+              <FlowBooksLogo size="sm" />
             </Link>
-
-            {/* Desktop Links */}
-            <div className="hidden md:flex items-center gap-0.5">
-              <Link
-                href="/"
-                className="px-3.5 py-1.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition-all flex items-center gap-1.5"
-              >
-                <Home className="w-3.5 h-3.5" />
-                Home
+            <div className="flex items-center gap-2.5">
+              <Link href="/" className="px-3.5 py-1.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04] transition-all flex items-center gap-1.5">
+                <Home className="w-3.5 h-3.5" /> Home
               </Link>
-            </div>
-
-            {/* Right Side */}
-            <div className="hidden md:flex items-center gap-2.5">
               <button
                 onClick={toggleMode}
                 className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 dark:text-[#A8A29E] hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all"
@@ -258,101 +227,13 @@ export default function PricingPage() {
               >
                 {mode === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
               </button>
-              {user ? (
-                <Link
-                  href="/companies"
-                  className="px-4 py-2 text-[13px] font-semibold text-white rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 transition-all hover:-translate-y-0.5 flex items-center gap-1.5"
-                >
-                  <LayoutDashboard className="w-3.5 h-3.5" /> Dashboard
-                </Link>
-              ) : (
-                <>
-                  <Link
-                    href="/login"
-                    className="px-3.5 py-1.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white transition-colors"
-                  >
-                    Sign In
-                  </Link>
-                  <Link
-                    href="/signup"
-                    className="px-4 py-2 text-[13px] font-semibold text-white rounded-lg bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 transition-all hover:-translate-y-0.5 flex items-center gap-1.5"
-                  >
-                    Get Started <ArrowRight className="w-3 h-3" />
-                  </Link>
-                </>
-              )}
             </div>
-
-            {/* Mobile */}
-            <div className="flex md:hidden items-center gap-1.5">
-              <button
-                onClick={toggleMode}
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 dark:text-[#A8A29E] hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all"
-              >
-                {mode === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              </button>
-              <button
-                className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-600 dark:text-[#A8A29E] hover:bg-slate-100 dark:hover:bg-white/[0.06] transition-all"
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-              >
-                {isMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Mobile Menu */}
-        <div
-          className={`md:hidden bg-white/90 dark:bg-[#1A1915]/90 backdrop-blur-xl border-t border-slate-200/50 dark:border-white/[0.06] overflow-hidden transition-all duration-300 ${
-            isMenuOpen ? 'max-h-[400px] opacity-100' : 'max-h-0 opacity-0'
-          }`}
-        >
-          <div className="px-4 py-4 space-y-1">
-            <Link
-              href="/"
-              onClick={() => setIsMenuOpen(false)}
-              className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-lg hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"
-            >
-              <Home className="w-4 h-4" />
-              Home
-            </Link>
-            <hr className="border-slate-200/60 dark:border-white/[0.06] my-2" />
-            <button
-              onClick={toggleMode}
-              className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] w-full"
-            >
-              {mode === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-              {mode === 'dark' ? 'Light Mode' : 'Dark Mode'}
-            </button>
-            {user ? (
-              <Link
-                href="/companies"
-                className="block text-center mt-1 px-3 py-2.5 text-sm font-semibold text-white rounded-lg bg-gradient-to-r from-brand-500 to-brand-600"
-              >
-                Dashboard
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href="/login"
-                  className="block px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E]"
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/signup"
-                  className="block text-center mt-1 px-3 py-2.5 text-sm font-semibold text-white rounded-lg bg-gradient-to-r from-brand-500 to-brand-600"
-                >
-                  Get Started Free
-                </Link>
-              </>
-            )}
           </div>
         </div>
       </nav>
 
       {/* ============ HERO ============ */}
-      <section className="relative pt-28 pb-8 lg:pt-36 lg:pb-12">
+      <section className="relative pt-16 pb-8 lg:pt-20 lg:pb-12">
         <div
           className="absolute top-16 left-1/2 -translate-x-1/2 w-[500px] h-[350px] rounded-full opacity-[0.10] blur-[100px] pointer-events-none"
           style={{ background: 'var(--brand-500)' }}
@@ -516,7 +397,7 @@ export default function PricingPage() {
 
                     {/* CTA Button */}
                     <Link
-                      href="/signup"
+                      href={plan.href}
                       className={`w-full py-2.5 rounded-xl font-semibold text-sm text-center transition-all duration-200 block mb-6 ${
                         plan.popular
                           ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 hover:-translate-y-0.5'
@@ -720,25 +601,16 @@ export default function PricingPage() {
       </section>
 
       {/* ============ FOOTER ============ */}
-      <footer className="relative z-10 py-8 border-t border-slate-200 dark:border-[#2D2B28]">
+      <footer className="relative z-10 bg-slate-50 dark:bg-[#232220]/50 py-8 border-t border-slate-200 dark:border-[#2D2B28]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md flex items-center justify-center bg-gradient-to-br from-brand-500 to-brand-600">
-                <Sparkles className="w-3 h-3 text-white" />
-              </div>
-              <BrandName className="text-sm" />
-            </div>
+            <FlowBooksLogo size="xs" />
             <p className="text-slate-500 dark:text-[#A8A29E] text-xs">
               &copy; {new Date().getFullYear()} Flowbooks Inc. All rights reserved.
             </p>
-            <div className="flex items-center gap-4 text-xs text-slate-500 dark:text-[#A8A29E]">
-              <Link href="/privacy" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                Privacy
-              </Link>
-              <Link href="/terms" className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                Terms
-              </Link>
+            <div className="flex items-center gap-2 text-xs text-slate-500 dark:text-[#A8A29E]">
+              <div className="w-1.5 h-1.5 rounded-full bg-brand-500 animate-pulse" />
+              System Operational
             </div>
           </div>
         </div>

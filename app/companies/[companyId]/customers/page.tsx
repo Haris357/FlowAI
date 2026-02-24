@@ -49,6 +49,7 @@ import {
   Search, Mail, Phone, ChevronLeft, ChevronRight, Users, DollarSign,
   Plus, Edit2, Trash2, MapPin, User, BarChart3, MoreVertical,
 } from 'lucide-react';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import toast from 'react-hot-toast';
 
 // Common countries list
@@ -77,6 +78,7 @@ const isValidPhone = (phone: string) => {
 export default function CustomersPage() {
   const { user, loading: authLoading } = useAuth();
   const { company } = useCompany();
+  const { checkLimit, showUpgradeModal } = useSubscription();
   const router = useRouter();
 
   // Data states
@@ -257,6 +259,13 @@ export default function CustomersPage() {
   const handleAdd = async () => {
     if (!company?.id) return;
     if (!validateForm(formData)) return;
+
+    // Check plan limit
+    const limitCheck = checkLimit('customers', customers.length);
+    if (!limitCheck.allowed) {
+      showUpgradeModal(limitCheck.reason || 'Customer limit reached. Please upgrade.');
+      return;
+    }
 
     setSaving(true);
     try {

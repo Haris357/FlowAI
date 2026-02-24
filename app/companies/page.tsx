@@ -4,13 +4,14 @@ import {
   Box, Container, Typography, Card, CardContent, Stack, Button, IconButton, Grid,
   Chip, Modal, ModalDialog, ModalClose, Input, Textarea, Dropdown, Menu, MenuButton,
   MenuItem, Divider, FormControl, FormLabel, List, ListItem, Avatar, Sheet,
-  Autocomplete, LinearProgress, Tooltip,
+  Autocomplete, Tooltip,
 } from '@mui/joy';
 import {
   Building2, Plus, Lock, Users as UsersIcon, Download, Trash2, Calendar,
-  DollarSign, Shield, Mail, X, BookOpen, Moon, Sun, LogOut, Settings,
+  DollarSign, Shield, Mail, X, Moon, Sun, LogOut, Settings,
   Search, LayoutGrid, List as ListIcon, Check, FileText, ArrowRight,
   Table as TableIcon, Grid3x3, MoreVertical, Briefcase, Home, Bell,
+  Sparkles, Loader2,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -18,16 +19,16 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useRouter } from 'next/navigation';
 import { db } from '@/lib/firebase';
 import { countries } from '@/lib/countries';
-import { getAllChartOfAccounts } from '@/lib/chart-of-accounts';
-import { initializeCompanyAccounts, initializeMasterAccountTypes } from '@/services/account-init';
+import { getAllChartOfAccounts, getDefaultChartOfAccounts, type ChartAccount } from '@/lib/chart-of-accounts';
 import { initializeCompanySettings } from '@/services/settings';
 import { ALL_SETTINGS } from '@/lib/settings-seed-data';
 import { isAdminEmail } from '@/lib/admin';
 import {
-  collection, query, where, getDocs, addDoc, deleteDoc, doc, updateDoc,
-  Timestamp, arrayUnion, arrayRemove,
+  collection, query, where, getDocs, addDoc, deleteDoc, doc, updateDoc, setDoc,
+  Timestamp, arrayUnion, arrayRemove, serverTimestamp,
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
+import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
 import { LoadingSpinner, DangerousConfirmDialog, ConfirmDialog } from '@/components/common';
 import { deleteCompanyData, getCompanyDataCounts } from '@/services/company';
 import CompanyCard, { type CompanyData } from '@/components/companies/CompanyCard';
@@ -38,21 +39,16 @@ import SettingsModal from '@/components/settings/SettingsModal';
 const BUSINESS_TYPES = ALL_SETTINGS.find(s => s.code === 'business_type')?.options.map(o => o.label) || [
   'Freelancer', 'Consulting', 'Retail', 'Services', 'Other',
 ];
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
 
 export default function CompaniesPage() {
   const { user, signOut } = useAuth();
   const { mode, toggleMode } = useTheme();
-  const { plan } = useSubscription();
+  const { plan, checkLimit, showUpgradeModal } = useSubscription();
   const router = useRouter();
   const [companies, setCompanies] = useState<CompanyData[]>([]);
   const [loading, setLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [createStep, setCreateStep] = useState(1);
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'table' | 'compact'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
@@ -75,12 +71,10 @@ export default function CompaniesPage() {
   const [addingUser, setAddingUser] = useState(false);
 
   const [newCompany, setNewCompany] = useState({
-    companyName: '', businessType: '', country: 'US', currency: 'USD',
-    email: user?.email || '', phone: '', website: '', taxId: '',
-    address: '', city: '', zipCode: '', fiscalYearStart: 1,
-    hasInvoices: true, hasEmployees: false, tracksInventory: false,
-    invoicePrefix: 'INV', invoiceStartNumber: 1000, description: '',
+    companyName: '', businessType: '', country: 'US', currency: 'USD', description: '',
   });
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiAccounts, setAiAccounts] = useState<ChartAccount[]>([]);
 
   useEffect(() => {
     if (!user) { router.push('/login'); return; }
@@ -109,49 +103,86 @@ export default function CompaniesPage() {
 
   const handleInputChange = (field: string, value: any) => setNewCompany(p => ({ ...p, [field]: value }));
 
-  const validateStep = (): boolean => {
-    if (createStep === 1) {
-      if (!newCompany.companyName.trim()) { toast.error('Please enter company name'); return false; }
-      if (!newCompany.businessType) { toast.error('Please select business type'); return false; }
+  const generateAiAccounts = async () => {
+    if (!newCompany.description.trim()) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch('/api/onboarding/suggest-accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: newCompany.description, businessType: newCompany.businessType }),
+      });
+      const data = await res.json();
+      if (data.accounts?.length) {
+        setAiAccounts(data.accounts.map((a: any) => ({ ...a, isActive: true, isSystem: false, balance: 0 })));
+        toast.success(`${data.accounts.length} custom accounts suggested!`);
+      } else {
+        toast.success('Default accounts will work great for your business.');
+      }
+    } catch {
+      toast.error('Could not generate suggestions. Default accounts will be used.');
+    } finally {
+      setAiLoading(false);
     }
-    if (createStep === 2 && !newCompany.country) { toast.error('Please select country'); return false; }
-    return true;
   };
 
-  const nextStep = () => { if (validateStep()) setCreateStep(p => Math.min(p + 1, 3)); };
-  const prevStep = () => setCreateStep(p => Math.max(p - 1, 1));
-
   const handleCreateCompany = async () => {
-    if (!user || !validateStep()) return;
+    if (!user) return;
+    if (!newCompany.companyName.trim()) { toast.error('Please enter company name'); return; }
+    if (!newCompany.businessType) { toast.error('Please select business type'); return; }
+
+    // Check plan limit
+    const limitCheck = checkLimit('companies', companies.length);
+    if (!limitCheck.allowed) {
+      showUpgradeModal(limitCheck.reason || 'Company limit reached. Please upgrade.');
+      return;
+    }
+
     setCreating(true);
     try {
-      const companyData = {
-        name: newCompany.companyName.trim(), businessType: newCompany.businessType,
-        country: newCompany.country, currency: newCompany.currency,
-        email: newCompany.email.trim(), phone: newCompany.phone.trim(),
-        website: newCompany.website.trim(), taxId: newCompany.taxId.trim(),
-        address: newCompany.address.trim(), city: newCompany.city.trim(),
-        zipCode: newCompany.zipCode.trim(), fiscalYearStart: newCompany.fiscalYearStart,
-        hasInvoices: newCompany.hasInvoices, hasEmployees: newCompany.hasEmployees,
-        tracksInventory: newCompany.tracksInventory, invoicePrefix: newCompany.invoicePrefix,
-        invoiceNextNumber: newCompany.invoiceStartNumber, description: newCompany.description.trim(),
-        ownerId: user.uid, createdAt: Timestamp.now(), updatedAt: Timestamp.now(),
-        hasPasscode: false, collaborators: [], collaboratorEmails: [], accountsCreated: true,
-      };
-      const companyRef = await addDoc(collection(db, 'companies'), companyData);
-      await initializeMasterAccountTypes();
-      await initializeCompanyAccounts(companyRef.id, newCompany.businessType);
-      await initializeCompanySettings(companyRef.id);
+      const companyId = doc(collection(db, 'companies')).id;
+
+      await setDoc(doc(db, 'companies', companyId), {
+        name: newCompany.companyName.trim(),
+        businessType: newCompany.businessType,
+        country: newCompany.country,
+        currency: newCompany.currency,
+        description: newCompany.description.trim(),
+        ownerId: user.uid,
+        fiscalYearStart: 1,
+        hasInvoices: true,
+        hasEmployees: false,
+        tracksInventory: false,
+        invoicePrefix: 'INV',
+        invoiceNextNumber: 1000,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      // Create chart of accounts: base + AI-suggested
+      const baseAccounts = getDefaultChartOfAccounts(newCompany.businessType.toLowerCase());
+      const allAccounts = [...baseAccounts, ...aiAccounts];
+      const seen = new Set<string>();
+      const uniqueAccounts = allAccounts.filter(a => {
+        if (seen.has(a.code)) return false;
+        seen.add(a.code);
+        return true;
+      });
+
+      await Promise.all(
+        uniqueAccounts.map(account =>
+          setDoc(doc(db, 'companies', companyId, 'accounts', account.code), {
+            ...account,
+            createdAt: serverTimestamp(),
+          })
+        )
+      );
+
+      await initializeCompanySettings(companyId);
       toast.success('Company created successfully!');
       setCreateModalOpen(false);
-      setCreateStep(1);
-      setNewCompany({
-        companyName: '', businessType: '', country: 'US', currency: 'USD',
-        email: user?.email || '', phone: '', website: '', taxId: '',
-        address: '', city: '', zipCode: '', fiscalYearStart: 1,
-        hasInvoices: true, hasEmployees: false, tracksInventory: false,
-        invoicePrefix: 'INV', invoiceStartNumber: 1000, description: '',
-      });
+      setNewCompany({ companyName: '', businessType: '', country: 'US', currency: 'USD', description: '' });
+      setAiAccounts([]);
       fetchCompanies();
     } catch { toast.error('Failed to create company'); }
     finally { setCreating(false); }
@@ -297,11 +328,53 @@ export default function CompaniesPage() {
     return <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LoadingSpinner message="Loading your companies..." /></Box>;
   }
 
-  const progress = (createStep / 3) * 100;
   const isAdmin = isAdminEmail(user?.email);
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.body' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.body', position: 'relative' }}>
+      {/* ===== Boxes Background ===== */}
+      <Box sx={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
+        {[
+          { w: 64, h: 64, left: '6%', top: '10%', rot: 12, filled: false },
+          { w: 48, h: 48, left: '20%', top: '65%', rot: 35, filled: true },
+          { w: 80, h: 80, left: '72%', top: '6%', rot: -8, filled: false },
+          { w: 44, h: 44, left: '85%', top: '42%', rot: 22, filled: true },
+          { w: 56, h: 56, left: '3%', top: '76%', rot: -15, filled: false },
+          { w: 100, h: 100, left: '58%', top: '70%', rot: 18, filled: false },
+          { w: 36, h: 36, left: '40%', top: '4%', rot: 40, filled: true },
+          { w: 72, h: 72, left: '88%', top: '78%', rot: -25, filled: false },
+          { w: 52, h: 52, left: '14%', top: '36%', rot: 30, filled: false },
+          { w: 44, h: 44, left: '66%', top: '33%', rot: -12, filled: true },
+          { w: 60, h: 60, left: '48%', top: '86%', rot: 8, filled: false },
+          { w: 32, h: 32, left: '33%', top: '50%', rot: 45, filled: false },
+          { w: 90, h: 90, left: '80%', top: '15%', rot: -20, filled: false },
+          { w: 42, h: 42, left: '53%', top: '52%', rot: 15, filled: true },
+          { w: 70, h: 70, left: '26%', top: '20%', rot: -35, filled: false },
+          { w: 50, h: 50, left: '92%', top: '60%', rot: 28, filled: false },
+        ].map((box, i) => (
+          <Box
+            key={i}
+            sx={{
+              position: 'absolute',
+              width: box.w,
+              height: box.h,
+              left: box.left,
+              top: box.top,
+              borderRadius: '12px',
+              transform: `rotate(${box.rot}deg)`,
+              border: box.filled ? 'none' : '1.5px solid',
+              borderColor: box.filled ? 'transparent' : 'var(--joy-palette-primary-200)',
+              bgcolor: box.filled ? 'primary.50' : 'transparent',
+            }}
+          />
+        ))}
+        {/* Soft radial glow */}
+        <Box sx={{
+          position: 'absolute', inset: 0,
+          background: 'radial-gradient(circle at 25% 35%, var(--joy-palette-primary-50), transparent 55%), radial-gradient(circle at 75% 65%, var(--joy-palette-primary-50), transparent 55%)',
+          opacity: 0.35,
+        }} />
+      </Box>
       {/* ===== Navbar ===== */}
       <Sheet sx={{
         position: 'sticky', top: 0, zIndex: 1000,
@@ -319,17 +392,8 @@ export default function CompaniesPage() {
                 </IconButton>
               </Tooltip>
               <Divider orientation="vertical" sx={{ height: 20 }} />
-              <Stack direction="row" spacing={1} alignItems="center" sx={{ cursor: 'pointer' }} onClick={() => router.push('/companies')}>
-                <Box sx={{
-                  width: 32, height: 32, borderRadius: 'md',
-                  background: 'linear-gradient(135deg, var(--joy-palette-primary-500), var(--joy-palette-primary-600))',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <BookOpen size={16} color="white" strokeWidth={2.5} />
-                </Box>
-                <Typography level="title-md" fontWeight="bold" sx={{ letterSpacing: '-0.03em' }}>
-                  Flow<span style={{ fontStyle: 'italic' }}>books</span>
-                </Typography>
+              <Stack direction="row" spacing={0} alignItems="center" sx={{ cursor: 'pointer' }} onClick={() => router.push('/companies')}>
+                <FlowBooksLogoJoy iconSize={28} fontSize="1.1rem" />
               </Stack>
             </Stack>
 
@@ -522,67 +586,90 @@ export default function CompaniesPage() {
 
       {/* Create Company Modal */}
       <Modal open={createModalOpen} onClose={() => !creating && setCreateModalOpen(false)}>
-        <ModalDialog sx={{ maxWidth: 540, width: '90vw', maxHeight: '90vh', overflow: 'auto', p: 3 }}>
+        <ModalDialog sx={{ maxWidth: 500, width: '90vw', maxHeight: '90vh', overflow: 'auto', p: 3 }}>
           <ModalClose disabled={creating} />
           <Typography level="title-lg" fontWeight={700} sx={{ mb: 0.25 }}>Create New Company</Typography>
-          <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 2 }}>Step {createStep} of 3</Typography>
-          <LinearProgress determinate value={progress} sx={{ mb: 2.5 }} color="primary" />
+          <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 2 }}>Just the basics — you can update everything in settings later.</Typography>
 
-          {createStep === 1 && (
-            <Stack spacing={2}>
-              <FormControl required size="sm"><FormLabel>Company Name</FormLabel>
-                <Input placeholder="Enter company name" value={newCompany.companyName} onChange={e => handleInputChange('companyName', e.target.value)} autoFocus />
-              </FormControl>
-              <FormControl required size="sm"><FormLabel>Business Type</FormLabel>
-                <Autocomplete size="sm" placeholder="Select business type" options={BUSINESS_TYPES} value={newCompany.businessType} onChange={(e, v) => handleInputChange('businessType', v || '')} freeSolo />
-              </FormControl>
-              <FormControl size="sm"><FormLabel>Description</FormLabel>
-                <Textarea placeholder="Brief description" value={newCompany.description} onChange={e => handleInputChange('description', e.target.value)} minRows={2} />
-              </FormControl>
-            </Stack>
-          )}
-          {createStep === 2 && (
-            <Stack spacing={2}>
-              <FormControl required size="sm"><FormLabel>Country</FormLabel>
-                <Autocomplete size="sm" placeholder="Select country" options={countries} getOptionLabel={o => o.name} value={selectedCountry || null}
-                  onChange={(e, v) => { if (v) { handleInputChange('country', v.code); handleInputChange('currency', v.currency); } }} />
-              </FormControl>
-              <FormControl required size="sm"><FormLabel>Currency</FormLabel>
-                <Input size="sm" value={newCompany.currency} onChange={e => handleInputChange('currency', e.target.value)} placeholder="USD" />
-              </FormControl>
-              <FormControl size="sm"><FormLabel>Email</FormLabel><Input size="sm" type="email" placeholder="company@example.com" value={newCompany.email} onChange={e => handleInputChange('email', e.target.value)} /></FormControl>
-              <FormControl size="sm"><FormLabel>Phone</FormLabel><Input size="sm" type="tel" placeholder="+1 (555) 123-4567" value={newCompany.phone} onChange={e => handleInputChange('phone', e.target.value)} /></FormControl>
-              <FormControl size="sm"><FormLabel>Website</FormLabel><Input size="sm" type="url" placeholder="https://example.com" value={newCompany.website} onChange={e => handleInputChange('website', e.target.value)} /></FormControl>
-            </Stack>
-          )}
-          {createStep === 3 && (
-            <Stack spacing={2}>
-              <FormControl size="sm"><FormLabel>Tax ID</FormLabel><Input size="sm" placeholder="Enter tax ID" value={newCompany.taxId} onChange={e => handleInputChange('taxId', e.target.value)} /></FormControl>
-              <FormControl size="sm"><FormLabel>Address</FormLabel><Input size="sm" placeholder="Street address" value={newCompany.address} onChange={e => handleInputChange('address', e.target.value)} /></FormControl>
-              <Grid container spacing={2}>
-                <Grid xs={6}><FormControl size="sm"><FormLabel>City</FormLabel><Input size="sm" placeholder="City" value={newCompany.city} onChange={e => handleInputChange('city', e.target.value)} /></FormControl></Grid>
-                <Grid xs={6}><FormControl size="sm"><FormLabel>Zip Code</FormLabel><Input size="sm" placeholder="Zip code" value={newCompany.zipCode} onChange={e => handleInputChange('zipCode', e.target.value)} /></FormControl></Grid>
+          <Stack spacing={2}>
+            {/* Company Name */}
+            <FormControl required size="sm">
+              <FormLabel>Company Name</FormLabel>
+              <Input placeholder="Acme Inc." value={newCompany.companyName} onChange={e => handleInputChange('companyName', e.target.value)} autoFocus size="sm" />
+            </FormControl>
+
+            {/* Business Type & Country */}
+            <Grid container spacing={1.5}>
+              <Grid xs={12} md={6}>
+                <FormControl required size="sm">
+                  <FormLabel>Business Type</FormLabel>
+                  <Autocomplete size="sm" placeholder="Select type" options={BUSINESS_TYPES} value={newCompany.businessType} onChange={(_, v) => handleInputChange('businessType', v || '')} />
+                </FormControl>
               </Grid>
-              <FormControl size="sm"><FormLabel>Fiscal Year Start</FormLabel>
-                <Autocomplete size="sm" placeholder="Select month" options={MONTHS} value={MONTHS[newCompany.fiscalYearStart - 1]}
-                  onChange={(e, v) => handleInputChange('fiscalYearStart', MONTHS.indexOf(v || 'January') + 1)} />
-              </FormControl>
-              <FormControl size="sm"><FormLabel>Invoice Settings</FormLabel>
-                <Grid container spacing={2}>
-                  <Grid xs={6}><Input size="sm" placeholder="Prefix" value={newCompany.invoicePrefix} onChange={e => handleInputChange('invoicePrefix', e.target.value)} /></Grid>
-                  <Grid xs={6}><Input size="sm" type="number" placeholder="Start number" value={newCompany.invoiceStartNumber} onChange={e => handleInputChange('invoiceStartNumber', parseInt(e.target.value) || 1000)} /></Grid>
-                </Grid>
-              </FormControl>
-            </Stack>
-          )}
+              <Grid xs={12} md={6}>
+                <FormControl required size="sm">
+                  <FormLabel>Country</FormLabel>
+                  <Autocomplete size="sm" placeholder="Select country" options={countries} getOptionLabel={o => `${o.flag} ${o.name}`} value={selectedCountry || null}
+                    onChange={(_, v) => { if (v) { handleInputChange('country', v.code); handleInputChange('currency', v.currency); } }} />
+                </FormControl>
+              </Grid>
+            </Grid>
 
-          <Stack direction="row" spacing={1.5} sx={{ mt: 2.5 }}>
-            {createStep > 1 && <Button variant="outlined" color="neutral" size="sm" onClick={prevStep} disabled={creating} fullWidth>Previous</Button>}
-            {createStep < 3
-              ? <Button size="sm" onClick={nextStep} disabled={creating} fullWidth>Next</Button>
-              : <Button size="sm" onClick={handleCreateCompany} loading={creating} fullWidth startDecorator={!creating && <Check size={14} />}>Create Company</Button>
-            }
+            {/* AI Business Description */}
+            <FormControl size="sm">
+              <FormLabel sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                Describe Your Business
+                <Chip size="sm" variant="soft" color="primary" startDecorator={<Sparkles size={10} />} sx={{ fontSize: '0.65rem', height: 18, '--Chip-gap': '2px' }}>AI</Chip>
+              </FormLabel>
+              <Textarea
+                value={newCompany.description}
+                onChange={e => handleInputChange('description', e.target.value)}
+                placeholder="e.g. I run a web design agency with 3 employees. We do monthly retainer contracts and project-based work..."
+                minRows={3}
+                maxRows={5}
+                size="sm"
+              />
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.5 }}>
+                Optional — AI will customize your chart of accounts based on this description.
+              </Typography>
+            </FormControl>
+
+            {/* AI Generate Button */}
+            {newCompany.description.trim().length > 20 && (
+              <Button
+                variant="soft"
+                color="primary"
+                size="sm"
+                fullWidth
+                onClick={generateAiAccounts}
+                loading={aiLoading}
+                startDecorator={aiLoading ? <Loader2 size={14} /> : <Sparkles size={14} />}
+                sx={{ borderRadius: 'md' }}
+              >
+                {aiLoading ? 'Generating Custom Accounts...' : 'Generate Custom Accounts'}
+              </Button>
+            )}
+
+            {/* AI Suggested Accounts Preview */}
+            {aiAccounts.length > 0 && (
+              <Card variant="soft" color="primary" sx={{ p: 1.5 }}>
+                <Typography level="body-xs" fontWeight={600} sx={{ mb: 0.75, color: 'primary.700' }}>
+                  AI-Suggested Accounts ({aiAccounts.length})
+                </Typography>
+                <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.5}>
+                  {aiAccounts.map((a, i) => (
+                    <Chip key={i} size="sm" variant="outlined" color="primary" sx={{ fontSize: '0.7rem' }}>
+                      {a.name}
+                    </Chip>
+                  ))}
+                </Stack>
+              </Card>
+            )}
           </Stack>
+
+          <Button sx={{ mt: 2.5 }} size="sm" onClick={handleCreateCompany} loading={creating} fullWidth startDecorator={!creating && <Check size={14} />}>
+            Create Company
+          </Button>
         </ModalDialog>
       </Modal>
 

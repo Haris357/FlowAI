@@ -1,7 +1,7 @@
 'use client';
 
-import { Box, Stack, Typography } from '@mui/joy';
-import AnimatedLogo from './AnimatedLogo';
+import { Stack, Typography } from '@mui/joy';
+import FlowAIAvatar from './FlowAIAvatar';
 import { BRAND_COLORS } from '@/styles/colors';
 
 interface ChatWelcomeProps {
@@ -17,7 +17,7 @@ export default function ChatWelcome({ userName }: ChatWelcomeProps) {
       alignItems="center"
       sx={{ textAlign: 'center', mb: 4 }}
     >
-      <AnimatedLogo size="md" />
+      <FlowAIAvatar size={72} />
       <Typography
         level="h2"
         sx={{

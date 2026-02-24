@@ -3,7 +3,8 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { Sparkles, Shield, Moon, Sun, Zap, MessageSquare, CheckCircle, ArrowLeft } from 'lucide-react';
+import { Shield, Moon, Sun, Zap, MessageSquare, CheckCircle, ArrowLeft } from 'lucide-react';
+import FlowBooksLogo from '@/components/FlowBooksLogo';
 
 export default function SignupPage() {
   const [loading, setLoading] = useState(false);
@@ -24,25 +25,49 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#1A1915] relative overflow-hidden px-4">
-      {/* Grid background */}
-      <div className="absolute inset-0 pointer-events-none">
+      {/* Boxes background */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {[
+          { w: 64, h: 64, left: '6%', top: '10%', rot: 12, filled: false },
+          { w: 48, h: 48, left: '20%', top: '65%', rot: 35, filled: true },
+          { w: 80, h: 80, left: '72%', top: '6%', rot: -8, filled: false },
+          { w: 44, h: 44, left: '85%', top: '42%', rot: 22, filled: true },
+          { w: 56, h: 56, left: '3%', top: '76%', rot: -15, filled: false },
+          { w: 100, h: 100, left: '58%', top: '70%', rot: 18, filled: false },
+          { w: 36, h: 36, left: '40%', top: '4%', rot: 40, filled: true },
+          { w: 72, h: 72, left: '88%', top: '78%', rot: -25, filled: false },
+          { w: 52, h: 52, left: '14%', top: '36%', rot: 30, filled: false },
+          { w: 44, h: 44, left: '66%', top: '33%', rot: -12, filled: true },
+          { w: 60, h: 60, left: '48%', top: '86%', rot: 8, filled: false },
+          { w: 32, h: 32, left: '33%', top: '50%', rot: 45, filled: false },
+          { w: 90, h: 90, left: '80%', top: '15%', rot: -20, filled: false },
+          { w: 42, h: 42, left: '53%', top: '52%', rot: 15, filled: true },
+          { w: 70, h: 70, left: '26%', top: '20%', rot: -35, filled: false },
+          { w: 50, h: 50, left: '92%', top: '60%', rot: 28, filled: false },
+        ].map((box, i) => (
+          <div
+            key={i}
+            className="absolute rounded-xl"
+            style={{
+              width: box.w,
+              height: box.h,
+              left: box.left,
+              top: box.top,
+              transform: `rotate(${box.rot}deg)`,
+              border: box.filled ? 'none' : `1.5px solid ${mode === 'dark' ? 'rgba(217,119,87,0.12)' : 'rgba(217,119,87,0.10)'}`,
+              background: box.filled
+                ? mode === 'dark' ? 'rgba(217,119,87,0.04)' : 'rgba(217,119,87,0.03)'
+                : 'none',
+            }}
+          />
+        ))}
+        {/* Soft radial glow */}
         <div
           className="absolute inset-0"
           style={{
-            backgroundImage:
-              mode === 'dark'
-                ? 'linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px)'
-                : 'linear-gradient(to right, rgba(0,0,0,0.035) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,0,0,0.035) 1px, transparent 1px)',
-            backgroundSize: '48px 48px',
-          }}
-        />
-        <div
-          className="absolute inset-0"
-          style={{
-            background:
-              mode === 'dark'
-                ? 'radial-gradient(ellipse at center, transparent 0%, #1A1915 70%)'
-                : 'radial-gradient(ellipse at center, transparent 0%, rgba(255,255,255,0.85) 70%)',
+            background: mode === 'dark'
+              ? 'radial-gradient(circle at 25% 35%, rgba(217,119,87,0.03), transparent 55%), radial-gradient(circle at 75% 65%, rgba(217,119,87,0.02), transparent 55%)'
+              : 'radial-gradient(circle at 25% 35%, rgba(217,119,87,0.04), transparent 55%), radial-gradient(circle at 75% 65%, rgba(217,119,87,0.03), transparent 55%)',
           }}
         />
       </div>
@@ -69,12 +94,7 @@ export default function SignupPage() {
         {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/" className="inline-flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center shadow-lg shadow-brand-500/20 group-hover:shadow-brand-500/30 transition-shadow">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-2xl font-bold text-slate-900 dark:text-white">
-              Flow<em className="not-italic" style={{ fontStyle: 'italic' }}>books</em>
-            </span>
+            <FlowBooksLogo size="md" />
           </Link>
         </div>
 

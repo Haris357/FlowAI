@@ -28,7 +28,10 @@ import UpgradeModal from '@/components/subscription/UpgradeModal';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import NotificationPanel from '@/components/notifications/NotificationPanel';
 import WelcomeTutorialModal from '@/components/settings/WelcomeTutorialModal';
+import FeedbackPromptModal from '@/components/modals/FeedbackPromptModal';
+import PremiumModal from '@/components/modals/PremiumModal';
 import SettingsModal from '@/components/settings/SettingsModal';
+import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
 import { usePathname, useRouter, useParams } from 'next/navigation';
 import NextLink from 'next/link';
 import {
@@ -72,15 +75,17 @@ interface NavItem {
   label: string;
   path?: string;
   icon: React.ElementType;
+  tourId?: string;
   children?: NavItem[];
 }
 
 const getNavItems = (companyId: string): NavItem[] => [
-  { label: 'Dashboard', path: `/companies/${companyId}/dashboard`, icon: LayoutDashboard },
-  { label: 'Flow AI', path: `/companies/${companyId}/chat`, icon: MessageCircle },
+  { label: 'Dashboard', path: `/companies/${companyId}/dashboard`, icon: LayoutDashboard, tourId: 'dashboard' },
+  { label: 'Flow AI', path: `/companies/${companyId}/chat`, icon: MessageCircle, tourId: 'flow-ai' },
   {
     label: 'Sales',
     icon: ShoppingCart,
+    tourId: 'sales',
     children: [
       { label: 'Invoices', path: `/companies/${companyId}/invoices`, icon: FileText },
       { label: 'Quotes', path: `/companies/${companyId}/quotes`, icon: ClipboardList },
@@ -91,6 +96,7 @@ const getNavItems = (companyId: string): NavItem[] => [
   {
     label: 'Purchases',
     icon: Receipt,
+    tourId: 'purchases',
     children: [
       { label: 'Bills', path: `/companies/${companyId}/bills`, icon: Receipt },
       { label: 'Purchase Orders', path: `/companies/${companyId}/purchase-orders`, icon: Package },
@@ -100,6 +106,7 @@ const getNavItems = (companyId: string): NavItem[] => [
   {
     label: 'Banking',
     icon: Landmark,
+    tourId: 'banking',
     children: [
       { label: 'Bank Accounts', path: `/companies/${companyId}/bank-accounts`, icon: Landmark },
       { label: 'Transactions', path: `/companies/${companyId}/transactions`, icon: ArrowLeftRight },
@@ -108,6 +115,7 @@ const getNavItems = (companyId: string): NavItem[] => [
   {
     label: 'People',
     icon: Briefcase,
+    tourId: 'people',
     children: [
       { label: 'Employees', path: `/companies/${companyId}/employees`, icon: UserCheck },
       { label: 'Payroll', path: `/companies/${companyId}/payroll`, icon: DollarSign },
@@ -116,13 +124,14 @@ const getNavItems = (companyId: string): NavItem[] => [
   {
     label: 'Accounting',
     icon: Calculator,
+    tourId: 'accounting',
     children: [
       { label: 'Chart of Accounts', path: `/companies/${companyId}/accounts`, icon: Wallet },
       { label: 'Journal Entries', path: `/companies/${companyId}/journal-entries`, icon: BookOpen },
       { label: 'Recurring', path: `/companies/${companyId}/recurring`, icon: RefreshCw },
     ],
   },
-  { label: 'Reports', path: `/companies/${companyId}/reports`, icon: BarChart3 },
+  { label: 'Reports', path: `/companies/${companyId}/reports`, icon: BarChart3, tourId: 'reports' },
   { label: 'Company Settings', path: `/companies/${companyId}/settings`, icon: Settings },
 ];
 
@@ -266,7 +275,7 @@ export default function Layout({ children }: LayoutProps) {
 
       if (collapsed) {
         return (
-          <ListItem>
+          <ListItem data-tour={item.tourId || undefined}>
             <Dropdown>
               <Tooltip title={item.label} placement="right">
                 <MenuButton
@@ -308,7 +317,7 @@ export default function Layout({ children }: LayoutProps) {
         );
       }
 
-      return <ListItem sx={{ flexDirection: 'column', alignItems: 'stretch' }}>{menuContent}</ListItem>;
+      return <ListItem data-tour={item.tourId || undefined} sx={{ flexDirection: 'column', alignItems: 'stretch' }}>{menuContent}</ListItem>;
     }
 
     // Leaf item (no children) - use NextLink for prefetching
@@ -348,7 +357,7 @@ export default function Layout({ children }: LayoutProps) {
     );
 
     return (
-      <ListItem>
+      <ListItem data-tour={item.tourId || undefined}>
         {collapsed ? (
           <Tooltip title={item.label} placement="right">
             {button}
@@ -438,29 +447,15 @@ export default function Layout({ children }: LayoutProps) {
             }}
           >
             {!sidebarCollapsed ? (
-              <>
-                <Typography level="h4" fontWeight="bold" color="primary" sx={{ letterSpacing: '-0.03em' }}>
-                  Flow<span style={{ fontStyle: 'italic' }}>books</span>
-                </Typography>
-                <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+              <Box>
+                <FlowBooksLogoJoy iconSize={30} fontSize="1.35rem" />
+                <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }}>
                   AI-First Accounting
                 </Typography>
-              </>
+              </Box>
             ) : (
               <Box sx={{ display: 'flex', justifyContent: 'center' }}>
-                <Box
-                  sx={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 'md',
-                    bgcolor: 'primary.100',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                >
-                  <BookOpen size={20} style={{ color: 'var(--joy-palette-primary-600)' }} />
-                </Box>
+                <FlowBooksLogoJoy showText={false} iconSize={34} />
               </Box>
             )}
             <Tooltip title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} placement="right">
@@ -727,9 +722,7 @@ export default function Layout({ children }: LayoutProps) {
             }}
           >
             <Stack direction="row" justifyContent="space-between" alignItems="center">
-              <Typography level="h4" fontWeight="bold" color="primary" sx={{ letterSpacing: '-0.03em' }}>
-                Flow<span style={{ fontStyle: 'italic' }}>books</span>
-              </Typography>
+              <FlowBooksLogoJoy iconSize={30} fontSize="1.35rem" />
               <IconButton size="sm" variant="plain" onClick={() => setMobileOpen(false)}>
                 <X size={18} />
               </IconButton>
@@ -861,9 +854,7 @@ export default function Layout({ children }: LayoutProps) {
             <IconButton variant="plain" onClick={() => setMobileOpen(true)}>
               <MenuIcon size={20} />
             </IconButton>
-            <Typography level="title-md" fontWeight="bold" color="primary" sx={{ letterSpacing: '-0.03em' }}>
-              Flow<span style={{ fontStyle: 'italic' }}>books</span>
-            </Typography>
+            <FlowBooksLogoJoy iconSize={24} fontSize="1.1rem" />
             <Stack direction="row" spacing={1} alignItems="center">
               <NotificationBell onClick={() => setNotificationPanelOpen(true)} />
               <IconButton
@@ -890,6 +881,8 @@ export default function Layout({ children }: LayoutProps) {
       <NotificationPanel open={notificationPanelOpen} onClose={() => setNotificationPanelOpen(false)} />
       <SettingsModal open={settingsModalOpen} onClose={() => setSettingsModalOpen(false)} />
       <WelcomeTutorialModal />
+      <FeedbackPromptModal />
+      <PremiumModal />
 
       <Toaster
         position="top-right"

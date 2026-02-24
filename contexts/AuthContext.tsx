@@ -55,6 +55,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             });
+
+            // Send welcome email (fire-and-forget)
+            fetch('/api/emails/welcome', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: user.uid,
+                userName: user.displayName || user.email?.split('@')[0],
+                userEmail: user.email,
+              }),
+            }).catch(() => {});
           }
         } catch (error) {
           console.error('Error creating user document:', error);
@@ -107,6 +118,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
+
+      // Send welcome email (fire-and-forget)
+      fetch('/api/emails/welcome', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: result.user.uid,
+          userName: name,
+          userEmail: result.user.email,
+        }),
+      }).catch(() => {});
 
       toast.success('Account created successfully!');
       router.push('/onboarding');

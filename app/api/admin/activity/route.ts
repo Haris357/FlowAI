@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
+import { verifyAdminRequest } from '@/lib/admin-server';
 
 initAdmin();
 const db = getFirestore();
@@ -29,6 +30,9 @@ function extractTimestamp(data: any, ...fields: string[]): Date {
 
 export async function GET(req: Request) {
   try {
+    const authResult = await verifyAdminRequest(req);
+    if (!authResult.authorized) return authResult.response;
+
     const { searchParams } = new URL(req.url);
     const typeFilter = searchParams.get('type') || '';
     const limitParam = parseInt(searchParams.get('limit') || '50');

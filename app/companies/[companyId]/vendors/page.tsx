@@ -49,6 +49,7 @@ import {
   Search, Mail, Phone, ChevronLeft, ChevronRight, Building2, CreditCard,
   Plus, Edit2, Trash2, MapPin, BarChart3, MoreVertical,
 } from 'lucide-react';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import toast from 'react-hot-toast';
 
 const COUNTRIES = [
@@ -77,6 +78,7 @@ const isValidPhone = (phone: string) => {
 export default function VendorsPage() {
   const { user, loading: authLoading } = useAuth();
   const { company } = useCompany();
+  const { checkLimit, showUpgradeModal } = useSubscription();
   const router = useRouter();
 
   // Data states
@@ -259,6 +261,13 @@ export default function VendorsPage() {
   const handleAdd = async () => {
     if (!company?.id) return;
     if (!validateForm(formData)) return;
+
+    // Check plan limit
+    const limitCheck = checkLimit('vendors', vendors.length);
+    if (!limitCheck.allowed) {
+      showUpgradeModal(limitCheck.reason || 'Vendor limit reached. Please upgrade.');
+      return;
+    }
 
     setSaving(true);
     try {

@@ -3,12 +3,16 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
 import { sendEmail } from '@/lib/email';
 import { getEmailTemplate } from '@/lib/email-templates';
+import { verifyAdminRequest } from '@/lib/admin-server';
 
 initAdmin();
 const db = getFirestore();
 
 export async function POST(req: Request, { params }: { params: Promise<{ userId: string }> }) {
   try {
+    const authResult = await verifyAdminRequest(req);
+    if (!authResult.authorized) return authResult.response;
+
     const { userId } = await params;
     const { tokens } = await req.json();
 
