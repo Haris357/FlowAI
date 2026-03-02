@@ -8,12 +8,14 @@ import {
 import {
   Mail, Send, Eye, Search, Users, CreditCard, Zap, AlertTriangle,
   MessageCircle, Megaphone, PenTool, Receipt, XCircle, KeyRound,
-  Handshake, CheckCircle, Inbox, Newspaper,
+  Handshake, CheckCircle, Inbox, Newspaper, ThumbsUp, Clock, RefreshCw,
 } from 'lucide-react';
 import { EMAIL_TEMPLATE_OPTIONS, type EmailTemplateType } from '@/lib/email-templates';
 import StatCard from '@/components/admin/StatCard';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 import toast from 'react-hot-toast';
 import { adminFetch } from '@/lib/admin-fetch';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 
 // ==========================================
 // TEMPLATE UI CONFIG
@@ -27,33 +29,28 @@ const TEMPLATE_UI: Record<EmailTemplateType, {
   welcome: {
     icon: Handshake,
     color: '#10B981',
-    fields: [
-      { key: 'userName', label: 'User Name', type: 'text', required: true, placeholder: 'John Doe' },
-    ],
+    fields: [],
   },
   plan_changed: {
     icon: CreditCard,
     color: '#6366F1',
     fields: [
-      { key: 'userName', label: 'User Name', type: 'text', required: true, placeholder: 'John Doe' },
       { key: 'previousPlan', label: 'Previous Plan', type: 'text', required: true, placeholder: 'Free' },
       { key: 'planName', label: 'New Plan', type: 'text', required: true, placeholder: 'Pro' },
     ],
   },
-  tokens_granted: {
+  messages_granted: {
     icon: Zap,
     color: '#F59E0B',
     fields: [
-      { key: 'userName', label: 'User Name', type: 'text', required: true, placeholder: 'John Doe' },
-      { key: 'tokenAmount', label: 'Token Amount', type: 'text', required: true, placeholder: '50000' },
+      { key: 'messageAmount', label: 'Message Amount', type: 'text', required: true, placeholder: '25' },
     ],
   },
   account_warning: {
     icon: AlertTriangle,
     color: '#EF4444',
     fields: [
-      { key: 'userName', label: 'User Name', type: 'text', required: true, placeholder: 'John Doe' },
-      { key: 'warningType', label: 'Warning Type', type: 'text', placeholder: 'Token Limit Reached' },
+      { key: 'warningType', label: 'Warning Type', type: 'text', placeholder: 'Message Limit Reached' },
       { key: 'warningMessage', label: 'Warning Message', type: 'textarea', required: true, placeholder: 'We noticed unusual activity on your account...' },
     ],
   },
@@ -61,7 +58,6 @@ const TEMPLATE_UI: Record<EmailTemplateType, {
     icon: MessageCircle,
     color: '#3B82F6',
     fields: [
-      { key: 'userName', label: 'User Name', type: 'text', required: true, placeholder: 'John Doe' },
       { key: 'ticketSubject', label: 'Ticket Subject', type: 'text', required: true, placeholder: 'Re: Issue with invoices' },
       { key: 'replyMessage', label: 'Reply Message', type: 'textarea', required: true, placeholder: 'Thank you for reaching out...' },
     ],
@@ -72,7 +68,6 @@ const TEMPLATE_UI: Record<EmailTemplateType, {
     fields: [
       { key: 'announcementTitle', label: 'Announcement Title', type: 'text', required: true, placeholder: 'New Feature: Bank Reconciliation' },
       { key: 'announcementBody', label: 'Announcement Body', type: 'textarea', required: true, placeholder: 'We are excited to announce...' },
-      { key: 'userName', label: 'Greeting Name (optional)', type: 'text', placeholder: 'Leave blank for generic greeting' },
     ],
   },
   custom: {
@@ -81,14 +76,12 @@ const TEMPLATE_UI: Record<EmailTemplateType, {
     fields: [
       { key: 'customSubject', label: 'Subject', type: 'text', required: true, placeholder: 'Email subject line' },
       { key: 'customMessage', label: 'Message Body', type: 'textarea', required: true, placeholder: 'Write your message here...' },
-      { key: 'userName', label: 'Greeting Name (optional)', type: 'text', placeholder: 'Leave blank for generic greeting' },
     ],
   },
   payment_receipt: {
     icon: Receipt,
     color: '#10B981',
     fields: [
-      { key: 'userName', label: 'User Name', type: 'text', required: true, placeholder: 'John Doe' },
       { key: 'amount', label: 'Amount', type: 'text', required: true, placeholder: '$29.99' },
       { key: 'planName', label: 'Plan Name', type: 'text', required: true, placeholder: 'Pro' },
       { key: 'invoiceId', label: 'Invoice ID (optional)', type: 'text', placeholder: 'INV-001' },
@@ -98,7 +91,6 @@ const TEMPLATE_UI: Record<EmailTemplateType, {
     icon: XCircle,
     color: '#EF4444',
     fields: [
-      { key: 'userName', label: 'User Name', type: 'text', required: true, placeholder: 'John Doe' },
       { key: 'planName', label: 'Plan Name', type: 'text', required: true, placeholder: 'Pro' },
     ],
   },
@@ -106,7 +98,6 @@ const TEMPLATE_UI: Record<EmailTemplateType, {
     icon: KeyRound,
     color: '#F59E0B',
     fields: [
-      { key: 'userName', label: 'User Name', type: 'text', required: true, placeholder: 'John Doe' },
       { key: 'resetLink', label: 'Reset Link', type: 'text', required: true, placeholder: 'https://flowbooks.app/reset?token=...' },
     ],
   },
@@ -116,6 +107,28 @@ const TEMPLATE_UI: Record<EmailTemplateType, {
     fields: [
       { key: 'newsletterTitle', label: 'Newsletter Title', type: 'text', required: true, placeholder: 'This Week at Flowbooks' },
       { key: 'announcementBody', label: 'Newsletter Content', type: 'textarea', required: true, placeholder: 'Use ## headings to create sections' },
+    ],
+  },
+  feedback_acknowledged: {
+    icon: ThumbsUp,
+    color: '#10B981',
+    fields: [
+      { key: 'feedbackSubject', label: 'Feedback Subject', type: 'text', required: true, placeholder: 'Feature request' },
+      { key: 'feedbackResponse', label: 'Response Message', type: 'textarea', required: true, placeholder: 'Thank you for your feedback...' },
+    ],
+  },
+  ticket_in_progress: {
+    icon: Clock,
+    color: '#3B82F6',
+    fields: [
+      { key: 'ticketSubject', label: 'Ticket Subject', type: 'text', required: true, placeholder: 'Issue with invoices' },
+    ],
+  },
+  message_reset: {
+    icon: RefreshCw,
+    color: '#F59E0B',
+    fields: [
+      { key: 'weeklyMessageLimit', label: 'Weekly Message Limit', type: 'text', required: true, placeholder: '750' },
     ],
   },
 };
@@ -157,6 +170,7 @@ export default function AdminEmailCenterPage() {
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [sending, setSending] = useState(false);
   const [sendResult, setSendResult] = useState<{ sent: number; failed: number } | null>(null);
+  const [sendConfirmOpen, setSendConfirmOpen] = useState(false);
 
   // ==========================================
   // USER SEARCH
@@ -263,21 +277,21 @@ export default function AdminEmailCenterPage() {
   // SEND
   // ==========================================
 
-  const handleSend = async () => {
+  const recipientLabel =
+    recipientType === 'all' ? 'ALL users' :
+    recipientType === 'by_plan' ? `all ${selectedPlan.toUpperCase()} plan users` :
+    selectedUser?.email || 'the selected user';
+
+  const handleSend = () => {
     if (!isFormValid()) {
       toast.error('Please fill in all required fields');
       return;
     }
+    setSendConfirmOpen(true);
+  };
 
-    const recipientLabel =
-      recipientType === 'all' ? 'ALL users' :
-      recipientType === 'by_plan' ? `all ${selectedPlan.toUpperCase()} plan users` :
-      selectedUser?.email || 'the selected user';
-
-    if (!confirm(`Are you sure you want to send this email to ${recipientLabel}? This action cannot be undone.`)) {
-      return;
-    }
-
+  const confirmSend = async () => {
+    setSendConfirmOpen(false);
     setSending(true);
     setSendResult(null);
 
@@ -342,7 +356,7 @@ export default function AdminEmailCenterPage() {
 
           {/* LEFT COLUMN: Template Picker */}
           <Box sx={{ width: { xs: '100%', lg: 360 }, flexShrink: 0 }}>
-            <Card variant="outlined">
+            <Card sx={{ ...adminCard as Record<string, unknown> }}>
               <CardContent sx={{ p: 0 }}>
                 <Stack direction="row" spacing={1.5} alignItems="center" sx={{ px: 2.5, pt: 2.5, pb: 2 }}>
                   <Box sx={{
@@ -413,7 +427,7 @@ export default function AdminEmailCenterPage() {
           {/* RIGHT COLUMN: Form + Recipients + Actions */}
           <Box sx={{ flex: 1, minWidth: 0 }}>
             {!selectedTemplate ? (
-              <Card variant="soft" sx={{ minHeight: 400 }}>
+              <Card sx={{ ...liquidGlassSubtle as Record<string, unknown>, minHeight: 400 }}>
                 <CardContent sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', py: 10 }}>
                   <Mail size={40} style={{ color: 'var(--joy-palette-neutral-400)', marginBottom: 12 }} />
                   <Typography level="title-md" fontWeight={600} sx={{ color: 'text.secondary' }}>
@@ -427,7 +441,7 @@ export default function AdminEmailCenterPage() {
             ) : (
               <Stack spacing={2.5}>
                 {/* Template Fields Card */}
-                <Card variant="outlined">
+                <Card sx={{ ...adminCard as Record<string, unknown> }}>
                   <CardContent sx={{ p: 0 }}>
                     <Stack direction="row" spacing={1.5} alignItems="center" sx={{ px: 2.5, pt: 2.5, pb: 2 }}>
                       <Box sx={{
@@ -481,7 +495,7 @@ export default function AdminEmailCenterPage() {
                 </Card>
 
                 {/* Recipients Card */}
-                <Card variant="outlined">
+                <Card sx={{ ...adminCard as Record<string, unknown> }}>
                   <CardContent sx={{ p: 0 }}>
                     <Stack direction="row" spacing={1.5} alignItems="center" sx={{ px: 2.5, pt: 2.5, pb: 2 }}>
                       <Box sx={{
@@ -566,7 +580,7 @@ export default function AdminEmailCenterPage() {
 
                           {/* Search results dropdown */}
                           {!selectedUser && searchResults.length > 0 && (
-                            <Card variant="outlined" sx={{ mt: 1, p: 0 }}>
+                            <Card sx={{ ...adminCard as Record<string, unknown>, mt: 1, p: 0 }}>
                               <CardContent sx={{ p: 0 }}>
                                 {searchResults.map((user, i) => (
                                   <Box key={user.id}>
@@ -702,6 +716,18 @@ export default function AdminEmailCenterPage() {
           </Box>
         </Stack>
       </Stack>
+
+      {/* Send Confirmation Dialog */}
+      <ConfirmDialog
+        open={sendConfirmOpen}
+        onClose={() => setSendConfirmOpen(false)}
+        onConfirm={confirmSend}
+        title="Send Email"
+        description={`Are you sure you want to send this email to ${recipientLabel}? This action cannot be undone.`}
+        confirmText="Send"
+        variant="warning"
+        loading={sending}
+      />
 
       {/* Preview Modal */}
       <Modal open={previewOpen} onClose={() => setPreviewOpen(false)}>

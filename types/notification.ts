@@ -1,7 +1,7 @@
 import { Timestamp } from 'firebase/firestore';
 
 export type NotificationType = 'info' | 'warning' | 'success' | 'action';
-export type NotificationCategory = 'invoice' | 'bill' | 'subscription' | 'system' | 'support' | 'ai';
+export type NotificationCategory = 'invoice' | 'bill' | 'subscription' | 'system' | 'support' | 'ai' | 'announcement';
 
 export interface AppNotification {
   id: string;

@@ -1,9 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
-import { sendEmail } from '@/lib/email';
-import { getEmailTemplate } from '@/lib/email-templates';
 import { verifyAdminRequest } from '@/lib/admin-server';
+import { notifyUser } from '@/lib/notify';
 
 initAdmin();
 const db = getFirestore();
@@ -41,41 +40,51 @@ export async function PATCH(req: Request) {
 
     await db.collection('supportTickets').doc(ticketId).update(update);
 
-    // Notify user if resolved
-    if (status === 'resolved') {
-      const ticketDoc = await db.collection('supportTickets').doc(ticketId).get();
-      const ticket = ticketDoc.data();
-      if (ticket?.userId) {
-        // Create in-app notification
-        await db.collection('users').doc(ticket.userId).collection('notifications').doc().set({
-          type: 'success',
-          title: 'Ticket Resolved',
-          message: `Your support ticket "${ticket.subject}" has been resolved.`,
-          read: false,
-          category: 'support',
-          actionUrl: '/settings?section=support',
-          createdAt: new Date(),
-        });
-
-        // Send email notification
-        try {
-          const userDoc = await db.collection('users').doc(ticket.userId).get();
-          const userData = userDoc.data();
-          if (userData?.email) {
+    // Notify user on status changes
+    if (status === 'resolved' || status === 'in_progress') {
+      try {
+        const ticketDoc = await db.collection('supportTickets').doc(ticketId).get();
+        const ticket = ticketDoc.data();
+        if (ticket?.userId) {
+          if (status === 'resolved') {
             const replyMessage = adminNotes
               ? `Your ticket has been resolved.\n\nAdmin notes: ${adminNotes}`
               : 'Your ticket has been reviewed and resolved. If you have any further questions, feel free to open a new ticket.';
 
-            const { subject, html } = getEmailTemplate('support_reply', {
-              userName: userData.name || userData.email.split('@')[0],
-              ticketSubject: ticket.subject || 'Support Ticket',
-              replyMessage,
+            await notifyUser({
+              userId: ticket.userId,
+              templateType: 'support_reply',
+              templateData: {
+                ticketSubject: ticket.subject || 'Support Ticket',
+                replyMessage,
+              },
+              notification: {
+                type: 'success',
+                title: 'Ticket Resolved',
+                message: `Your support ticket "${ticket.subject}" has been resolved.`,
+                category: 'support',
+                actionUrl: '/settings?section=support',
+              },
             });
-            await sendEmail(userData.email, subject, html);
+          } else if (status === 'in_progress') {
+            await notifyUser({
+              userId: ticket.userId,
+              templateType: 'ticket_in_progress',
+              templateData: {
+                ticketSubject: ticket.subject || 'Support Ticket',
+              },
+              notification: {
+                type: 'info',
+                title: 'Ticket In Progress',
+                message: `Your support ticket "${ticket.subject}" is being worked on.`,
+                category: 'support',
+                actionUrl: '/settings?section=support',
+              },
+            });
           }
-        } catch (emailErr) {
-          console.error('Failed to send ticket resolved email:', emailErr);
         }
+      } catch (notifyErr) {
+        console.error('Failed to notify user about ticket update:', notifyErr);
       }
     }
 

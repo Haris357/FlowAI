@@ -496,7 +496,7 @@ export function getInvoiceEmailSubject(
  * Platform Email Templates — Flowbooks
  *
  * Professional HTML email templates for all platform communication:
- * welcome, plan_changed, tokens_granted, account_warning, support_reply,
+ * welcome, plan_changed, messages_granted, account_warning, support_reply,
  * announcement, custom, payment_receipt, subscription_cancelled, password_reset
  *
  * All templates share a consistent branded layout with:
@@ -514,7 +514,7 @@ export function getInvoiceEmailSubject(
 export type EmailTemplateType =
   | 'welcome'
   | 'plan_changed'
-  | 'tokens_granted'
+  | 'messages_granted'
   | 'account_warning'
   | 'support_reply'
   | 'announcement'
@@ -522,7 +522,10 @@ export type EmailTemplateType =
   | 'payment_receipt'
   | 'subscription_cancelled'
   | 'password_reset'
-  | 'newsletter';
+  | 'newsletter'
+  | 'feedback_acknowledged'
+  | 'ticket_in_progress'
+  | 'message_reset';
 
 export interface EmailTemplateData {
   userName?: string;
@@ -530,8 +533,8 @@ export interface EmailTemplateData {
   // Plan
   planName?: string;
   previousPlan?: string;
-  // Tokens
-  tokenAmount?: number;
+  // Messages
+  messageAmount?: number;
   // Support
   ticketSubject?: string;
   replyMessage?: string;
@@ -553,6 +556,11 @@ export interface EmailTemplateData {
   newsletterTitle?: string;
   newsletterSections?: Array<{ heading: string; body: string }>;
   newsletterFooterNote?: string;
+  // Feedback
+  feedbackSubject?: string;
+  feedbackResponse?: string;
+  // Message reset
+  weeklyMessageLimit?: string;
 }
 
 export interface EmailTemplateResult {
@@ -599,14 +607,14 @@ export const EMAIL_TEMPLATE_OPTIONS: EmailTemplateOption[] = [
     ],
   },
   {
-    value: 'tokens_granted', type: 'tokens_granted',
-    label: 'Tokens Granted',
-    description: 'Notify user that bonus tokens have been granted',
+    value: 'messages_granted', type: 'messages_granted',
+    label: 'Messages Granted',
+    description: 'Notify user that bonus weekly messages have been granted',
     icon: 'zap',
     color: '#F59E0B',
     fields: [
       { key: 'userName', label: 'User Name', type: 'text', required: true, placeholder: 'John Doe' },
-      { key: 'tokenAmount', label: 'Token Amount', type: 'text', required: true, placeholder: '50000' },
+      { key: 'messageAmount', label: 'Message Amount', type: 'text', required: true, placeholder: '250' },
     ],
   },
   {
@@ -618,7 +626,7 @@ export const EMAIL_TEMPLATE_OPTIONS: EmailTemplateOption[] = [
     fields: [
       { key: 'userName', label: 'User Name', type: 'text', required: true, placeholder: 'John Doe' },
       { key: 'warningType', label: 'Warning Type', type: 'text', required: true, placeholder: 'Token Limit Reached' },
-      { key: 'warningMessage', label: 'Warning Message', type: 'textarea', required: true, placeholder: 'You are approaching your monthly token limit...' },
+      { key: 'warningMessage', label: 'Warning Message', type: 'textarea', required: true, placeholder: 'You are approaching your weekly message limit...' },
     ],
   },
   {
@@ -973,17 +981,17 @@ ${pSignOff()}`;
   return { subject, html: pShell(subject, body) };
 }
 
-function tplTokensGranted(d: EmailTemplateData): EmailTemplateResult {
-  const amount = d.tokenAmount ?? 0;
+function tplMessagesGranted(d: EmailTemplateData): EmailTemplateResult {
+  const amount = d.messageAmount ?? 0;
   const formatted = amount.toLocaleString('en-US');
-  const subject = `You've received ${formatted} bonus tokens on Flowbooks`;
+  const subject = `You've received ${formatted} bonus weekly AI messages on Flowbooks`;
 
   const body = `
 ${pGreeting(d.userName)}
-${pParagraph('Great news! Bonus AI tokens have been added to your Flowbooks account.')}
-${pInfoBox('Tokens Granted', `${formatted} tokens`, C.brand)}
-${pParagraph('These tokens can be used for AI-powered features including the chat assistant, report generation, invoice analysis, and more.')}
-${pParagraph('Your token balance has been updated and is available for use immediately.')}
+${pParagraph('Great news! Bonus weekly AI messages have been added to your Flowbooks account.')}
+${pInfoBox('Messages Granted', `${formatted} weekly messages`, C.brand)}
+${pParagraph('These bonus messages are added to your weekly allowance and can be used for AI-powered features including the chat assistant, report generation, invoice analysis, and more.')}
+${pParagraph('Your weekly message balance has been updated and is available for use immediately.')}
 ${pButton('Check My Balance', 'https://flowbooks.app/settings')}
 ${pSignOff()}`;
 
@@ -1232,6 +1240,77 @@ ${pDivider()}
   return { subject, html: pShell(subject, body) };
 }
 
+function tplFeedbackAcknowledged(d: EmailTemplateData): EmailTemplateResult {
+  const feedbackSubject = d.feedbackSubject || 'your feedback';
+  const response = d.feedbackResponse || '';
+  const subject = `Your Feedback Has Been Reviewed — Flowbooks`;
+
+  const body = `
+${pGreeting(d.userName)}
+${pParagraph(`Thank you for taking the time to share your feedback with us. We've reviewed your submission regarding: <strong>${esc(feedbackSubject)}</strong>`)}
+${response ? `
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
+                <tr>
+                  <td style="padding:22px 24px;background:${C.greenBg};border-radius:10px;border:1px solid #D1FAE5;">
+                    <p style="margin:0 0 10px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:${C.greenDark};font-weight:600;">Admin Response</p>
+                    <div style="font-size:14px;color:${C.text};line-height:1.75;">${nl2br(response)}</div>
+                  </td>
+                </tr>
+              </table>
+` : ''}
+${pParagraph('Your input helps us improve Flowbooks for everyone. We truly appreciate your contribution.')}
+${pButton('View Dashboard', 'https://flowbooks.app/companies')}
+${pSignOff()}`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
+function tplTicketInProgress(d: EmailTemplateData): EmailTemplateResult {
+  const ticket = d.ticketSubject || 'your support ticket';
+  const subject = `Your Ticket Is Being Worked On — Flowbooks Support`;
+
+  const body = `
+${pGreeting(d.userName)}
+${pParagraph(`Great news! Our support team has started working on your ticket: <strong>${esc(ticket)}</strong>`)}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
+                <tr>
+                  <td style="padding:22px 24px;background:${C.brandBg};border-radius:10px;border:1px solid #F4D4C4;">
+                    <p style="margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:${C.brand};font-weight:600;">Status Update</p>
+                    <p style="margin:0;font-size:16px;font-weight:700;color:${C.brand};">In Progress</p>
+                  </td>
+                </tr>
+              </table>
+${pParagraph('We\'ll keep you updated as we make progress. You can check the status of your ticket anytime from your dashboard.')}
+${pButton('View Support', 'https://flowbooks.app/settings?section=support')}
+${pSignOff()}`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
+function tplMessageReset(d: EmailTemplateData): EmailTemplateResult {
+  const limit = d.weeklyMessageLimit || '150';
+  const plan = d.planName || 'your';
+  const subject = `Your Weekly AI Messages Have Been Reset — Flowbooks`;
+
+  const body = `
+${pGreeting(d.userName)}
+${pParagraph('Your weekly AI messages have been reset! You\'re all set for another week of AI-powered accounting.')}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
+                <tr>
+                  <td style="padding:22px 24px;background:${C.greenBg};border-radius:10px;border:1px solid #D1FAE5;">
+                    <p style="margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:${C.greenDark};font-weight:600;">Weekly Reset</p>
+                    <p style="margin:0 0 6px;font-size:24px;font-weight:700;color:${C.green};">${esc(limit)} messages/week</p>
+                    <p style="margin:0;font-size:13px;color:${C.textMid};">Available on your ${esc(plan)} plan</p>
+                  </td>
+                </tr>
+              </table>
+${pParagraph('Use your messages to chat with the AI assistant, generate invoices, and get accounting insights.')}
+${pButton('Open Flowbooks', 'https://flowbooks.app/companies')}
+${pSignOff()}`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
 // ------------------------------------------
 // Main dispatcher
 // ------------------------------------------
@@ -1252,8 +1331,8 @@ export function getEmailTemplate(
       return tplWelcome(data);
     case 'plan_changed':
       return tplPlanChanged(data);
-    case 'tokens_granted':
-      return tplTokensGranted(data);
+    case 'messages_granted':
+      return tplMessagesGranted(data);
     case 'account_warning':
       return tplAccountWarning(data);
     case 'support_reply':
@@ -1270,6 +1349,12 @@ export function getEmailTemplate(
       return tplPasswordReset(data);
     case 'newsletter':
       return tplNewsletter(data);
+    case 'feedback_acknowledged':
+      return tplFeedbackAcknowledged(data);
+    case 'ticket_in_progress':
+      return tplTicketInProgress(data);
+    case 'message_reset':
+      return tplMessageReset(data);
     default: {
       // Fallback to custom template for any unknown type
       const fallback: EmailTemplateData = {

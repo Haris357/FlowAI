@@ -17,7 +17,8 @@ import {
   extractBusinessContext,
   buildBusinessContextPrompt,
 } from '@/services/userContext';
-import { checkTokenBudgetAdmin, trackTokenUsageAdmin } from '@/services/subscription-admin';
+import { checkUsageBudgetAdmin, trackUsageAdmin, type UsageBudgetResult } from '@/services/subscription-admin';
+import { formatDuration } from '@/lib/plans';
 
 // ==========================================
 // CONFIGURATION
@@ -208,25 +209,30 @@ export async function POST(request: NextRequest) {
           toolCalls: [],
           rawToolCalls: [],
           rawContent: reply,
-          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0, model: 'instant', tokensRemaining: undefined },
+          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, cost: 0, model: 'instant', sessionRemaining: undefined, weeklyRemaining: undefined },
         });
       }
     }
 
     // ==========================================
-    // SUBSCRIPTION TOKEN CHECK
+    // SUBSCRIPTION USAGE CHECK (Session + Weekly)
     // ==========================================
 
-    let tokenBudget: { hasTokens: boolean; remaining: number; limit: number; planId: string; allowedModels: string[] } | null = null;
+    let usageBudget: UsageBudgetResult | null = null;
     try {
-      tokenBudget = await checkTokenBudgetAdmin(userId);
-      if (!tokenBudget.hasTokens) {
+      usageBudget = await checkUsageBudgetAdmin(userId);
+      if (!usageBudget.canSend) {
+        const timeLeft = formatDuration(Math.max(0, usageBudget.session.resetsAt - Date.now()));
+        const msg = usageBudget.blockedBy === 'session'
+          ? `You've used all messages in this session. Resets in ${timeLeft}.`
+          : `You've reached your weekly AI message limit. Resets Monday.`;
         return NextResponse.json({
-          error: 'token_limit_reached',
-          message: 'You have used all your AI tokens for this month. Please upgrade your plan or purchase additional tokens.',
+          error: 'message_limit_reached',
+          blockedBy: usageBudget.blockedBy,
+          message: msg,
           upgradeUrl: '/settings/billing',
-          remaining: 0,
-          limit: tokenBudget.limit,
+          session: usageBudget.session,
+          weekly: usageBudget.weekly,
         }, { status: 403 });
       }
     } catch (err) {
@@ -241,9 +247,9 @@ export async function POST(request: NextRequest) {
     // Resolve model — use requested model if valid, otherwise default
     // Also enforce plan's allowed models
     let resolvedModel = (requestModel && MODEL_PRICING[requestModel]) ? requestModel : DEFAULT_MODEL;
-    if (tokenBudget?.allowedModels && !tokenBudget.allowedModels.includes(resolvedModel)) {
+    if (usageBudget?.allowedModels && !usageBudget.allowedModels.includes(resolvedModel)) {
       // Fall back to the best model allowed on the plan
-      resolvedModel = tokenBudget.allowedModels[tokenBudget.allowedModels.length - 1] || DEFAULT_MODEL;
+      resolvedModel = usageBudget.allowedModels[usageBudget.allowedModels.length - 1] || DEFAULT_MODEL;
     }
     const MODEL = resolvedModel;
     console.log(`[Flow AI] Model: ${MODEL}${isFollowUp ? ' (follow-up)' : ''}`);
@@ -429,13 +435,12 @@ export async function POST(request: NextRequest) {
 
     const cost = calculateCost(promptTokens, completionTokens, MODEL);
 
-    // Track token usage for subscription billing
-    let usageRemaining: number | undefined;
+    // Track usage for subscription billing (session + weekly)
+    let trackResult: { sessionRemaining: number; weeklyRemaining: number } | undefined;
     try {
-      const usageResult = await trackTokenUsageAdmin(userId, totalTokens, MODEL, cost);
-      usageRemaining = usageResult.remaining;
+      trackResult = await trackUsageAdmin(userId, totalTokens, MODEL, cost);
     } catch (err) {
-      console.warn('[Flow AI] Failed to track token usage:', err);
+      console.warn('[Flow AI] Failed to track usage:', err);
     }
 
     console.log(`[Flow AI] ${MODEL} — ${promptTokens}+${completionTokens}=${totalTokens} tokens, $${cost.toFixed(6)}`);
@@ -452,7 +457,8 @@ export async function POST(request: NextRequest) {
         totalTokens,
         cost,
         model: MODEL,
-        tokensRemaining: usageRemaining,
+        sessionRemaining: trackResult?.sessionRemaining,
+        weeklyRemaining: trackResult?.weeklyRemaining,
       },
     });
 

@@ -1,9 +1,11 @@
 'use client';
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { useAuth } from './AuthContext';
-import { getUserSubscription, getRemainingTokens, getUsagePeriod } from '@/services/subscription';
-import { getPlan, DEFAULT_SUBSCRIPTION, PLANS, isUnlimited } from '@/lib/plans';
-import type { UserSubscription, UsagePeriod, PlanDefinition, PlanId, PlanLimitCheck } from '@/types/subscription';
+import { getUserSubscription, getRemainingUsage } from '@/services/subscription';
+import { getPlan, getCurrentWeekStart, getNextWeekStart, formatDuration, DEFAULT_SUBSCRIPTION, PLANS } from '@/lib/plans';
+import type { UserSubscription, UsageState, PlanDefinition, PlanId, PlanLimitCheck } from '@/types/subscription';
 
 // ==========================================
 // CONTEXT TYPE
@@ -12,12 +14,20 @@ import type { UserSubscription, UsagePeriod, PlanDefinition, PlanId, PlanLimitCh
 interface SubscriptionContextType {
   subscription: UserSubscription | null;
   plan: PlanDefinition;
-  usage: UsagePeriod | null;
+  usage: UsageState | null;
   loading: boolean;
-  // Computed
-  tokensRemaining: number;
-  tokenPercentUsed: number;
+  // Session
+  sessionRemaining: number;
+  sessionPercentUsed: number;
+  sessionResetsAt: number | null; // epoch ms
+  sessionTimeLeft: string; // "4h 23m"
+  // Weekly
+  weeklyRemaining: number;
+  weeklyPercentUsed: number;
+  weeklyResetsAt: string | null; // "YYYY-MM-DD"
+  // Combined
   isOverLimit: boolean;
+  blockedBy: 'none' | 'session' | 'weekly';
   // Actions
   refreshSubscription: () => Promise<void>;
   refreshUsage: () => Promise<void>;
@@ -33,9 +43,15 @@ const SubscriptionContext = createContext<SubscriptionContextType>({
   plan: PLANS.free,
   usage: null,
   loading: true,
-  tokensRemaining: 0,
-  tokenPercentUsed: 0,
+  sessionRemaining: 0,
+  sessionPercentUsed: 0,
+  sessionResetsAt: null,
+  sessionTimeLeft: '',
+  weeklyRemaining: 0,
+  weeklyPercentUsed: 0,
+  weeklyResetsAt: null,
   isOverLimit: false,
+  blockedBy: 'none',
   refreshSubscription: async () => {},
   refreshUsage: async () => {},
   checkLimit: () => ({ allowed: true }),
@@ -53,16 +69,22 @@ export const useSubscription = () => useContext(SubscriptionContext);
 export function SubscriptionProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
-  const [usage, setUsage] = useState<UsagePeriod | null>(null);
+  const [usage, setUsage] = useState<UsageState | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tokensRemaining, setTokensRemaining] = useState(0);
-  const [tokenPercentUsed, setTokenPercentUsed] = useState(0);
+  const [sessionRemaining, setSessionRemaining] = useState(0);
+  const [sessionPercentUsed, setSessionPercentUsed] = useState(0);
+  const [sessionResetsAt, setSessionResetsAt] = useState<number | null>(null);
+  const [sessionTimeLeft, setSessionTimeLeft] = useState('');
+  const [weeklyRemaining, setWeeklyRemaining] = useState(0);
+  const [weeklyPercentUsed, setWeeklyPercentUsed] = useState(0);
+  const [weeklyResetsAt, setWeeklyResetsAt] = useState<string | null>(null);
+  const [blockedBy, setBlockedBy] = useState<'none' | 'session' | 'weekly'>('none');
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null);
   const fetchedRef = useRef(false);
 
   const planId: PlanId = subscription?.planId || 'free';
   const plan = getPlan(planId);
-  const isOverLimit = tokensRemaining <= 0;
+  const isOverLimit = blockedBy !== 'none';
 
   // ── Fetch subscription data ──
   const refreshSubscription = useCallback(async () => {
@@ -75,17 +97,72 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     }
   }, [user?.uid]);
 
-  // ── Fetch usage data ──
+  // ── Compute remaining from usage snapshot ──
+  const computeRemaining = useCallback((usageData: UsageState | null) => {
+    const currentPlan = getPlan(subscription?.planId || 'free');
+    const sessionDurationMs = currentPlan.sessionDurationHours * 60 * 60 * 1000;
+    const currentWeekStart = getCurrentWeekStart();
+    const nextWeekStart = getNextWeekStart();
+
+    if (!usageData) {
+      setSessionRemaining(currentPlan.sessionMessageLimit);
+      setSessionPercentUsed(0);
+      setSessionResetsAt(Date.now() + sessionDurationMs);
+      setWeeklyRemaining(currentPlan.weeklyMessageLimit);
+      setWeeklyPercentUsed(0);
+      setWeeklyResetsAt(nextWeekStart);
+      setBlockedBy('none');
+      return;
+    }
+
+    let sessionUsed = usageData.sessionMessagesUsed || 0;
+    let weeklyUsed = usageData.weeklyMessagesUsed || 0;
+    let sessionStartMs = usageData.sessionStart?.toMillis?.()
+      || (usageData.sessionStart as any)?.seconds * 1000
+      || Date.now();
+
+    // Client-side auto-reset
+    if (Date.now() > sessionStartMs + sessionDurationMs) {
+      sessionUsed = 0;
+      sessionStartMs = Date.now();
+    }
+    if ((usageData.weekStart || '') !== currentWeekStart) {
+      weeklyUsed = 0;
+    }
+
+    const sRemaining = Math.max(0, currentPlan.sessionMessageLimit - sessionUsed);
+    const wBase = Math.max(0, currentPlan.weeklyMessageLimit - weeklyUsed);
+    const bonus = usageData.bonusMessages || 0;
+    const wRemaining = wBase + bonus;
+
+    setSessionRemaining(sRemaining);
+    setSessionPercentUsed(currentPlan.sessionMessageLimit > 0
+      ? Math.min(100, (sessionUsed / currentPlan.sessionMessageLimit) * 100) : 0);
+    setSessionResetsAt(sessionStartMs + sessionDurationMs);
+
+    setWeeklyRemaining(wRemaining);
+    setWeeklyPercentUsed(currentPlan.weeklyMessageLimit > 0
+      ? Math.min(100, (weeklyUsed / currentPlan.weeklyMessageLimit) * 100) : 0);
+    setWeeklyResetsAt(nextWeekStart);
+
+    if (sRemaining <= 0) setBlockedBy('session');
+    else if (wRemaining <= 0) setBlockedBy('weekly');
+    else setBlockedBy('none');
+  }, [subscription?.planId]);
+
+  // ── Manual refresh ──
   const refreshUsage = useCallback(async () => {
     if (!user?.uid) return;
     try {
       const currentPlanId = subscription?.planId || 'free';
-      const remaining = await getRemainingTokens(user.uid, currentPlanId);
-      setTokensRemaining(remaining.total);
-      setTokenPercentUsed(remaining.percentUsed);
-
-      const usagePeriod = await getUsagePeriod(user.uid);
-      setUsage(usagePeriod);
+      const remaining = await getRemainingUsage(user.uid, currentPlanId);
+      setSessionRemaining(remaining.session.remaining);
+      setSessionPercentUsed(remaining.session.percentUsed);
+      setSessionResetsAt(remaining.session.resetsAt);
+      setWeeklyRemaining(remaining.weekly.remaining);
+      setWeeklyPercentUsed(remaining.weekly.percentUsed);
+      setWeeklyResetsAt(remaining.weekly.resetsAt);
+      setBlockedBy(remaining.blockedBy);
     } catch (err) {
       console.error('Failed to fetch usage:', err);
     }
@@ -112,12 +189,42 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     load();
   }, [user?.uid, refreshSubscription]);
 
-  // ── Load usage after subscription is available ──
+  // ── Real-time listener for usage/current ──
   useEffect(() => {
-    if (subscription) {
-      refreshUsage();
-    }
-  }, [subscription, refreshUsage]);
+    if (!user?.uid || !subscription) return;
+
+    const usageRef = doc(db, 'users', user.uid, 'usage', 'current');
+
+    const unsubscribe = onSnapshot(usageRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data() as UsageState;
+        setUsage(data);
+        computeRemaining(data);
+      } else {
+        setUsage(null);
+        computeRemaining(null);
+      }
+    }, (err) => {
+      console.error('Usage listener error:', err);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid, subscription, computeRemaining]);
+
+  // ── Update session countdown every 30s ──
+  useEffect(() => {
+    const update = () => {
+      if (sessionResetsAt) {
+        const ms = Math.max(0, sessionResetsAt - Date.now());
+        setSessionTimeLeft(formatDuration(ms));
+      } else {
+        setSessionTimeLeft('');
+      }
+    };
+    update();
+    const interval = setInterval(update, 30_000);
+    return () => clearInterval(interval);
+  }, [sessionResetsAt]);
 
   // ── Check plan limits ──
   const checkLimit = useCallback((limitType: string, currentCount?: number): PlanLimitCheck => {
@@ -125,7 +232,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
     switch (limitType) {
       case 'companies': {
-        if (isUnlimited(plan.maxCompanies)) return { allowed: true };
+        if (plan.maxCompanies === -1) return { allowed: true };
         const allowed = count < plan.maxCompanies;
         return {
           allowed,
@@ -136,7 +243,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         };
       }
       case 'collaborators': {
-        if (isUnlimited(plan.maxCollaboratorsPerCompany)) return { allowed: true };
+        if (plan.maxCollaboratorsPerCompany === -1) return { allowed: true };
         const allowed = count < plan.maxCollaboratorsPerCompany;
         return {
           allowed,
@@ -147,7 +254,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         };
       }
       case 'customers': {
-        if (isUnlimited(plan.maxCustomers)) return { allowed: true };
+        if (plan.maxCustomers === -1) return { allowed: true };
         const allowed = count < plan.maxCustomers;
         return {
           allowed,
@@ -158,7 +265,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         };
       }
       case 'vendors': {
-        if (isUnlimited(plan.maxVendors)) return { allowed: true };
+        if (plan.maxVendors === -1) return { allowed: true };
         const allowed = count < plan.maxVendors;
         return {
           allowed,
@@ -169,7 +276,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         };
       }
       case 'invoices': {
-        if (isUnlimited(plan.maxInvoicesPerMonth)) return { allowed: true };
+        if (plan.maxInvoicesPerMonth === -1) return { allowed: true };
         const allowed = count < plan.maxInvoicesPerMonth;
         return {
           allowed,
@@ -179,13 +286,18 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           upgradeRequired: 'pro',
         };
       }
-      case 'tokens': {
-        const allowed = tokensRemaining > 0;
+      case 'messages': {
+        const allowed = !isOverLimit;
+        const reason = blockedBy === 'session'
+          ? `You've used all messages in this session. Resets in ${sessionTimeLeft}.`
+          : blockedBy === 'weekly'
+          ? 'You\'ve reached your weekly AI message limit. Resets Monday.'
+          : undefined;
         return {
           allowed,
-          reason: allowed ? undefined : 'You have used all your AI tokens this month.',
-          currentUsage: usage?.tokensUsed || 0,
-          limit: plan.tokenAllocation,
+          reason,
+          currentUsage: usage?.sessionMessagesUsed || 0,
+          limit: plan.sessionMessageLimit,
           upgradeRequired: planId === 'free' ? 'pro' : planId === 'pro' ? 'max' : undefined,
         };
       }
@@ -206,7 +318,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       default:
         return { allowed: true };
     }
-  }, [plan, planId, tokensRemaining, usage]);
+  }, [plan, planId, isOverLimit, blockedBy, sessionTimeLeft, usage]);
 
   const showUpgradeModal = useCallback((reason: string) => {
     setUpgradeReason(reason);
@@ -223,9 +335,15 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         plan,
         usage,
         loading,
-        tokensRemaining,
-        tokenPercentUsed,
+        sessionRemaining,
+        sessionPercentUsed,
+        sessionResetsAt,
+        sessionTimeLeft,
+        weeklyRemaining,
+        weeklyPercentUsed,
+        weeklyResetsAt,
         isOverLimit,
+        blockedBy,
         refreshSubscription,
         refreshUsage,
         checkLimit,

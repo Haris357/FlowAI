@@ -3,19 +3,19 @@ import { useState } from 'react';
 import { Box, LinearProgress, Typography, Stack, Divider } from '@mui/joy';
 import { ChevronDown } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { formatTokens } from '@/lib/plans';
 
 interface UsageMeterProps {
   compact?: boolean;
 }
 
 export default function UsageMeter({ compact = false }: UsageMeterProps) {
-  const { usage, plan, tokenPercentUsed, tokensRemaining, loading } = useSubscription();
+  const { usage, plan, sessionPercentUsed, sessionRemaining, sessionTimeLeft, weeklyPercentUsed, weeklyRemaining, loading } = useSubscription();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   if (loading || !usage) return null;
 
-  const color = tokenPercentUsed > 80 ? 'danger' : tokenPercentUsed > 50 ? 'warning' : 'primary';
+  const color = sessionPercentUsed > 80 ? 'danger' : sessionPercentUsed > 50 ? 'warning' : 'primary';
+  const weeklyColor = weeklyPercentUsed > 80 ? 'danger' : weeklyPercentUsed > 50 ? 'warning' : 'primary';
 
   if (compact) {
     return (
@@ -34,11 +34,11 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
         >
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
             <Typography level="body-xs" sx={{ color: 'text.tertiary', fontWeight: 600, fontSize: '11px' }}>
-              Token Usage
+              Session Usage
             </Typography>
             <Stack direction="row" spacing={0.5} alignItems="center">
               <Typography level="body-xs" sx={{ color: 'text.secondary', fontSize: '11px', fontWeight: 500 }}>
-                {formatTokens(tokensRemaining)} left
+                {sessionRemaining} left
               </Typography>
               <ChevronDown
                 size={12}
@@ -52,7 +52,7 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
           </Stack>
           <LinearProgress
             determinate
-            value={Math.min(100, tokenPercentUsed)}
+            value={Math.min(100, sessionPercentUsed)}
             color={color}
             sx={{ height: 4, borderRadius: 2, bgcolor: 'neutral.200' }}
           />
@@ -77,45 +77,63 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
             }}
           >
             <Typography level="body-xs" fontWeight={700} sx={{ mb: 1, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.tertiary', fontSize: '10px' }}>
-              Token Usage Details
+              Session Usage
             </Typography>
 
             <Stack spacing={0.75}>
-              {/* Used / Total */}
+              {/* Session Used / Total */}
               <Stack direction="row" justifyContent="space-between">
-                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Used</Typography>
+                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Session</Typography>
                 <Typography level="body-xs" fontWeight={600}>
-                  {formatTokens(usage.tokensUsed)} / {formatTokens(plan.tokenAllocation)}
+                  {usage.sessionMessagesUsed} / {plan.sessionMessageLimit}
                 </Typography>
               </Stack>
 
-              {/* Remaining */}
+              {/* Session Remaining */}
               <Stack direction="row" justifyContent="space-between">
                 <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Remaining</Typography>
                 <Typography level="body-xs" fontWeight={600} sx={{ color: color === 'danger' ? 'danger.500' : color === 'warning' ? 'warning.600' : 'text.primary' }}>
-                  {formatTokens(tokensRemaining)}
+                  {sessionRemaining}
                 </Typography>
               </Stack>
 
-              {/* Bonus Tokens */}
-              {(usage.bonusTokens || 0) > 0 && (
+              {/* Session Timer */}
+              <Stack direction="row" justifyContent="space-between">
+                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Resets in</Typography>
+                <Typography level="body-xs" fontWeight={600}>
+                  {sessionTimeLeft || 'New session'}
+                </Typography>
+              </Stack>
+
+              <Divider sx={{ my: 0.25 }} />
+
+              {/* Weekly */}
+              <Stack direction="row" justifyContent="space-between">
+                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>This Week</Typography>
+                <Typography level="body-xs" fontWeight={600}>
+                  {usage.weeklyMessagesUsed} / {plan.weeklyMessageLimit}
+                </Typography>
+              </Stack>
+
+              {/* Weekly Remaining */}
+              <Stack direction="row" justifyContent="space-between">
+                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Weekly Left</Typography>
+                <Typography level="body-xs" fontWeight={600} sx={{ color: weeklyColor === 'danger' ? 'danger.500' : weeklyColor === 'warning' ? 'warning.600' : 'text.primary' }}>
+                  {weeklyRemaining}
+                </Typography>
+              </Stack>
+
+              {/* Bonus Messages */}
+              {(usage.bonusMessages || 0) > 0 && (
                 <Stack direction="row" justifyContent="space-between">
-                  <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Bonus Tokens</Typography>
+                  <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Bonus Messages</Typography>
                   <Typography level="body-xs" fontWeight={600} sx={{ color: 'success.600' }}>
-                    +{formatTokens(usage.bonusTokens)}
+                    +{usage.bonusMessages}
                   </Typography>
                 </Stack>
               )}
 
               <Divider sx={{ my: 0.25 }} />
-
-              {/* Requests */}
-              <Stack direction="row" justifyContent="space-between">
-                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Requests</Typography>
-                <Typography level="body-xs" fontWeight={600}>
-                  {usage.requestCount.toLocaleString()}
-                </Typography>
-              </Stack>
 
               {/* Plan */}
               <Stack direction="row" justifyContent="space-between">
@@ -124,19 +142,6 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
                   {plan.name}
                 </Typography>
               </Stack>
-
-              {/* Period */}
-              {usage.period && (
-                <>
-                  <Divider sx={{ my: 0.25 }} />
-                  <Stack direction="row" justifyContent="space-between">
-                    <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Period</Typography>
-                    <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                      {usage.period}
-                    </Typography>
-                  </Stack>
-                </>
-              )}
             </Stack>
           </Box>
         )}
@@ -163,27 +168,35 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.75 }}>
         <Typography level="body-sm" fontWeight={600}>
-          Token Usage
+          Session Usage
         </Typography>
         <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-          {formatTokens(usage.tokensUsed)} / {formatTokens(plan.tokenAllocation)}
+          {usage.sessionMessagesUsed} / {plan.sessionMessageLimit}
         </Typography>
       </Stack>
       <LinearProgress
         determinate
-        value={Math.min(100, tokenPercentUsed)}
+        value={Math.min(100, sessionPercentUsed)}
         color={color}
         sx={{ height: 8, borderRadius: 4, bgcolor: 'neutral.100' }}
       />
       <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
         <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-          {formatTokens(tokensRemaining)} remaining
+          {sessionRemaining} remaining · {sessionTimeLeft ? `resets in ${sessionTimeLeft}` : 'new session'}
         </Typography>
-        {(usage.bonusTokens || 0) > 0 && (
+        {(usage.bonusMessages || 0) > 0 && (
           <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-            +{formatTokens(usage.bonusTokens)} bonus
+            +{usage.bonusMessages} bonus
           </Typography>
         )}
+      </Stack>
+      <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.75 }}>
+        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+          Weekly: {usage.weeklyMessagesUsed} / {plan.weeklyMessageLimit}
+        </Typography>
+        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+          Resets Monday
+        </Typography>
       </Stack>
     </Box>
   );

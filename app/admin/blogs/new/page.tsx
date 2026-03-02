@@ -30,6 +30,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { createPost } from '@/services/blog';
 import { adminFetch } from '@/lib/admin-fetch';
@@ -242,7 +243,7 @@ export default function AdminNewBlogPage() {
 
         {/* AI Generation Panel */}
         {showAiPanel && (
-          <Card variant="outlined" sx={{ borderColor: 'primary.200', bgcolor: 'primary.50' }}>
+          <Card sx={{ ...adminCard as Record<string, unknown>, borderColor: 'primary.200', bgcolor: 'primary.50' }}>
             <CardContent sx={{ p: 2.5 }}>
               <Stack spacing={2}>
                 <Stack direction="row" spacing={1} alignItems="center">
@@ -409,7 +410,7 @@ export default function AdminNewBlogPage() {
               </FormControl>
 
               {/* Settings */}
-              <Card variant="outlined">
+              <Card sx={{ ...adminCard as Record<string, unknown> }}>
                 <CardContent sx={{ p: 2.5 }}>
                   <Typography level="title-sm" fontWeight={700} sx={{ mb: 2 }}>
                     Settings
@@ -474,7 +475,7 @@ export default function AdminNewBlogPage() {
           {/* Preview Panel */}
           {showPreview && (
             <Box sx={{ flex: 1 }}>
-              <Card variant="outlined" sx={{ p: 0, overflow: 'hidden' }}>
+              <Card sx={{ ...adminCard as Record<string, unknown>, p: 0, overflow: 'hidden' }}>
                 <Box
                   sx={{
                     px: 3,

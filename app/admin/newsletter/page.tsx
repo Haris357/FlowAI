@@ -7,10 +7,11 @@ import {
 } from '@mui/joy';
 import {
   Newspaper, Sparkles, Send, Eye, Clock, Users, CheckCircle,
-  AlertTriangle, Plus, Trash2,
+  AlertTriangle, Plus, Trash2, Zap,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminFetch } from '@/lib/admin-fetch';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 
 interface NewsletterSection {
   heading: string;
@@ -27,6 +28,7 @@ interface Newsletter {
   failed: number;
   total: number;
   createdAt: any;
+  automated?: boolean;
 }
 
 export default function AdminNewsletterPage() {
@@ -153,8 +155,25 @@ export default function AdminNewsletterPage() {
           </Typography>
         </Box>
 
+        {/* Auto-Newsletter Status Banner */}
+        <Card sx={{ ...liquidGlassSubtle as Record<string, unknown>, borderLeft: '3px solid', borderLeftColor: 'success.400' }}>
+          <CardContent sx={{ p: 2 }}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Zap size={16} style={{ color: 'var(--joy-palette-success-500)' }} />
+              <Box sx={{ flex: 1 }}>
+                <Typography level="body-sm" fontWeight={600}>
+                  Auto-Newsletter: <Chip size="sm" variant="soft" color="success" sx={{ fontSize: '10px', ml: 0.5 }}>Active</Chip>
+                </Typography>
+                <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }}>
+                  AI-generated newsletters are sent automatically every Monday at 9:00 AM ET to opted-in users.
+                </Typography>
+              </Box>
+            </Stack>
+          </CardContent>
+        </Card>
+
         {/* AI Generation Card */}
-        <Card variant="outlined">
+        <Card sx={{ ...adminCard as Record<string, unknown> }}>
           <CardContent sx={{ p: 3 }}>
             <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
               <Box sx={{
@@ -222,7 +241,7 @@ export default function AdminNewsletterPage() {
 
         {/* Editor Card */}
         {(title || sections.length > 0) && (
-          <Card variant="outlined">
+          <Card sx={{ ...adminCard as Record<string, unknown> }}>
             <CardContent sx={{ p: 3 }}>
               <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
                 <Box sx={{
@@ -245,7 +264,7 @@ export default function AdminNewsletterPage() {
                 </FormControl>
 
                 {sections.map((section, idx) => (
-                  <Card key={idx} variant="soft" sx={{ p: 2 }}>
+                  <Card key={idx} sx={{ ...liquidGlassSubtle as Record<string, unknown>, p: 2 }}>
                     <Stack spacing={1.5}>
                       <Stack direction="row" justifyContent="space-between" alignItems="center">
                         <Typography level="body-xs" fontWeight={700} sx={{ textTransform: 'uppercase', letterSpacing: '0.06em', color: 'text.secondary' }}>
@@ -378,7 +397,7 @@ export default function AdminNewsletterPage() {
               ))}
             </Stack>
           ) : history.length === 0 ? (
-            <Card variant="soft">
+            <Card sx={{ ...liquidGlassSubtle as Record<string, unknown> }}>
               <CardContent sx={{ py: 5, textAlign: 'center' }}>
                 <Newspaper size={32} style={{ color: 'var(--joy-palette-neutral-400)', margin: '0 auto 8px' }} />
                 <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
@@ -389,7 +408,8 @@ export default function AdminNewsletterPage() {
           ) : (
             <Stack spacing={1.5}>
               {history.map(nl => (
-                <Card key={nl.id} variant="outlined" sx={{
+                <Card key={nl.id} sx={{
+                  ...adminCard as Record<string, unknown>,
                   transition: 'border-color 0.2s',
                   '&:hover': { borderColor: 'neutral.400' },
                 }}>
@@ -405,6 +425,12 @@ export default function AdminNewsletterPage() {
                         </Typography>
                       </Box>
                       <Stack spacing={0.5} alignItems="flex-end">
+                        {nl.automated && (
+                          <Chip size="sm" variant="soft" color="warning" sx={{ fontSize: '10px' }}
+                            startDecorator={<Zap size={10} />}>
+                            Automated
+                          </Chip>
+                        )}
                         <Chip size="sm" variant="soft" color="success" sx={{ fontSize: '10px' }}>
                           {nl.sent} sent
                         </Chip>

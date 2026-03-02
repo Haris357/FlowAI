@@ -1,7 +1,7 @@
-import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, orderBy, limit, serverTimestamp, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, getDocs, query, orderBy, limit, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { getPlan, DEFAULT_SUBSCRIPTION } from '@/lib/plans';
-import type { UserSubscription, UsagePeriod, TokenPurchase, BillingEvent, PlanId } from '@/types/subscription';
+import { getPlan, DEFAULT_SUBSCRIPTION, getCurrentWeekStart, getNextWeekStart } from '@/lib/plans';
+import type { UserSubscription, UsageState, BillingEvent, PlanId } from '@/types/subscription';
 
 // ==========================================
 // SUBSCRIPTION
@@ -54,120 +54,101 @@ export async function updateUserSubscription(
 }
 
 // ==========================================
-// USAGE TRACKING
+// USAGE STATE (Session + Weekly)
 // ==========================================
 
-function getCurrentPeriod(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
-
-export async function getUsagePeriod(userId: string, period?: string): Promise<UsagePeriod | null> {
+export async function getUsageState(userId: string): Promise<UsageState | null> {
   try {
-    const p = period || getCurrentPeriod();
-    const usageRef = doc(db, 'users', userId, 'usage', p);
+    const usageRef = doc(db, 'users', userId, 'usage', 'current');
     const usageSnap = await getDoc(usageRef);
 
     if (usageSnap.exists()) {
-      return usageSnap.data() as UsagePeriod;
+      return usageSnap.data() as UsageState;
     }
     return null;
   } catch (error) {
-    console.error('Error fetching usage period:', error);
+    console.error('Error fetching usage state:', error);
     return null;
   }
 }
 
-export async function getOrCreateUsagePeriod(userId: string, planId: PlanId): Promise<UsagePeriod> {
-  const period = getCurrentPeriod();
-  const usageRef = doc(db, 'users', userId, 'usage', period);
-  const usageSnap = await getDoc(usageRef);
-
-  if (usageSnap.exists()) {
-    return usageSnap.data() as UsagePeriod;
-  }
-
-  // Create new period with fresh allocation
-  const plan = getPlan(planId);
-  const newUsage: Record<string, any> = {
-    userId,
-    period,
-    planId,
-    tokenAllocation: plan.tokenAllocation,
-    tokensUsed: 0,
-    bonusTokens: 0,
-    requestCount: 0,
-    costAccumulated: 0,
-    breakdown: {},
-    resetAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+export interface RemainingUsage {
+  session: {
+    used: number;
+    limit: number;
+    remaining: number;
+    percentUsed: number;
+    resetsAt: number; // epoch ms
   };
-
-  // Carry over unused bonus tokens from purchases
-  const purchases = await getActiveTokenPurchases(userId);
-  const totalBonus = purchases.reduce((sum, p) => sum + p.tokensRemaining, 0);
-  newUsage.bonusTokens = totalBonus;
-
-  await setDoc(usageRef, newUsage);
-  return newUsage as UsagePeriod;
+  weekly: {
+    used: number;
+    limit: number;
+    remaining: number;
+    percentUsed: number;
+    resetsAt: string; // "YYYY-MM-DD" (next Monday)
+  };
+  bonusMessages: number;
+  blockedBy: 'none' | 'session' | 'weekly';
 }
 
-export async function getRemainingTokens(userId: string, planId: PlanId): Promise<{
-  monthly: number;
-  bonus: number;
-  total: number;
-  used: number;
-  limit: number;
-  percentUsed: number;
-}> {
-  const usage = await getOrCreateUsagePeriod(userId, planId);
-  const monthlyRemaining = Math.max(0, usage.tokenAllocation - usage.tokensUsed);
-  const bonus = usage.bonusTokens || 0;
-  const total = monthlyRemaining + bonus;
-  const percentUsed = usage.tokenAllocation > 0
-    ? Math.min(100, (usage.tokensUsed / usage.tokenAllocation) * 100)
+export async function getRemainingUsage(userId: string, planId: PlanId): Promise<RemainingUsage> {
+  const plan = getPlan(planId);
+  const sessionDurationMs = plan.sessionDurationHours * 60 * 60 * 1000;
+  const currentWeekStart = getCurrentWeekStart();
+  const nextWeekStart = getNextWeekStart();
+
+  const usage = await getUsageState(userId);
+
+  if (!usage) {
+    return {
+      session: { used: 0, limit: plan.sessionMessageLimit, remaining: plan.sessionMessageLimit, percentUsed: 0, resetsAt: Date.now() + sessionDurationMs },
+      weekly: { used: 0, limit: plan.weeklyMessageLimit, remaining: plan.weeklyMessageLimit, percentUsed: 0, resetsAt: nextWeekStart },
+      bonusMessages: 0,
+      blockedBy: 'none',
+    };
+  }
+
+  // Client-side auto-reset logic (mirrors server)
+  let sessionUsed = usage.sessionMessagesUsed || 0;
+  let weeklyUsed = usage.weeklyMessagesUsed || 0;
+  let sessionStartMs = usage.sessionStart?.toMillis?.()
+    || (usage.sessionStart as any)?._seconds * 1000
+    || (usage.sessionStart as any)?.seconds * 1000
+    || Date.now();
+
+  // Auto-reset session if expired
+  if (Date.now() > sessionStartMs + sessionDurationMs) {
+    sessionUsed = 0;
+    sessionStartMs = Date.now();
+  }
+
+  // Auto-reset weekly if new week
+  if ((usage.weekStart || '') !== currentWeekStart) {
+    weeklyUsed = 0;
+  }
+
+  const sessionRemaining = Math.max(0, plan.sessionMessageLimit - sessionUsed);
+  const weeklyBase = Math.max(0, plan.weeklyMessageLimit - weeklyUsed);
+  const bonus = usage.bonusMessages || 0;
+  const weeklyRemaining = weeklyBase + bonus;
+
+  const sessionPercentUsed = plan.sessionMessageLimit > 0
+    ? Math.min(100, (sessionUsed / plan.sessionMessageLimit) * 100)
+    : 0;
+  const weeklyPercentUsed = plan.weeklyMessageLimit > 0
+    ? Math.min(100, (weeklyUsed / plan.weeklyMessageLimit) * 100)
     : 0;
 
+  let blockedBy: 'none' | 'session' | 'weekly' = 'none';
+  if (sessionRemaining <= 0) blockedBy = 'session';
+  else if (weeklyRemaining <= 0) blockedBy = 'weekly';
+
   return {
-    monthly: monthlyRemaining,
-    bonus,
-    total,
-    used: usage.tokensUsed,
-    limit: usage.tokenAllocation,
-    percentUsed,
+    session: { used: sessionUsed, limit: plan.sessionMessageLimit, remaining: sessionRemaining, percentUsed: sessionPercentUsed, resetsAt: sessionStartMs + sessionDurationMs },
+    weekly: { used: weeklyUsed, limit: plan.weeklyMessageLimit, remaining: weeklyRemaining, percentUsed: weeklyPercentUsed, resetsAt: nextWeekStart },
+    bonusMessages: bonus,
+    blockedBy,
   };
-}
-
-// ==========================================
-// TOKEN PURCHASES
-// ==========================================
-
-export async function getActiveTokenPurchases(userId: string): Promise<TokenPurchase[]> {
-  try {
-    const purchasesRef = collection(db, 'users', userId, 'tokenPurchases');
-    const q = query(purchasesRef, orderBy('purchasedAt', 'desc'));
-    const snap = await getDocs(q);
-
-    const now = new Date();
-    return snap.docs
-      .map(d => ({ id: d.id, ...d.data() }) as TokenPurchase)
-      .filter(p => p.status === 'completed' && p.tokensRemaining > 0 && (!p.expiresAt || (p.expiresAt as any).toDate() > now));
-  } catch (error) {
-    console.error('Error fetching token purchases:', error);
-    return [];
-  }
-}
-
-export async function getAllTokenPurchases(userId: string): Promise<TokenPurchase[]> {
-  try {
-    const purchasesRef = collection(db, 'users', userId, 'tokenPurchases');
-    const q = query(purchasesRef, orderBy('purchasedAt', 'desc'));
-    const snap = await getDocs(q);
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }) as TokenPurchase);
-  } catch (error) {
-    console.error('Error fetching token purchases:', error);
-    return [];
-  }
 }
 
 // ==========================================

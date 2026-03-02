@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation';
 import { useColorScheme } from '@mui/joy/styles';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { PLANS, formatTokens } from '@/lib/plans';
+import { PLANS, formatMessages } from '@/lib/plans';
 
 const DEBOUNCE_MS = 3600000; // 1 hour
 const MAX_DISMISSALS = 3;
@@ -55,13 +55,14 @@ async function shouldShowPremiumModal(userId: string, planId: string): Promise<b
 interface PlanCardProps {
   name: string;
   price: number;
-  tokens: number;
+  sessionLimit: number;
+  weeklyLimit: number;
   features: string[];
   current?: boolean;
   popular?: boolean;
 }
 
-function PlanCard({ name, price, tokens, features, current, popular }: PlanCardProps) {
+function PlanCard({ name, price, sessionLimit, weeklyLimit, features, current, popular }: PlanCardProps) {
   return (
     <Card
       variant="outlined"
@@ -98,7 +99,7 @@ function PlanCard({ name, price, tokens, features, current, popular }: PlanCardP
           {price > 0 && <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>/mo</Typography>}
         </Stack>
         <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.5, mb: 1 }}>
-          {formatTokens(tokens)} tokens
+          {formatMessages(sessionLimit)} msgs/session · {formatMessages(weeklyLimit)}/week
         </Typography>
         <Stack spacing={0.5} alignItems="flex-start">
           {features.map((f, i) => (
@@ -201,7 +202,7 @@ export default function PremiumModal() {
             Unlock the Full Power
           </Typography>
           <Typography level="body-sm" sx={{ color: 'rgba(255,255,255,0.85)', mt: 0.5 }}>
-            Get more tokens, advanced AI models, and unlimited features
+            Get more AI messages per session, advanced AI models, and unlimited features
           </Typography>
         </Box>
 
@@ -211,21 +212,24 @@ export default function PremiumModal() {
             <PlanCard
               name="Free"
               price={PLANS.free.price}
-              tokens={PLANS.free.tokenAllocation}
+              sessionLimit={PLANS.free.sessionMessageLimit}
+              weeklyLimit={PLANS.free.weeklyMessageLimit}
               features={['1 company', '20 customers', 'Basic AI']}
               current
             />
             <PlanCard
               name="Pro"
               price={PLANS.pro.price}
-              tokens={PLANS.pro.tokenAllocation}
+              sessionLimit={PLANS.pro.sessionMessageLimit}
+              weeklyLimit={PLANS.pro.weeklyMessageLimit}
               features={['3 companies', 'Unlimited clients', 'All reports']}
               popular
             />
             <PlanCard
               name="Max"
               price={PLANS.max.price}
-              tokens={PLANS.max.tokenAllocation}
+              sessionLimit={PLANS.max.sessionMessageLimit}
+              weeklyLimit={PLANS.max.weeklyMessageLimit}
               features={['10 companies', 'Advanced AI', 'Priority support']}
             />
           </Stack>
@@ -240,7 +244,7 @@ export default function PremiumModal() {
             </Stack>
             <Stack spacing={0.5}>
               {[
-                '10x more AI tokens for longer conversations',
+                '4x more messages per session + higher weekly cap',
                 'Unlock payroll, exports, and financial reports',
                 'Manage multiple companies & collaborators',
               ].map((item, i) => (

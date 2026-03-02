@@ -6,6 +6,7 @@ import {
 import { MessageSquare, Star, CheckCircle, Inbox } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminFetch } from '@/lib/admin-fetch';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 
 const TYPE_COLORS: Record<string, 'primary' | 'success' | 'danger' | 'warning'> = {
   suggestion: 'primary', praise: 'success', complaint: 'danger', bug_report: 'warning',
@@ -88,7 +89,7 @@ export default function AdminFeedbackPage() {
         </Box>
 
         {/* Feedback Prompt Settings */}
-        <Card variant="outlined">
+        <Card sx={{ ...adminCard as Record<string, unknown> }}>
           <CardContent sx={{ p: 2.5 }}>
             <Stack direction="row" justifyContent="space-between" alignItems="center">
               <Box>
@@ -128,7 +129,7 @@ export default function AdminFeedbackPage() {
             ))}
           </Stack>
         ) : feedbackList.length === 0 ? (
-          <Card variant="soft">
+          <Card sx={{ ...liquidGlassSubtle as Record<string, unknown> }}>
             <CardContent sx={{ py: 6, textAlign: 'center' }}>
               <Inbox size={36} style={{ color: 'var(--joy-palette-neutral-400)', margin: '0 auto 8px' }} />
               <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
@@ -139,7 +140,8 @@ export default function AdminFeedbackPage() {
         ) : (
           <Stack spacing={1.5}>
             {feedbackList.map(fb => (
-              <Card key={fb.id} variant="outlined" sx={{
+              <Card key={fb.id} sx={{
+                ...adminCard as Record<string, unknown>,
                 transition: 'border-color 0.2s',
                 '&:hover': { borderColor: 'neutral.400' },
               }}>

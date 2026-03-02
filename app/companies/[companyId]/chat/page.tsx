@@ -35,7 +35,7 @@ export default function ChatPage() {
     clearAllChats,
     toggleSidebar,
     updateChatSettings,
-    tokenUsage,
+    sessionUsage,
   } = useChat();
 
   const handleNewChat = () => {
@@ -122,7 +122,7 @@ export default function ChatPage() {
         onExecuteToolAction={executeToolAction}
         onSelectAction={handleSelectAction}
         onClearForm={handleClearForm}
-        tokenUsage={tokenUsage}
+        sessionUsage={sessionUsage}
       />
 
       {/* Settings Modal */}

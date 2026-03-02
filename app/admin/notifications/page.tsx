@@ -10,6 +10,8 @@ import {
   MousePointerClick, Filter, Plus, Mail,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { adminFetch } from '@/lib/admin-fetch';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 
 const TYPE_COLORS: Record<string, 'primary' | 'warning' | 'success' | 'neutral'> = {
   info: 'primary',
@@ -54,7 +56,7 @@ export default function AdminNotificationsPage() {
       if (typeFilter) params.set('type', typeFilter);
       if (categoryFilter) params.set('category', categoryFilter);
       if (readFilter) params.set('read', readFilter);
-      const res = await fetch(`/api/admin/notifications?${params}`);
+      const res = await adminFetch(`/api/admin/notifications?${params}`);
       const data = await res.json();
       setNotifications(data.notifications || []);
     } catch {
@@ -71,7 +73,7 @@ export default function AdminNotificationsPage() {
   const handleDelete = async (userId: string, notificationId: string) => {
     setDeleting(notificationId);
     try {
-      const res = await fetch('/api/admin/notifications', {
+      const res = await adminFetch('/api/admin/notifications', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, notificationId }),
@@ -93,7 +95,7 @@ export default function AdminNotificationsPage() {
     }
     setSending(true);
     try {
-      const res = await fetch('/api/admin/notifications', {
+      const res = await adminFetch('/api/admin/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(sendData),
@@ -146,7 +148,7 @@ export default function AdminNotificationsPage() {
         </Stack>
 
         {/* Filter bar */}
-        <Card variant="outlined" sx={{ p: 0 }}>
+        <Card sx={{ ...adminCard as Record<string, unknown>, p: 0 }}>
           <CardContent sx={{ p: 2 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="center">
               <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: 'text.tertiary' }}>
@@ -217,7 +219,7 @@ export default function AdminNotificationsPage() {
             ))}
           </Stack>
         ) : notifications.length === 0 ? (
-          <Card variant="soft">
+          <Card sx={{ ...liquidGlassSubtle as Record<string, unknown> }}>
             <CardContent sx={{ py: 6, textAlign: 'center' }}>
               <Inbox size={36} style={{ color: 'var(--joy-palette-neutral-400)', margin: '0 auto 8px' }} />
               <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
@@ -231,7 +233,8 @@ export default function AdminNotificationsPage() {
               {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
             </Typography>
             {notifications.map(notif => (
-              <Card key={notif.id} variant="outlined" sx={{
+              <Card key={notif.id} sx={{
+                ...adminCard as Record<string, unknown>,
                 transition: 'border-color 0.2s',
                 '&:hover': { borderColor: 'neutral.400' },
                 borderLeft: '3px solid',

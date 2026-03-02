@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getFirestore, Timestamp, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
-import { getPlanByVariantId, getTokenPackByVariantId } from '@/lib/plans';
+import { getPlanByVariantId } from '@/lib/plans';
 import { sendEmail } from '@/lib/email';
 import { getEmailTemplate } from '@/lib/email-templates';
 
@@ -271,58 +271,9 @@ export async function POST(request: NextRequest) {
         break;
       }
 
-      // ── Order Events (Token Packs) ──
+      // ── Order Events ──
       case 'order_created': {
-        const variantId = String(attrs.first_order_item?.variant_id || '');
-        const pack = getTokenPackByVariantId(variantId);
-        if (!pack) {
-          console.log(`[LS Webhook] order_created for non-token-pack variant: ${variantId}`);
-          break;
-        }
-
-        const expiresAt = new Date();
-        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-
-        await adminDb.collection(`users/${userId}/tokenPurchases`).add({
-          lemonSqueezyOrderId: String(payload.data?.id || ''),
-          packId: pack.id,
-          tokensAmount: pack.tokens,
-          tokensRemaining: pack.tokens,
-          price: pack.price,
-          status: 'completed',
-          purchasedAt: Timestamp.now(),
-          expiresAt: Timestamp.fromDate(expiresAt),
-        });
-
-        // Add bonus tokens to current usage period
-        const period = getCurrentPeriod();
-        const usageRef = adminDb.doc(`users/${userId}/usage/${period}`);
-        const usageSnap = await usageRef.get();
-        if (usageSnap.exists) {
-          await usageRef.update({
-            bonusTokens: FieldValue.increment(pack.tokens),
-            updatedAt: Timestamp.now(),
-          });
-        }
-
-        await addBillingEvent(userId, {
-          type: 'token_purchase',
-          description: `Purchased ${pack.name} (${(pack.tokens / 1000).toFixed(0)}K tokens)`,
-          amount: pack.price,
-          currency: 'USD',
-          lemonSqueezyEventId: eventId,
-          invoiceUrl: attrs.urls?.receipt || null,
-        });
-
-        // Send token pack receipt email
-        notifyUser(userId, 'tokens_granted', {
-          tokenAmount: pack.tokens,
-        }, {
-          type: 'success',
-          title: 'Token Pack Purchased',
-          message: `${(pack.tokens / 1000).toFixed(0)}K tokens have been added to your account.`,
-          category: 'subscription',
-        });
+        console.log(`[LS Webhook] Unhandled order_created event for user ${userId}`);
         break;
       }
 
@@ -377,11 +328,6 @@ function mapLSStatus(lsStatus: string): string {
     unpaid: 'past_due',
   };
   return map[lsStatus] || 'active';
-}
-
-function getCurrentPeriod(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
 async function addBillingEvent(userId: string, event: {

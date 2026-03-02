@@ -3,10 +3,12 @@ import { useState, useEffect } from 'react';
 import {
   Box, Typography, Stack, Card, CardContent, Chip, Button, Input,
   Textarea, FormControl, FormLabel, Select, Option, Checkbox, Skeleton,
-  Divider, RadioGroup, Radio, Sheet,
+  Divider, RadioGroup, Radio, Sheet, CircularProgress,
 } from '@mui/joy';
-import { Megaphone, Send, Inbox, Users, Mail, Info, AlertTriangle, CheckCircle, Zap } from 'lucide-react';
+import { Megaphone, Send, Inbox, Users, Mail, Info, AlertTriangle, CheckCircle, Zap, Sparkles } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { adminFetch } from '@/lib/admin-fetch';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 
 type AnnouncementType = 'info' | 'warning' | 'success' | 'action';
 type TargetAudience = 'all' | 'free_users' | 'pro_users' | 'max_users';
@@ -50,12 +52,16 @@ export default function AdminAnnouncementsPage() {
   const [actionUrl, setActionUrl] = useState('');
   const [sendEmail, setSendEmail] = useState(false);
 
+  // AI generation
+  const [aiTopic, setAiTopic] = useState('');
+  const [aiGenerating, setAiGenerating] = useState(false);
+
   useEffect(() => {
     fetchAnnouncements();
   }, []);
 
   const fetchAnnouncements = () => {
-    fetch('/api/admin/announcements')
+    adminFetch('/api/admin/announcements')
       .then(res => res.json())
       .then(d => setAnnouncements(d.announcements || []))
       .catch(console.error)
@@ -71,6 +77,30 @@ export default function AdminAnnouncementsPage() {
     setSendEmail(false);
   };
 
+  const handleAiGenerate = async () => {
+    if (!aiTopic.trim()) {
+      toast.error('Enter a topic for AI generation');
+      return;
+    }
+    setAiGenerating(true);
+    try {
+      const res = await adminFetch('/api/admin/announcements/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: aiTopic.trim(), type }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Generation failed');
+      setTitle(data.generated.title);
+      setMessage(data.generated.message);
+      toast.success('Announcement generated! You can edit it before sending.');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to generate announcement');
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   const handleSend = async () => {
     if (!title.trim() || !message.trim()) {
       toast.error('Title and message are required');
@@ -79,7 +109,7 @@ export default function AdminAnnouncementsPage() {
 
     setSending(true);
     try {
-      const res = await fetch('/api/admin/announcements', {
+      const res = await adminFetch('/api/admin/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -128,8 +158,53 @@ export default function AdminAnnouncementsPage() {
           </Typography>
         </Box>
 
+        {/* AI Generation Card */}
+        <Card sx={{ ...adminCard as Record<string, unknown> }}>
+          <CardContent sx={{ p: 3 }}>
+            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
+              <Box sx={{
+                width: 36, height: 36, borderRadius: 'md', bgcolor: 'warning.softBg',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}>
+                <Sparkles size={16} style={{ color: 'var(--joy-palette-warning-600)' }} />
+              </Box>
+              <Box>
+                <Typography level="title-md" fontWeight={700}>AI Announcement Generator</Typography>
+                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                  Describe the topic and AI will write the title and message for you.
+                </Typography>
+              </Box>
+            </Stack>
+
+            <Stack spacing={2}>
+              <FormControl>
+                <FormLabel>Topic</FormLabel>
+                <Textarea
+                  placeholder="e.g., New recurring invoices feature, scheduled maintenance tonight, tax season tips..."
+                  value={aiTopic}
+                  onChange={e => setAiTopic(e.target.value)}
+                  minRows={2}
+                  maxRows={4}
+                />
+              </FormControl>
+
+              <Button
+                variant="solid"
+                color="warning"
+                startDecorator={aiGenerating ? <CircularProgress size="sm" /> : <Sparkles size={16} />}
+                onClick={handleAiGenerate}
+                loading={aiGenerating}
+                disabled={aiGenerating || !aiTopic.trim()}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                {aiGenerating ? 'Generating...' : 'Generate with AI'}
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+
         {/* Create Announcement Form */}
-        <Card variant="outlined">
+        <Card sx={{ ...adminCard as Record<string, unknown> }}>
           <CardContent sx={{ p: 3 }}>
             <Typography level="title-md" fontWeight={700} sx={{ mb: 2 }}>
               New Announcement
@@ -260,7 +335,7 @@ export default function AdminAnnouncementsPage() {
         </Card>
 
         {/* Past Announcements */}
-        <Card variant="outlined">
+        <Card sx={{ ...adminCard as Record<string, unknown> }}>
           <CardContent sx={{ p: 3 }}>
             <Typography level="title-md" fontWeight={700} sx={{ mb: 2 }}>
               Past Announcements
@@ -299,7 +374,8 @@ export default function AdminAnnouncementsPage() {
                   const cfg = TYPE_CONFIG[ann.type] || TYPE_CONFIG.info;
                   const Icon = cfg.icon;
                   return (
-                    <Card key={ann.id} variant="soft" sx={{
+                    <Card key={ann.id} sx={{
+                      ...liquidGlassSubtle as Record<string, unknown>,
                       transition: 'border-color 0.2s',
                       '&:hover': { borderColor: 'neutral.400' },
                     }}>

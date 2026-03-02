@@ -3,7 +3,7 @@ import { Timestamp } from 'firebase/firestore';
 // Subscription types
 export type {
   PlanId, SubscriptionStatus, PlanDefinition, UserSubscription,
-  ModelUsageBreakdown, UsagePeriod, TokenPackId, TokenPackDefinition,
+  ModelUsageBreakdown, UsageState, DailyUsage, TokenPackId,
   TokenPurchase, BillingEventType, BillingEvent, PlanLimitCheck,
 } from './subscription';
 

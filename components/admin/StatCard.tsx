@@ -1,5 +1,6 @@
 'use client';
 import { Card, CardContent, Typography, Stack, Box, Skeleton } from '@mui/joy';
+import { adminCard } from '@/lib/admin-theme';
 
 interface StatCardProps {
   title: string;
@@ -13,8 +14,8 @@ interface StatCardProps {
 export default function StatCard({ title, value, subtitle, icon: Icon, color = 'primary', loading = false }: StatCardProps) {
   return (
     <Card
-      variant="outlined"
       sx={{
+        ...adminCard as Record<string, unknown>,
         flex: 1,
         minWidth: 150,
         borderLeft: '3px solid',

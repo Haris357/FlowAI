@@ -10,7 +10,7 @@ import ChatInput from './ChatInput';
 import MemoryIndicator from './MemoryIndicator';
 import FlowAIAvatar from './FlowAIAvatar';
 import { FormShortcut } from './FormShortcuts';
-import { TokenUsage } from '@/contexts/ChatContext';
+import { SessionUsage } from '@/contexts/ChatContext';
 
 interface ChatMainProps {
   messages: ChatMessageType[];
@@ -27,7 +27,8 @@ interface ChatMainProps {
   onExecuteToolAction?: (toolName: string, args: Record<string, any>, sourceMessageId?: string, actionKey?: string) => void;
   onSelectAction?: (prompt: string) => void;
   onClearForm?: () => void;
-  tokenUsage?: TokenUsage;
+  sessionUsage?: SessionUsage;
+  isLoading?: boolean;
 }
 
 export default function ChatMain({
@@ -45,7 +46,8 @@ export default function ChatMain({
   onExecuteToolAction,
   onSelectAction,
   onClearForm,
-  tokenUsage,
+  sessionUsage,
+  isLoading = false,
 }: ChatMainProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
@@ -83,6 +85,69 @@ export default function ChatMain({
 
   const hasMessages = messages.length > 0;
 
+  // Loading state: show skeleton while chat is being loaded
+  if (isLoading) {
+    return (
+      <Box
+        sx={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          minHeight: 0,
+          bgcolor: 'background.body',
+        }}
+      >
+        <Box sx={{ flex: 1, py: 3 }}>
+          {/* Skeleton message bubbles */}
+          {[1, 2, 3].map((i) => (
+            <Box
+              key={i}
+              sx={{
+                maxWidth: 768,
+                mx: 'auto',
+                px: { xs: 1.5, sm: 2.5 },
+                py: 1,
+                display: 'flex',
+                gap: 1.5,
+                flexDirection: i % 2 === 0 ? 'row-reverse' : 'row',
+              }}
+            >
+              <Box
+                sx={{
+                  width: 36,
+                  height: 36,
+                  borderRadius: '50%',
+                  bgcolor: 'background.level2',
+                  flexShrink: 0,
+                  animation: 'skeletonPulse 1.5s ease-in-out infinite',
+                  '@keyframes skeletonPulse': {
+                    '0%, 100%': { opacity: 0.4 },
+                    '50%': { opacity: 0.8 },
+                  },
+                }}
+              />
+              <Stack spacing={0.75} sx={{ flex: 1, maxWidth: i % 2 === 0 ? '60%' : '70%' }}>
+                {[90, 65, i === 3 ? 40 : 0].filter(Boolean).map((w, j) => (
+                  <Box
+                    key={j}
+                    sx={{
+                      height: 12,
+                      borderRadius: 1,
+                      width: `${w}%`,
+                      bgcolor: 'background.level2',
+                      animation: `skeletonPulse 1.5s ease-in-out ${j * 0.15}s infinite`,
+                    }}
+                  />
+                ))}
+              </Stack>
+            </Box>
+          ))}
+        </Box>
+      </Box>
+    );
+  }
+
   // Empty state: centered welcome + input
   if (!hasMessages && showWelcome) {
     return (
@@ -113,7 +178,7 @@ export default function ChatMain({
           initialValue={inputValue}
           showQuickActions={true}
           onSelectAction={handleSelectAction}
-          tokenUsage={tokenUsage}
+          sessionUsage={sessionUsage}
         />
       </Box>
     );
@@ -258,7 +323,7 @@ export default function ChatMain({
           onClearForm={onClearForm}
           initialValue={inputValue}
           showQuickActions={false}
-          tokenUsage={tokenUsage}
+          sessionUsage={sessionUsage}
         />
       </Box>
     </Box>

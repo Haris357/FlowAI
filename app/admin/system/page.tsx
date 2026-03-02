@@ -3,6 +3,7 @@ import {
   Box, Typography, Stack, Card, CardContent, Chip, Divider,
 } from '@mui/joy';
 import { Settings, Server, Database, Shield, Globe, Code2, CreditCard, Mail } from 'lucide-react';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 import { CHANGELOG } from '@/lib/changelog';
 import { ADMIN_EMAILS } from '@/lib/admin';
 
@@ -37,7 +38,7 @@ export default function AdminSystemPage() {
         </Box>
 
         {/* Application Info */}
-        <Card variant="outlined">
+        <Card sx={{ ...adminCard as Record<string, unknown> }}>
           <CardContent sx={{ p: 0 }}>
             <Stack direction="row" spacing={1.5} alignItems="center" sx={{ px: 3, pt: 2.5, pb: 2 }}>
               <Box sx={{
@@ -73,7 +74,7 @@ export default function AdminSystemPage() {
         </Card>
 
         {/* Services */}
-        <Card variant="outlined">
+        <Card sx={{ ...adminCard as Record<string, unknown> }}>
           <CardContent sx={{ p: 0 }}>
             <Stack direction="row" spacing={1.5} alignItems="center" sx={{ px: 3, pt: 2.5, pb: 2 }}>
               <Box sx={{
@@ -109,7 +110,7 @@ export default function AdminSystemPage() {
         </Card>
 
         {/* Admin Access */}
-        <Card variant="outlined" sx={{ borderColor: 'danger.200' }}>
+        <Card sx={{ ...adminCard as Record<string, unknown>, borderColor: 'danger.200' }}>
           <CardContent sx={{ p: 3 }}>
             <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
               <Box sx={{
@@ -127,7 +128,7 @@ export default function AdminSystemPage() {
             </Stack>
             <Stack spacing={1}>
               {ADMIN_EMAILS.map(email => (
-                <Card key={email} variant="soft" sx={{ p: 0 }}>
+                <Card key={email} sx={{ ...liquidGlassSubtle as Record<string, unknown>, p: 0 }}>
                   <CardContent sx={{ p: 1.5 }}>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                       <Box sx={{

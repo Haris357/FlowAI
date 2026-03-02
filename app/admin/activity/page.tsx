@@ -8,6 +8,8 @@ import {
   Activity, Inbox, Filter, Clock,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { adminFetch } from '@/lib/admin-fetch';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 
 const ACTIVITY_TYPES = [
   { value: 'signup', label: 'Signups', icon: UserPlus, color: '#D97757' },
@@ -15,7 +17,7 @@ const ACTIVITY_TYPES = [
   { value: 'support', label: 'Support Tickets', icon: HelpCircle, color: 'var(--joy-palette-warning-500)' },
   { value: 'feedback', label: 'Feedback', icon: MessageSquare, color: 'var(--joy-palette-primary-500)' },
   { value: 'email', label: 'Emails Sent', icon: Mail, color: 'var(--joy-palette-neutral-600)' },
-  { value: 'token_grant', label: 'Token Grants', icon: Coins, color: 'var(--joy-palette-danger-500)' },
+  { value: 'token_grant', label: 'Message Grants', icon: Coins, color: 'var(--joy-palette-danger-500)' },
 ];
 
 const TYPE_CONFIG: Record<string, { icon: React.ElementType; color: string; chipColor: 'primary' | 'success' | 'warning' | 'neutral' | 'danger' }> = {
@@ -37,7 +39,7 @@ export default function AdminActivityPage() {
     try {
       const params = new URLSearchParams();
       if (typeFilter) params.set('type', typeFilter);
-      const res = await fetch(`/api/admin/activity?${params}`);
+      const res = await adminFetch(`/api/admin/activity?${params}`);
       const data = await res.json();
       setActivities(data.activities || []);
     } catch {
@@ -90,7 +92,7 @@ export default function AdminActivityPage() {
         </Box>
 
         {/* Filter bar */}
-        <Card variant="outlined" sx={{ p: 0 }}>
+        <Card sx={{ ...adminCard as Record<string, unknown>, p: 0 }}>
           <CardContent sx={{ p: 2 }}>
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: 'text.tertiary' }}>
@@ -139,7 +141,7 @@ export default function AdminActivityPage() {
             ))}
           </Stack>
         ) : activities.length === 0 ? (
-          <Card variant="soft">
+          <Card sx={{ ...liquidGlassSubtle as Record<string, unknown> }}>
             <CardContent sx={{ py: 6, textAlign: 'center' }}>
               <Inbox size={36} style={{ color: 'var(--joy-palette-neutral-400)', margin: '0 auto 8px' }} />
               <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
@@ -148,7 +150,7 @@ export default function AdminActivityPage() {
             </CardContent>
           </Card>
         ) : (
-          <Card variant="outlined" sx={{ p: 0 }}>
+          <Card sx={{ ...adminCard as Record<string, unknown>, p: 0 }}>
             <CardContent sx={{ p: 0 }}>
               <Stack spacing={0}>
                 {activities.map((activity, idx) => {
@@ -241,7 +243,7 @@ export default function AdminActivityPage() {
                             )}
                             {activity.meta.amount && (
                               <Chip size="sm" variant="outlined" color="neutral" sx={{ fontSize: '9px' }}>
-                                {Number(activity.meta.amount).toLocaleString()} tokens
+                                {Number(activity.meta.amount).toLocaleString()} messages
                               </Chip>
                             )}
                             {activity.meta.rating && (

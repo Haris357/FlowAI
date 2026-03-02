@@ -5,13 +5,17 @@ import {
 } from '@mui/joy';
 import { Users } from 'lucide-react';
 import UserTable from '@/components/admin/UserTable';
+import ConfirmDialog from '@/components/common/ConfirmDialog';
 import toast from 'react-hot-toast';
+import { adminFetch } from '@/lib/admin-fetch';
 
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [planFilter, setPlanFilter] = useState('');
+  const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; userId: string | null }>({ open: false, userId: null });
+  const [deleting, setDeleting] = useState(false);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -19,7 +23,7 @@ export default function AdminUsersPage() {
       const params = new URLSearchParams();
       if (search) params.set('search', search);
       if (planFilter) params.set('plan', planFilter);
-      const res = await fetch(`/api/admin/users?${params}`);
+      const res = await adminFetch(`/api/admin/users?${params}`);
       const data = await res.json();
       setUsers(data.users || []);
     } catch {
@@ -38,15 +42,23 @@ export default function AdminUsersPage() {
     return () => clearTimeout(timer);
   }, [search]);
 
-  const handleDelete = async (userId: string) => {
-    if (!confirm('Are you sure you want to delete this user? This action cannot be undone.')) return;
+  const handleDelete = (userId: string) => {
+    setDeleteConfirm({ open: true, userId });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirm.userId) return;
+    setDeleting(true);
     try {
-      const res = await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+      const res = await adminFetch(`/api/admin/users/${deleteConfirm.userId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       toast.success('User deleted');
-      setUsers(prev => prev.filter(u => u.id !== userId));
+      setUsers(prev => prev.filter(u => u.id !== deleteConfirm.userId));
     } catch {
       toast.error('Failed to delete user');
+    } finally {
+      setDeleting(false);
+      setDeleteConfirm({ open: false, userId: null });
     }
   };
 
@@ -94,6 +106,17 @@ export default function AdminUsersPage() {
           />
         )}
       </Stack>
+
+      <ConfirmDialog
+        open={deleteConfirm.open}
+        onClose={() => setDeleteConfirm({ open: false, userId: null })}
+        onConfirm={confirmDelete}
+        title="Delete User"
+        description="Are you sure you want to delete this user? This action cannot be undone."
+        confirmText="Delete"
+        variant="danger"
+        loading={deleting}
+      />
     </Box>
   );
 }

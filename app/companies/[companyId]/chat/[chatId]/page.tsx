@@ -40,7 +40,7 @@ export default function ChatWithIdPage() {
     clearAllChats,
     toggleSidebar,
     updateChatSettings,
-    tokenUsage,
+    sessionUsage,
   } = useChat();
 
   // Load the chat from URL when sessions are loaded
@@ -108,6 +108,9 @@ export default function ChatWithIdPage() {
     setInputValue(prompt);
   };
 
+  // Show loading state while sessions load or chat initializes (prevents welcome screen flash)
+  const isInitializing = !sessionsLoaded || (!hasInitialized && !!chatId);
+
   return (
     <Box
       sx={{
@@ -147,7 +150,8 @@ export default function ChatWithIdPage() {
         onExecuteToolAction={executeToolAction}
         onSelectAction={handleSelectAction}
         onClearForm={handleClearForm}
-        tokenUsage={tokenUsage}
+        sessionUsage={sessionUsage}
+        isLoading={isInitializing}
       />
 
       {/* Settings Modal */}

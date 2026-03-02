@@ -180,7 +180,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // 6. Token grants (check for tokenGrants collection or user activity logs)
+    // 6. Message grants (check for tokenGrants collection or user activity logs)
     if (!typeFilter || typeFilter === 'token_grant') {
       try {
         const grantsSnap = await db.collection('tokenGrants')
@@ -193,7 +193,7 @@ export async function GET(req: Request) {
           activities.push({
             id: `grant-${doc.id}`,
             type: 'token_grant',
-            description: `Granted ${data.amount?.toLocaleString() || '?'} tokens to user`,
+            description: `Granted ${data.amount?.toLocaleString() || '?'} messages to user`,
             userEmail: data.userEmail,
             userId: data.userId,
             timestamp: extractTimestamp(data, 'createdAt'),

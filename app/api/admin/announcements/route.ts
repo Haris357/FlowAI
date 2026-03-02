@@ -99,29 +99,27 @@ export async function POST(req: Request) {
     const announcementRef = await db.collection('announcements').add(announcementData);
 
     // 3. Create in-app notification for each target user
-    const batch = db.batch();
     const BATCH_LIMIT = 500;
     let batchCount = 0;
-    const batches: FirebaseFirestore.WriteBatch[] = [batch];
+    let currentBatch = db.batch();
+    const batches: FirebaseFirestore.WriteBatch[] = [currentBatch];
 
     for (const user of targetUsers) {
-      const notifRef = db.collection('users').doc(user.id)
-        .collection('notifications').doc();
-
-      let currentBatch = batches[batches.length - 1];
       if (batchCount >= BATCH_LIMIT) {
-        const newBatch = db.batch();
-        batches.push(newBatch);
-        currentBatch = newBatch;
+        currentBatch = db.batch();
+        batches.push(currentBatch);
         batchCount = 0;
       }
+
+      const notifRef = db.collection('users').doc(user.id)
+        .collection('notifications').doc();
 
       currentBatch.set(notifRef, {
         type,
         title,
         message,
         read: false,
-        category: 'system',
+        category: 'announcement',
         actionUrl: actionUrl || null,
         announcementId: announcementRef.id,
         createdAt: new Date(),
@@ -139,14 +137,14 @@ export async function POST(req: Request) {
       const CONCURRENCY = 10;
       for (let i = 0; i < targetUsers.length; i += CONCURRENCY) {
         const chunk = targetUsers.slice(i, i + CONCURRENCY);
-        await Promise.allSettled(
+        const results = await Promise.allSettled(
           chunk
             .filter(u => u.email)
             .map(async (u) => {
               const allowed = await canSendEmail(u.id, 'announcement');
               if (!allowed) {
                 emailsSkipped++;
-                return;
+                return 'skipped';
               }
               const { subject, html } = getEmailTemplate('announcement', {
                 userName: u.name || u.email?.split('@')[0],
@@ -154,9 +152,12 @@ export async function POST(req: Request) {
                 announcementBody: message,
               });
               await sendEmail(u.email!, subject, html);
-              emailsSent++;
+              return 'sent';
             })
         );
+        results.forEach(r => {
+          if (r.status === 'fulfilled' && r.value === 'sent') emailsSent++;
+        });
       }
     }
 

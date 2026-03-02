@@ -7,6 +7,7 @@ import { CreditCard, TrendingUp, Users } from 'lucide-react';
 import StatCard from '@/components/admin/StatCard';
 import { PLANS } from '@/lib/plans';
 import { adminFetch } from '@/lib/admin-fetch';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 
 export default function AdminSubscriptionsPage() {
   const [stats, setStats] = useState<any>(null);
@@ -40,7 +41,7 @@ export default function AdminSubscriptionsPage() {
           <StatCard title="Paid Users" value={dist.pro + dist.max} subtitle={total ? `${(((dist.pro + dist.max) / total) * 100).toFixed(0)}% conversion` : '0%'} icon={CreditCard} color="warning" loading={loading} />
         </Stack>
 
-        <Card variant="outlined">
+        <Card sx={{ ...adminCard as Record<string, unknown> }}>
           <CardContent sx={{ p: 3 }}>
             <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
               <Box sx={{
@@ -58,7 +59,7 @@ export default function AdminSubscriptionsPage() {
                 { label: 'Pro', price: `$${PLANS.pro.price}/mo`, count: dist.pro, color: 'primary' as const },
                 { label: 'Max', price: `$${PLANS.max.price}/mo`, count: dist.max, color: 'success' as const },
               ].map(plan => (
-                <Card key={plan.label} variant="soft" sx={{ flex: 1, textAlign: 'center', p: 3 }}>
+                <Card key={plan.label} sx={{ ...liquidGlassSubtle as Record<string, unknown>, flex: 1, textAlign: 'center', p: 3 }}>
                   {loading ? (
                     <>
                       <Skeleton variant="text" width={50} sx={{ fontSize: '1.75rem', mx: 'auto' }} />

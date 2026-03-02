@@ -1,6 +1,7 @@
 'use client';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Moon, Sun, Zap, MessageSquare, Shield, ArrowLeft, Lock, Sparkles, Check } from 'lucide-react';
@@ -9,8 +10,16 @@ import FlowBooksLogo from '@/components/FlowBooksLogo';
 export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const { signInWithGoogle } = useAuth();
+  const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const { mode, toggleMode } = useTheme();
+  const router = useRouter();
+
+  // Redirect authenticated users away from signup
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.replace('/companies');
+    }
+  }, [user, authLoading, router]);
 
   const handleGoogleSignup = async () => {
     setLoading(true);

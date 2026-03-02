@@ -5,7 +5,7 @@
 
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
-import { getPlan, isUnlimited, DEFAULT_SUBSCRIPTION } from '@/lib/plans';
+import { getPlan, isUnlimited, DEFAULT_SUBSCRIPTION, getCurrentDay, getCurrentWeekStart, getNextWeekStart } from '@/lib/plans';
 import type { PlanId, UserSubscription } from '@/types/subscription';
 
 initAdmin();
@@ -62,40 +62,91 @@ export function getEffectivePlanId(subscription: UserSubscription): PlanId {
 }
 
 // ==========================================
-// TOKEN BUDGET CHECK
+// USAGE BUDGET CHECK (Session + Weekly)
 // ==========================================
 
-export async function checkTokenBudgetAdmin(userId: string): Promise<{
-  hasTokens: boolean;
-  remaining: number;
-  limit: number;
+export interface UsageBudgetResult {
+  canSend: boolean;
+  blockedBy: 'none' | 'session' | 'weekly';
+  session: { used: number; limit: number; remaining: number; resetsAt: number };
+  weekly: { used: number; limit: number; remaining: number; resetsAt: string };
   planId: PlanId;
   allowedModels: string[];
-}> {
+}
+
+export async function checkUsageBudgetAdmin(userId: string): Promise<UsageBudgetResult> {
   const subscription = await getSubscriptionAdmin(userId);
   const effectivePlanId = getEffectivePlanId(subscription);
   const plan = getPlan(effectivePlanId);
 
-  const period = getCurrentPeriod();
-  const usageRef = adminDb.doc(`users/${userId}/usage/${period}`);
+  const usageRef = adminDb.doc(`users/${userId}/usage/current`);
   const usageSnap = await usageRef.get();
 
-  let tokensUsed = 0;
-  let bonusTokens = 0;
+  const sessionDurationMs = plan.sessionDurationHours * 60 * 60 * 1000;
+  const currentWeekStart = getCurrentWeekStart();
+  const nextWeekStart = getNextWeekStart();
 
-  if (usageSnap.exists) {
-    const data = usageSnap.data()!;
-    tokensUsed = data.tokensUsed || 0;
-    bonusTokens = data.bonusTokens || 0;
+  if (!usageSnap.exists) {
+    // No usage doc yet — full allocation
+    return {
+      canSend: true,
+      blockedBy: 'none',
+      session: { used: 0, limit: plan.sessionMessageLimit, remaining: plan.sessionMessageLimit, resetsAt: Date.now() + sessionDurationMs },
+      weekly: { used: 0, limit: plan.weeklyMessageLimit, remaining: plan.weeklyMessageLimit, resetsAt: nextWeekStart },
+      planId: effectivePlanId,
+      allowedModels: plan.allowedModels,
+    };
   }
 
-  const monthlyRemaining = Math.max(0, plan.tokenAllocation - tokensUsed);
-  const totalRemaining = monthlyRemaining + bonusTokens;
+  const data = usageSnap.data()!;
+  let sessionUsed = data.sessionMessagesUsed || 0;
+  let weeklyUsed = data.weeklyMessagesUsed || 0;
+  let bonusMessages = data.bonusMessages || 0;
+  let sessionStartMs = data.sessionStart?.toMillis?.() || data.sessionStart?._seconds * 1000 || Date.now();
+  let needsUpdate = false;
+  const updates: Record<string, any> = {};
+
+  // Auto-reset session if expired
+  if (Date.now() > sessionStartMs + sessionDurationMs) {
+    sessionUsed = 0;
+    sessionStartMs = Date.now();
+    updates.sessionMessagesUsed = 0;
+    updates.sessionStart = Timestamp.now();
+    updates.sessionLimit = plan.sessionMessageLimit;
+    updates.sessionDurationMs = sessionDurationMs;
+    needsUpdate = true;
+  }
+
+  // Auto-reset weekly if new week
+  const docWeekStart = data.weekStart || '';
+  if (docWeekStart !== currentWeekStart) {
+    weeklyUsed = 0;
+    updates.weeklyMessagesUsed = 0;
+    updates.weekStart = currentWeekStart;
+    updates.weeklyLimit = plan.weeklyMessageLimit;
+    needsUpdate = true;
+  }
+
+  // Apply updates if needed
+  if (needsUpdate) {
+    updates.planId = effectivePlanId;
+    updates.updatedAt = Timestamp.now();
+    await usageRef.update(updates);
+  }
+
+  const sessionRemaining = Math.max(0, plan.sessionMessageLimit - sessionUsed);
+  const weeklyBase = Math.max(0, plan.weeklyMessageLimit - weeklyUsed);
+  const weeklyRemaining = weeklyBase + bonusMessages;
+
+  let blockedBy: 'none' | 'session' | 'weekly' = 'none';
+  if (sessionRemaining <= 0) blockedBy = 'session';
+  else if (weeklyRemaining <= 0) blockedBy = 'weekly';
 
   return {
-    hasTokens: totalRemaining > 0,
-    remaining: totalRemaining,
-    limit: plan.tokenAllocation,
+    canSend: blockedBy === 'none',
+    blockedBy,
+    session: { used: sessionUsed, limit: plan.sessionMessageLimit, remaining: sessionRemaining, resetsAt: sessionStartMs + sessionDurationMs },
+    weekly: { used: weeklyUsed, limit: plan.weeklyMessageLimit, remaining: weeklyRemaining, resetsAt: nextWeekStart },
     planId: effectivePlanId,
     allowedModels: plan.allowedModels,
   };
@@ -105,76 +156,82 @@ export async function checkTokenBudgetAdmin(userId: string): Promise<{
 // USAGE TRACKING
 // ==========================================
 
-export async function trackTokenUsageAdmin(
+/**
+ * Track a single AI message usage (session + weekly).
+ * Each AI response = 1 message. Internal token/cost tracking preserved for admin.
+ */
+export async function trackUsageAdmin(
   userId: string,
-  tokensUsed: number,
+  tokensConsumed: number,
   model: string,
   cost: number
-): Promise<{ remaining: number }> {
+): Promise<{ sessionRemaining: number; weeklyRemaining: number }> {
   const subscription = await getSubscriptionAdmin(userId);
   const effectivePlanId = getEffectivePlanId(subscription);
   const plan = getPlan(effectivePlanId);
 
-  const period = getCurrentPeriod();
-  const usageRef = adminDb.doc(`users/${userId}/usage/${period}`);
+  const sessionDurationMs = plan.sessionDurationHours * 60 * 60 * 1000;
+  const currentWeekStart = getCurrentWeekStart();
+  const usageRef = adminDb.doc(`users/${userId}/usage/current`);
   const usageSnap = await usageRef.get();
 
   if (!usageSnap.exists) {
-    // Create new period doc
-    const bonusTokens = await getTotalBonusTokens(userId);
+    // Create new usage doc with first message
     await usageRef.set({
       userId,
-      period,
       planId: effectivePlanId,
-      tokenAllocation: plan.tokenAllocation,
-      tokensUsed: tokensUsed,
-      bonusTokens,
-      requestCount: 1,
+      sessionStart: Timestamp.now(),
+      sessionMessagesUsed: 1,
+      sessionLimit: plan.sessionMessageLimit,
+      sessionDurationMs,
+      weekStart: currentWeekStart,
+      weeklyMessagesUsed: 1,
+      weeklyLimit: plan.weeklyMessageLimit,
+      bonusMessages: 0,
+      totalTokensConsumed: tokensConsumed,
       costAccumulated: cost,
+      requestCount: 1,
       breakdown: {
-        [model]: { input: 0, output: 0, total: tokensUsed, requests: 1 },
+        [model]: { input: 0, output: 0, total: tokensConsumed, requests: 1 },
       },
-      resetAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
 
-    const remaining = Math.max(0, plan.tokenAllocation - tokensUsed) + bonusTokens;
-    return { remaining };
+    return {
+      sessionRemaining: Math.max(0, plan.sessionMessageLimit - 1),
+      weeklyRemaining: Math.max(0, plan.weeklyMessageLimit - 1),
+    };
   }
 
-  // Atomically increment usage
-  const currentData = usageSnap.data()!;
-  const monthlyRemaining = Math.max(0, plan.tokenAllocation - (currentData.tokensUsed || 0));
+  const data = usageSnap.data()!;
+  const updateFields: Record<string, any> = {
+    sessionMessagesUsed: FieldValue.increment(1),
+    weeklyMessagesUsed: FieldValue.increment(1),
+    totalTokensConsumed: FieldValue.increment(tokensConsumed),
+    costAccumulated: FieldValue.increment(cost),
+    requestCount: FieldValue.increment(1),
+    [`breakdown.${model}.total`]: FieldValue.increment(tokensConsumed),
+    [`breakdown.${model}.requests`]: FieldValue.increment(1),
+    updatedAt: Timestamp.now(),
+  };
 
-  if (monthlyRemaining >= tokensUsed) {
-    // Deduct from monthly allocation
-    await usageRef.update({
-      tokensUsed: FieldValue.increment(tokensUsed),
-      requestCount: FieldValue.increment(1),
-      costAccumulated: FieldValue.increment(cost),
-      [`breakdown.${model}.total`]: FieldValue.increment(tokensUsed),
-      [`breakdown.${model}.requests`]: FieldValue.increment(1),
-      updatedAt: Timestamp.now(),
-    });
-  } else {
-    // Partially from monthly, partially from bonus
-    const fromBonus = tokensUsed - monthlyRemaining;
-    await usageRef.update({
-      tokensUsed: FieldValue.increment(tokensUsed),
-      bonusTokens: FieldValue.increment(-fromBonus),
-      requestCount: FieldValue.increment(1),
-      costAccumulated: FieldValue.increment(cost),
-      [`breakdown.${model}.total`]: FieldValue.increment(tokensUsed),
-      [`breakdown.${model}.requests`]: FieldValue.increment(1),
-      updatedAt: Timestamp.now(),
-    });
+  // Check if weekly limit is exhausted — deduct from bonus instead
+  const weeklyUsed = data.weeklyMessagesUsed || 0;
+  const weeklyRemaining = Math.max(0, plan.weeklyMessageLimit - weeklyUsed);
+  if (weeklyRemaining < 1 && (data.bonusMessages || 0) > 0) {
+    updateFields.bonusMessages = FieldValue.increment(-1);
   }
 
-  const newUsed = (currentData.tokensUsed || 0) + tokensUsed;
-  const newMonthlyRemaining = Math.max(0, plan.tokenAllocation - newUsed);
-  const newBonus = Math.max(0, (currentData.bonusTokens || 0) - Math.max(0, tokensUsed - monthlyRemaining));
+  await usageRef.update(updateFields);
 
-  return { remaining: newMonthlyRemaining + newBonus };
+  const newSessionUsed = (data.sessionMessagesUsed || 0) + 1;
+  const newWeeklyUsed = weeklyUsed + 1;
+  const newBonus = Math.max(0, (data.bonusMessages || 0) - (weeklyRemaining < 1 ? 1 : 0));
+
+  return {
+    sessionRemaining: Math.max(0, plan.sessionMessageLimit - newSessionUsed),
+    weeklyRemaining: Math.max(0, plan.weeklyMessageLimit - newWeeklyUsed) + newBonus,
+  };
 }
 
 // ==========================================
@@ -259,27 +316,3 @@ export async function getEmailSendCountAdmin(companyId: string): Promise<number>
 // ==========================================
 // HELPERS
 // ==========================================
-
-function getCurrentPeriod(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-}
-
-async function getTotalBonusTokens(userId: string): Promise<number> {
-  const purchasesSnap = await adminDb
-    .collection(`users/${userId}/tokenPurchases`)
-    .where('status', '==', 'completed')
-    .get();
-
-  const now = new Date();
-  let total = 0;
-  purchasesSnap.forEach(doc => {
-    const data = doc.data();
-    const remaining = data.tokensRemaining || 0;
-    const expiresAt = data.expiresAt?.toDate?.() || null;
-    if (remaining > 0 && (!expiresAt || expiresAt > now)) {
-      total += remaining;
-    }
-  });
-  return total;
-}

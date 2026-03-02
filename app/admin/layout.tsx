@@ -4,6 +4,7 @@ import { Box, Typography, Stack, Container, Button } from '@mui/joy';
 import { useRouter, usePathname } from 'next/navigation';
 import AdminSidebar from '@/components/admin/AdminSidebar';
 import { ShieldAlert, LogIn } from 'lucide-react';
+import { adminPageBg } from '@/lib/admin-theme';
 
 function getAdminSession(): { email: string; expiresAt: number } | null {
   try {
@@ -84,8 +85,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <Box sx={{
         flex: 1,
         ml: sidebarCollapsed ? '68px' : '240px',
-        bgcolor: 'background.body',
         transition: 'margin-left 0.2s ease',
+        ...adminPageBg as Record<string, unknown>,
       }}>
         {children}
       </Box>

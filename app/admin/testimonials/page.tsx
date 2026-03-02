@@ -10,6 +10,7 @@ import {
   getTestimonials, addTestimonial, updateTestimonial, deleteTestimonial,
 } from '@/services/testimonials';
 import type { Testimonial, TestimonialInput } from '@/types/testimonial';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 import toast from 'react-hot-toast';
 
 const emptyForm: TestimonialInput = {
@@ -152,7 +153,7 @@ export default function TestimonialsAdmin() {
             ))}
           </Stack>
         ) : testimonials.length === 0 ? (
-          <Card variant="outlined">
+          <Card sx={{ ...adminCard as Record<string, unknown> }}>
             <CardContent sx={{ p: 6, textAlign: 'center' }}>
               <Star size={40} style={{ color: 'var(--joy-palette-neutral-300)', margin: '0 auto 12px' }} />
               <Typography level="title-md" fontWeight={600} sx={{ mb: 0.5 }}>No testimonials yet</Typography>
@@ -167,7 +168,8 @@ export default function TestimonialsAdmin() {
         ) : (
           <Stack spacing={1.5}>
             {testimonials.map(t => (
-              <Card key={t.id} variant="outlined" sx={{
+              <Card key={t.id} sx={{
+                ...adminCard as Record<string, unknown>,
                 transition: 'border-color 0.2s',
                 '&:hover': { borderColor: 'primary.300' },
               }}>

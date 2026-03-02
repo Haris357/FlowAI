@@ -53,7 +53,7 @@ async function createNotification(
   const categoryMap: Record<EmailTemplateType, string> = {
     welcome: 'system',
     plan_changed: 'subscription',
-    tokens_granted: 'system',
+    messages_granted: 'system',
     account_warning: 'system',
     support_reply: 'support',
     announcement: 'system',
@@ -62,12 +62,15 @@ async function createNotification(
     subscription_cancelled: 'subscription',
     password_reset: 'system',
     newsletter: 'system',
+    feedback_acknowledged: 'system',
+    ticket_in_progress: 'support',
+    message_reset: 'system',
   };
 
   const typeMap: Record<EmailTemplateType, string> = {
     welcome: 'info',
     plan_changed: 'info',
-    tokens_granted: 'success',
+    messages_granted: 'success',
     account_warning: 'warning',
     support_reply: 'info',
     announcement: 'info',
@@ -76,6 +79,9 @@ async function createNotification(
     subscription_cancelled: 'warning',
     password_reset: 'action',
     newsletter: 'info',
+    feedback_acknowledged: 'success',
+    ticket_in_progress: 'info',
+    message_reset: 'info',
   };
 
   await db.collection('users').doc(userId).collection('notifications').doc().set({
@@ -100,15 +106,13 @@ export async function POST(req: Request) {
     const body = await req.json();
     const { templateType, templateData, recipients, preview } = body;
 
-    if (!templateType || !templateData) {
-      return NextResponse.json({ error: 'templateType and templateData are required' }, { status: 400 });
+    if (!templateType) {
+      return NextResponse.json({ error: 'templateType is required' }, { status: 400 });
     }
-
-    // Generate email content
-    const { subject, html } = getEmailTemplate(templateType as EmailTemplateType, (templateData || {}) as EmailTemplateData);
 
     // Preview mode: return HTML without sending
     if (preview) {
+      const { subject, html } = getEmailTemplate(templateType as EmailTemplateType, (templateData || {}) as EmailTemplateData);
       return NextResponse.json({ subject, html });
     }
 
@@ -130,6 +134,12 @@ export async function POST(req: Request) {
 
     for (const user of users) {
       try {
+        // Auto-inject userName from the recipient if not explicitly provided
+        const mergedData = {
+          userName: user.name || user.email.split('@')[0],
+          ...(templateData || {}),
+        };
+        const { subject, html } = getEmailTemplate(templateType as EmailTemplateType, mergedData as EmailTemplateData);
         await sendEmail(user.email, subject, html);
         await createNotification(user.id, templateType as EmailTemplateType, subject);
         sent++;

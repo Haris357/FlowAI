@@ -1,29 +1,19 @@
 'use client';
 
-import { useState } from 'react';
 import {
-  Modal, ModalDialog, ModalClose, Typography, Box, Stack, Button, Chip, Divider, Card, CardContent,
+  Modal, ModalDialog, ModalClose, Typography, Box, Stack, Button, Chip, Divider,
 } from '@mui/joy';
-import { AlertTriangle, Zap, ArrowRight, Check, ShoppingCart, Crown } from 'lucide-react';
+import { AlertTriangle, Zap, ArrowRight, Check, Crown } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useChat } from '@/contexts/ChatContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { PLANS, TOKEN_PACKS, formatTokens, getPlan } from '@/lib/plans';
-import toast from 'react-hot-toast';
-
-function getResetDate(period?: string): string {
-  if (!period) return 'next month';
-  const [year, month] = period.split('-').map(Number);
-  const nextMonth = new Date(year, month, 1); // month is 0-indexed so this gives next month
-  return nextMonth.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
-}
+import { PLANS, formatMessages, getPlan } from '@/lib/plans';
 
 function getUpgradeFeatures(currentPlanId: string): string[] {
   if (currentPlanId === 'free') {
     const pro = PLANS.pro;
     return [
-      `${formatTokens(pro.tokenAllocation)} AI tokens/month`,
+      `${pro.sessionMessageLimit} msgs/session · ${pro.weeklyMessageLimit}/week`,
       'Unlimited customers & invoices',
       'All financial reports & exports',
       'Payroll & salary slips',
@@ -33,7 +23,7 @@ function getUpgradeFeatures(currentPlanId: string): string[] {
   if (currentPlanId === 'pro') {
     const max = PLANS.max;
     return [
-      `${formatTokens(max.tokenAllocation)} AI tokens/month`,
+      `${max.sessionMessageLimit} msgs/session · ${max.weeklyMessageLimit}/week`,
       'Advanced AI models (GPT-4o)',
       'Up to 10 companies',
       'Unlimited collaborators',
@@ -44,50 +34,24 @@ function getUpgradeFeatures(currentPlanId: string): string[] {
 }
 
 export default function TokenLimitModal() {
-  const { tokenLimitReached, dismissTokenLimit } = useChat();
-  const { plan, usage } = useSubscription();
-  const { user } = useAuth();
+  const { messageLimitReached, dismissMessageLimit } = useChat();
+  const { plan, usage, blockedBy, sessionRemaining, weeklyRemaining, sessionTimeLeft } = useSubscription();
   const router = useRouter();
-  const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
 
-  if (!tokenLimitReached) return null;
+  if (!messageLimitReached) return null;
 
   const planId = plan.id;
   const canUpgrade = planId !== 'max';
-  const canBuyPacks = planId !== 'free';
   const nextPlan = planId === 'free' ? PLANS.pro : planId === 'pro' ? PLANS.max : null;
   const features = getUpgradeFeatures(planId);
-  const resetDate = getResetDate(usage?.period);
 
   const handleUpgrade = () => {
-    dismissTokenLimit();
+    dismissMessageLimit();
     router.push('/settings/billing');
   };
 
-  const handleBuyPack = async (packId: string) => {
-    if (!user?.uid) return;
-    setCheckoutLoading(packId);
-    try {
-      const res = await fetch('/api/subscription/token-pack', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packId, userId: user.uid }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data.error || 'Failed to start checkout');
-        return;
-      }
-      window.location.href = data.checkoutUrl;
-    } catch {
-      toast.error('Failed to initiate checkout');
-    } finally {
-      setCheckoutLoading(null);
-    }
-  };
-
   return (
-    <Modal open={tokenLimitReached} onClose={dismissTokenLimit}>
+    <Modal open={messageLimitReached} onClose={dismissMessageLimit}>
       <ModalDialog
         variant="outlined"
         sx={{
@@ -111,9 +75,13 @@ export default function TokenLimitModal() {
               <AlertTriangle size={22} style={{ color: 'var(--joy-palette-warning-600)' }} />
             </Box>
             <Box>
-              <Typography level="title-lg" fontWeight={700}>Token Limit Reached</Typography>
+              <Typography level="title-lg" fontWeight={700}>
+                {blockedBy === 'weekly' ? 'Weekly Limit Reached' : 'Session Limit Reached'}
+              </Typography>
               <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-                You&apos;ve used all your AI tokens this month
+                {blockedBy === 'weekly'
+                  ? 'You\'ve reached your weekly AI message limit'
+                  : 'You\'ve used all messages in this session'}
               </Typography>
             </Box>
           </Stack>
@@ -123,17 +91,32 @@ export default function TokenLimitModal() {
           <Stack spacing={2.5}>
             {/* Usage Stats */}
             <Box sx={{ p: 2, borderRadius: 'md', bgcolor: 'background.level1', border: '1px solid', borderColor: 'divider' }}>
-              <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Box>
-                  <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Tokens Used</Typography>
-                  <Typography level="title-md" fontWeight={700}>
-                    {formatTokens(usage?.tokensUsed || 0)} / {formatTokens(plan.tokenAllocation)}
-                  </Typography>
-                </Box>
-                <Box sx={{ textAlign: 'right' }}>
-                  <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Resets On</Typography>
-                  <Typography level="body-sm" fontWeight={600}>{resetDate}</Typography>
-                </Box>
+              <Stack spacing={1.5}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Session</Typography>
+                    <Typography level="title-md" fontWeight={700}>
+                      {usage?.sessionMessagesUsed || 0} / {plan.sessionMessageLimit}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Resets in</Typography>
+                    <Typography level="body-sm" fontWeight={600}>{sessionTimeLeft || 'New session'}</Typography>
+                  </Box>
+                </Stack>
+                <Divider />
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>This Week</Typography>
+                    <Typography level="title-md" fontWeight={700}>
+                      {usage?.weeklyMessagesUsed || 0} / {plan.weeklyMessageLimit}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ textAlign: 'right' }}>
+                    <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Resets</Typography>
+                    <Typography level="body-sm" fontWeight={600}>Monday</Typography>
+                  </Box>
+                </Stack>
               </Stack>
             </Box>
 
@@ -171,58 +154,18 @@ export default function TokenLimitModal() {
               </>
             )}
 
-            {/* Token Packs Section */}
-            {canBuyPacks && (
-              <>
-                <Divider>
-                  <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                    {canUpgrade ? 'or buy additional tokens' : 'Purchase additional tokens'}
-                  </Typography>
-                </Divider>
-
-                <Stack direction="row" spacing={1.5}>
-                  {TOKEN_PACKS.map(pack => (
-                    <Card
-                      key={pack.id}
-                      variant="outlined"
-                      sx={{ flex: 1, cursor: 'pointer', transition: 'all 0.15s', '&:hover': { borderColor: 'primary.400', transform: 'translateY(-1px)' } }}
-                    >
-                      <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
-                        <Typography level="body-xs" fontWeight={700} sx={{ textTransform: 'uppercase', color: 'text.tertiary', mb: 0.5 }}>
-                          {pack.name}
-                        </Typography>
-                        <Typography level="title-md" fontWeight={700}>
-                          {formatTokens(pack.tokens)}
-                        </Typography>
-                        <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 1 }}>tokens</Typography>
-                        <Button
-                          size="sm"
-                          variant="soft"
-                          color="primary"
-                          fullWidth
-                          loading={checkoutLoading === pack.id}
-                          onClick={() => handleBuyPack(pack.id)}
-                          startDecorator={<ShoppingCart size={14} />}
-                        >
-                          ${pack.price}
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </Stack>
-              </>
-            )}
-
-            {/* Free user - no token packs, just upgrade CTA */}
-            {!canBuyPacks && !canUpgrade && (
+            {/* Max plan user - no upgrade available */}
+            {!canUpgrade && (
               <Typography level="body-sm" sx={{ color: 'text.secondary', textAlign: 'center' }}>
-                Your tokens will reset on {resetDate}.
+                {blockedBy === 'weekly'
+                  ? 'Your weekly messages will reset on Monday.'
+                  : `Your session will reset in ${sessionTimeLeft || 'a few hours'}.`}
               </Typography>
             )}
 
             {/* Footer Actions */}
             <Stack direction="row" spacing={1} justifyContent="flex-end">
-              <Button variant="plain" color="neutral" onClick={dismissTokenLimit}>
+              <Button variant="plain" color="neutral" onClick={dismissMessageLimit}>
                 Maybe Later
               </Button>
               {canUpgrade && (

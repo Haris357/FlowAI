@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { FormShortcut } from './FormShortcuts';
-import { type TokenUsage } from '@/contexts/ChatContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 const QUICK_ACTIONS = [
   { label: 'Overdue Invoices', icon: AlertCircle, prompt: 'Show me all overdue invoices' },
@@ -42,12 +42,6 @@ const QUICK_ACTIONS = [
   { label: 'View Accounts', icon: Calculator, prompt: 'Show me the list of accounts' },
 ];
 
-function formatTokenCount(num: number): string {
-  if (num >= 1_000_000) return (num / 1_000_000).toFixed(1) + 'M';
-  if (num >= 1_000) return (num / 1_000).toFixed(1) + 'K';
-  return num.toString();
-}
-
 interface ChatInputProps {
   onSend: (message: string) => void;
   disabled?: boolean;
@@ -59,7 +53,8 @@ interface ChatInputProps {
   initialValue?: string;
   showQuickActions?: boolean;
   onSelectAction?: (prompt: string) => void;
-  tokenUsage?: TokenUsage;
+  /** @deprecated sessionUsage prop ignored — uses SubscriptionContext directly */
+  sessionUsage?: any;
 }
 
 export default function ChatInput({
@@ -73,8 +68,8 @@ export default function ChatInput({
   initialValue = '',
   showQuickActions = false,
   onSelectAction,
-  tokenUsage,
 }: ChatInputProps) {
+  const { usage, plan, sessionRemaining, sessionPercentUsed, sessionTimeLeft, weeklyRemaining } = useSubscription();
   const [value, setValue] = useState(initialValue);
   const [isListening, setIsListening] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -250,22 +245,30 @@ export default function ChatInput({
           </Stack>
 
           <Stack direction="row" spacing={1} alignItems="center">
-            {/* Flow AI v1 Badge with Token Tooltip */}
+            {/* Flow AI v1 Badge with Message Tooltip */}
             <Tooltip
               title={
-                tokenUsage && tokenUsage.totalTokens > 0 ? (
+                usage && (usage.sessionMessagesUsed || 0) > 0 ? (
                   <Box sx={{ p: 0.5 }}>
                     <Typography level="body-xs" fontWeight={700} sx={{ mb: 0.75 }}>
                       Session Usage
                     </Typography>
                     <Stack spacing={0.25}>
                       <Stack direction="row" justifyContent="space-between" spacing={3}>
-                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Tokens Used</Typography>
-                        <Typography level="body-xs">{formatTokenCount(tokenUsage.totalTokens)}</Typography>
+                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Session</Typography>
+                        <Typography level="body-xs">{usage.sessionMessagesUsed} / {plan.sessionMessageLimit}</Typography>
                       </Stack>
                       <Stack direction="row" justifyContent="space-between" spacing={3}>
-                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Requests</Typography>
-                        <Typography level="body-xs">{tokenUsage.requestCount}</Typography>
+                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Remaining</Typography>
+                        <Typography level="body-xs">{sessionRemaining}</Typography>
+                      </Stack>
+                      <Stack direction="row" justifyContent="space-between" spacing={3}>
+                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Resets in</Typography>
+                        <Typography level="body-xs">{sessionTimeLeft || 'New session'}</Typography>
+                      </Stack>
+                      <Stack direction="row" justifyContent="space-between" spacing={3}>
+                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Weekly</Typography>
+                        <Typography level="body-xs">{usage.weeklyMessagesUsed} / {plan.weeklyMessageLimit}</Typography>
                       </Stack>
                     </Stack>
                   </Box>
@@ -294,9 +297,9 @@ export default function ChatInput({
                 <Typography level="body-xs" sx={{ fontWeight: 500, color: 'inherit' }}>
                   Flow AI v1
                 </Typography>
-                {tokenUsage && tokenUsage.totalTokens > 0 && (
+                {usage && (usage.sessionMessagesUsed || 0) > 0 && (
                   <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '11px' }}>
-                    · {formatTokenCount(tokenUsage.totalTokens)}
+                    · {usage.sessionMessagesUsed} / {plan.sessionMessageLimit}
                   </Typography>
                 )}
               </Box>

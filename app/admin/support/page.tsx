@@ -6,6 +6,8 @@ import {
 } from '@mui/joy';
 import { HelpCircle, CheckCircle, Inbox, Clock, AlertTriangle } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { adminFetch } from '@/lib/admin-fetch';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 
 const STATUS_COLORS: Record<string, 'warning' | 'primary' | 'success' | 'neutral'> = {
   open: 'warning', in_progress: 'primary', resolved: 'success', closed: 'neutral',
@@ -21,7 +23,7 @@ export default function AdminSupportPage() {
   const [updating, setUpdating] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch('/api/admin/support')
+    adminFetch('/api/admin/support')
       .then(res => res.json())
       .then(d => setTickets(d.tickets || []))
       .catch(console.error)
@@ -31,7 +33,7 @@ export default function AdminSupportPage() {
   const handleUpdateTicket = async (ticketId: string, status: string) => {
     setUpdating(ticketId);
     try {
-      const res = await fetch('/api/admin/support', {
+      const res = await adminFetch('/api/admin/support', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ticketId, status }),
@@ -84,7 +86,7 @@ export default function AdminSupportPage() {
             ))}
           </Stack>
         ) : tickets.length === 0 ? (
-          <Card variant="soft">
+          <Card sx={{ ...liquidGlassSubtle as Record<string, unknown> }}>
             <CardContent sx={{ py: 6, textAlign: 'center' }}>
               <Inbox size={36} style={{ color: 'var(--joy-palette-neutral-400)', margin: '0 auto 8px' }} />
               <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
@@ -95,7 +97,8 @@ export default function AdminSupportPage() {
         ) : (
           <Stack spacing={1.5}>
             {tickets.map(ticket => (
-              <Card key={ticket.id} variant="outlined" sx={{
+              <Card key={ticket.id} sx={{
+                ...adminCard as Record<string, unknown>,
                 transition: 'border-color 0.2s',
                 '&:hover': { borderColor: 'neutral.400' },
               }}>

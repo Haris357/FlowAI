@@ -13,9 +13,11 @@ import {
 } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
 import SendEmailModal from '@/components/admin/SendEmailModal';
+import DangerousConfirmDialog from '@/components/common/DangerousConfirmDialog';
 import toast from 'react-hot-toast';
-import { PLANS, getPlan, formatTokens as fmtTokens } from '@/lib/plans';
+import { PLANS, getPlan, formatMessages } from '@/lib/plans';
 import { adminFetch } from '@/lib/admin-fetch';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 
 const PLAN_COLORS: Record<string, 'neutral' | 'primary' | 'success'> = {
   free: 'neutral', pro: 'primary', max: 'success',
@@ -77,13 +79,15 @@ export default function AdminUserDetailPage() {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
-  const [grantTokens, setGrantTokens] = useState('');
-  const [grantingTokens, setGrantingTokens] = useState(false);
+  const [grantMessages, setGrantMessages] = useState('');
+  const [grantingMessages, setGrantingMessages] = useState(false);
   const [changingPlan, setChangingPlan] = useState(false);
   const [newPlan, setNewPlan] = useState('');
   const [showAllCompanies, setShowAllCompanies] = useState(false);
   const [showAllTickets, setShowAllTickets] = useState(false);
   const [showAllNotifications, setShowAllNotifications] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchData = () => {
     setLoading(true);
@@ -99,22 +103,22 @@ export default function AdminUserDetailPage() {
 
   useEffect(() => { fetchData(); }, [userId]);
 
-  const handleGrantTokens = async () => {
-    const amount = parseInt(grantTokens);
-    if (!amount || amount <= 0) { toast.error('Enter a valid token amount'); return; }
-    setGrantingTokens(true);
+  const handleGrantMessages = async () => {
+    const amount = parseInt(grantMessages);
+    if (!amount || amount <= 0) { toast.error('Enter a valid message amount'); return; }
+    setGrantingMessages(true);
     try {
-      const res = await adminFetch(`/api/admin/users/${userId}/grant-tokens`, {
+      const res = await adminFetch(`/api/admin/users/${userId}/grant-messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tokens: amount }),
+        body: JSON.stringify({ messages: amount }),
       });
       if (!res.ok) throw new Error();
-      toast.success(`Granted ${amount.toLocaleString()} tokens`);
-      setGrantTokens('');
+      toast.success(`Granted ${amount.toLocaleString()} messages`);
+      setGrantMessages('');
       fetchData();
-    } catch { toast.error('Failed to grant tokens'); }
-    finally { setGrantingTokens(false); }
+    } catch { toast.error('Failed to grant messages'); }
+    finally { setGrantingMessages(false); }
   };
 
   const handleChangePlan = async () => {
@@ -132,14 +136,23 @@ export default function AdminUserDetailPage() {
     finally { setChangingPlan(false); }
   };
 
-  const handleDelete = async () => {
-    if (!confirm('Are you sure you want to delete this user? This cannot be undone.')) return;
+  const handleDelete = () => {
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    setDeleting(true);
     try {
       const res = await adminFetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
       toast.success('User deleted');
       router.push('/admin/users');
-    } catch { toast.error('Failed to delete user'); }
+    } catch {
+      toast.error('Failed to delete user');
+    } finally {
+      setDeleting(false);
+      setDeleteConfirmOpen(false);
+    }
   };
 
   const formatDate = (ts: any) => {
@@ -160,7 +173,7 @@ export default function AdminUserDetailPage() {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   };
 
-  const formatTokens = (n: number) => {
+  const formatTokensLegacy = (n: number) => {
     if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
     if (n >= 1_000) return `${(n / 1_000).toFixed(0)}K`;
     return n.toString();
@@ -187,11 +200,15 @@ export default function AdminUserDetailPage() {
   const authInfo = data?.authInfo;
 
   const planConfig = getPlan(plan as any);
-  const tokenAllocation = planConfig.tokenAllocation;
-  const tokensUsed = usage?.tokensUsed || 0;
-  const bonusTokens = usage?.bonusTokens || 0;
-  const tokensRemaining = Math.max(0, tokenAllocation - tokensUsed) + bonusTokens;
-  const usagePercent = tokenAllocation > 0 ? Math.min(100, (tokensUsed / tokenAllocation) * 100) : 0;
+  const sessionLimit = planConfig.sessionMessageLimit;
+  const weeklyLimit = planConfig.weeklyMessageLimit;
+  const sessionUsed = usage?.sessionMessagesUsed || 0;
+  const weeklyUsed = usage?.weeklyMessagesUsed || 0;
+  const bonusMessages = usage?.bonusMessages || 0;
+  const sessionRemaining = Math.max(0, sessionLimit - sessionUsed);
+  const weeklyRemaining = Math.max(0, weeklyLimit - weeklyUsed) + bonusMessages;
+  const sessionPercent = sessionLimit > 0 ? Math.min(100, (sessionUsed / sessionLimit) * 100) : 0;
+  const weeklyPercent = weeklyLimit > 0 ? Math.min(100, (weeklyUsed / weeklyLimit) * 100) : 0;
 
   if (loading) {
     return (
@@ -238,7 +255,7 @@ export default function AdminUserDetailPage() {
         </Stack>
 
         {/* ===== USER HEADER ===== */}
-        <Card variant="outlined">
+        <Card sx={{ ...adminCard as Record<string, unknown> }}>
           <CardContent sx={{ p: 3 }}>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems="flex-start">
               <Avatar src={user?.photoURL || undefined} sx={{ width: 80, height: 80, fontSize: '1.8rem' }}>
@@ -295,12 +312,12 @@ export default function AdminUserDetailPage() {
         {/* ===== QUICK STATS ROW ===== */}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           {[
-            { label: 'Tokens Used', value: formatTokens(tokensUsed), sub: `of ${formatTokens(tokenAllocation)}`, color: '#D97757' },
-            { label: 'Tokens Remaining', value: formatTokens(tokensRemaining), sub: bonusTokens > 0 ? `+${formatTokens(bonusTokens)} bonus` : 'this period', color: '#22c55e' },
+            { label: 'Session Used', value: formatMessages(sessionUsed), sub: `of ${formatMessages(sessionLimit)}/session`, color: '#D97757' },
+            { label: 'Weekly Used', value: formatMessages(weeklyUsed), sub: `of ${formatMessages(weeklyLimit)}/week`, color: '#6366f1' },
             { label: 'Support Tickets', value: String(data?.tickets?.length || 0), sub: `${data?.tickets?.filter((t: any) => t.status === 'open')?.length || 0} open`, color: '#f59e0b' },
-            { label: 'Last Sign In', value: authInfo?.lastSignIn ? timeAgo(authInfo.lastSignIn) : '-', sub: authInfo?.lastSignIn ? formatDate(authInfo.lastSignIn) : 'Never', color: '#6366f1' },
+            { label: 'Last Sign In', value: authInfo?.lastSignIn ? timeAgo(authInfo.lastSignIn) : '-', sub: authInfo?.lastSignIn ? formatDate(authInfo.lastSignIn) : 'Never', color: '#22c55e' },
           ].map((stat, i) => (
-            <Card key={i} variant="outlined" sx={{ flex: 1 }}>
+            <Card key={i} sx={{ ...adminCard as Record<string, unknown>, flex: 1 }}>
               <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                 <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.5 }}>{stat.label}</Typography>
                 <Typography level="h4" fontWeight={700} sx={{ color: stat.color }}>{stat.value}</Typography>
@@ -316,7 +333,7 @@ export default function AdminUserDetailPage() {
           <Stack spacing={3} sx={{ flex: 1, minWidth: 0 }}>
 
             {/* ACCOUNT DETAILS */}
-            <Card variant="outlined">
+            <Card sx={{ ...adminCard as Record<string, unknown> }}>
               <CardContent sx={{ p: 3 }}>
                 <SectionHeader icon={<User size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />} title="Account Details" />
                 <Divider sx={{ my: 2 }} />
@@ -337,31 +354,52 @@ export default function AdminUserDetailPage() {
             </Card>
 
             {/* AI USAGE */}
-            <Card variant="outlined">
+            <Card sx={{ ...adminCard as Record<string, unknown> }}>
               <CardContent sx={{ p: 3 }}>
-                <SectionHeader icon={<Zap size={16} style={{ color: '#D97757' }} />} title="AI Token Usage" />
-                <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.5 }}>
-                  Period: {data?.usagePeriod || '-'}
-                </Typography>
+                <SectionHeader icon={<Zap size={16} style={{ color: '#D97757' }} />} title="AI Message Usage" />
                 <Divider sx={{ my: 2 }} />
 
+                {/* Session Bar */}
                 <Box sx={{ mb: 2 }}>
                   <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
                     <Typography level="body-xs" fontWeight={600}>
-                      {formatTokens(tokensUsed)} / {formatTokens(tokenAllocation)} tokens used
+                      Session: {formatMessages(sessionUsed)} / {formatMessages(sessionLimit)}
                     </Typography>
-                    <Typography level="body-xs" fontWeight={600} sx={{ color: usagePercent > 90 ? 'danger.500' : usagePercent > 70 ? 'warning.500' : 'success.500' }}>
-                      {usagePercent.toFixed(1)}%
+                    <Typography level="body-xs" fontWeight={600} sx={{ color: sessionPercent > 90 ? 'danger.500' : sessionPercent > 70 ? 'warning.500' : 'success.500' }}>
+                      {sessionPercent.toFixed(1)}%
                     </Typography>
                   </Stack>
                   <LinearProgress
-                    determinate value={usagePercent} size="lg"
+                    determinate value={sessionPercent} size="lg"
                     sx={{
                       '--LinearProgress-radius': '8px',
-                      '--LinearProgress-thickness': '12px',
+                      '--LinearProgress-thickness': '10px',
                       bgcolor: 'neutral.100',
                       [`& .MuiLinearProgress-bar`]: {
-                        bgcolor: usagePercent > 90 ? 'danger.500' : usagePercent > 70 ? 'warning.500' : '#D97757',
+                        bgcolor: sessionPercent > 90 ? 'danger.500' : sessionPercent > 70 ? 'warning.500' : '#D97757',
+                      },
+                    }}
+                  />
+                </Box>
+
+                {/* Weekly Bar */}
+                <Box sx={{ mb: 2 }}>
+                  <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
+                    <Typography level="body-xs" fontWeight={600}>
+                      Weekly: {formatMessages(weeklyUsed)} / {formatMessages(weeklyLimit)}
+                    </Typography>
+                    <Typography level="body-xs" fontWeight={600} sx={{ color: weeklyPercent > 90 ? 'danger.500' : weeklyPercent > 70 ? 'warning.500' : 'success.500' }}>
+                      {weeklyPercent.toFixed(1)}%
+                    </Typography>
+                  </Stack>
+                  <LinearProgress
+                    determinate value={weeklyPercent} size="lg"
+                    sx={{
+                      '--LinearProgress-radius': '8px',
+                      '--LinearProgress-thickness': '10px',
+                      bgcolor: 'neutral.100',
+                      [`& .MuiLinearProgress-bar`]: {
+                        bgcolor: weeklyPercent > 90 ? 'danger.500' : weeklyPercent > 70 ? 'warning.500' : '#6366f1',
                       },
                     }}
                   />
@@ -369,11 +407,24 @@ export default function AdminUserDetailPage() {
 
                 <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
                   {[
-                    { label: 'Used', value: tokensUsed.toLocaleString(), color: 'text.secondary' },
-                    { label: 'Monthly Limit', value: tokenAllocation.toLocaleString(), color: 'text.secondary' },
-                    { label: 'Bonus', value: bonusTokens.toLocaleString(), color: 'success.500' },
-                    { label: 'Remaining', value: tokensRemaining.toLocaleString(), color: '#D97757' },
+                    { label: 'Session Remaining', value: sessionRemaining.toLocaleString(), color: '#D97757' },
+                    { label: 'Weekly Remaining', value: weeklyRemaining.toLocaleString(), color: '#6366f1' },
+                    { label: 'Bonus Messages', value: bonusMessages.toLocaleString(), color: 'success.500' },
                     { label: 'Requests', value: String(usage?.requestCount || 0), color: 'text.secondary' },
+                  ].map((item, i) => (
+                    <Box key={i} sx={{ minWidth: 100 }}>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>{item.label}</Typography>
+                      <Typography level="body-sm" fontWeight={600} sx={{ color: item.color }}>{item.value}</Typography>
+                    </Box>
+                  ))}
+                </Stack>
+
+                {/* Admin-only internal stats */}
+                <Divider sx={{ my: 1.5 }} />
+                <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+                  {[
+                    { label: 'Tokens Consumed', value: (usage?.totalTokensConsumed || 0).toLocaleString(), color: 'text.tertiary' },
+                    { label: 'Cost Accumulated', value: `$${(usage?.costAccumulated || 0).toFixed(4)}`, color: 'text.tertiary' },
                   ].map((item, i) => (
                     <Box key={i} sx={{ minWidth: 100 }}>
                       <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>{item.label}</Typography>
@@ -385,14 +436,14 @@ export default function AdminUserDetailPage() {
             </Card>
 
             {/* COMPANIES LIST */}
-            <Card variant="outlined">
+            <Card sx={{ ...adminCard as Record<string, unknown> }}>
               <CardContent sx={{ p: 3 }}>
                 <SectionHeader icon={<Building2 size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />} title="Companies" count={data?.companies?.length || 0} />
                 <Divider sx={{ my: 2 }} />
                 {data?.companies?.length > 0 ? (
                   <Stack spacing={1.5}>
                     {(showAllCompanies ? data.companies : data.companies.slice(0, 3)).map((company: any) => (
-                      <Card key={company.id} variant="soft" sx={{ p: 0 }}>
+                      <Card key={company.id} sx={{ ...liquidGlassSubtle as Record<string, unknown>, p: 0 }}>
                         <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                             <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -433,14 +484,14 @@ export default function AdminUserDetailPage() {
             </Card>
 
             {/* SUPPORT TICKETS */}
-            <Card variant="outlined">
+            <Card sx={{ ...adminCard as Record<string, unknown> }}>
               <CardContent sx={{ p: 3 }}>
                 <SectionHeader icon={<HelpCircle size={16} style={{ color: 'var(--joy-palette-warning-500)' }} />} title="Support Tickets" count={data?.tickets?.length || 0} />
                 <Divider sx={{ my: 2 }} />
                 {data?.tickets?.length > 0 ? (
                   <Stack spacing={1.5}>
                     {(showAllTickets ? data.tickets : data.tickets.slice(0, 3)).map((ticket: any) => (
-                      <Card key={ticket.id} variant="soft" sx={{ p: 0 }}>
+                      <Card key={ticket.id} sx={{ ...liquidGlassSubtle as Record<string, unknown>, p: 0 }}>
                         <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                           <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                             <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -495,7 +546,7 @@ export default function AdminUserDetailPage() {
           <Stack spacing={3} sx={{ width: { xs: '100%', lg: 360 }, flexShrink: 0 }}>
 
             {/* SUBSCRIPTION MANAGEMENT */}
-            <Card variant="outlined">
+            <Card sx={{ ...adminCard as Record<string, unknown> }}>
               <CardContent sx={{ p: 3 }}>
                 <SectionHeader icon={<CreditCard size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />} title="Subscription" />
                 <Divider sx={{ my: 2 }} />
@@ -528,36 +579,36 @@ export default function AdminUserDetailPage() {
               </CardContent>
             </Card>
 
-            {/* GRANT TOKENS */}
-            <Card variant="outlined">
+            {/* GRANT MESSAGES */}
+            <Card sx={{ ...adminCard as Record<string, unknown> }}>
               <CardContent sx={{ p: 3 }}>
-                <SectionHeader icon={<Coins size={16} style={{ color: 'var(--joy-palette-warning-500)' }} />} title="Grant Tokens" />
+                <SectionHeader icon={<Coins size={16} style={{ color: 'var(--joy-palette-warning-500)' }} />} title="Grant Messages" />
                 <Divider sx={{ my: 2 }} />
                 <Stack spacing={1.5}>
                   <FormControl size="sm">
-                    <FormLabel>Token Amount</FormLabel>
-                    <Input type="number" size="sm" value={grantTokens}
-                      onChange={(e) => setGrantTokens(e.target.value)} placeholder="e.g., 50000" />
+                    <FormLabel>Message Amount</FormLabel>
+                    <Input type="number" size="sm" value={grantMessages}
+                      onChange={(e) => setGrantMessages(e.target.value)} placeholder="e.g., 25" />
                   </FormControl>
                   <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                    {[10000, 50000, 100000, 500000].map(amount => (
+                    {[10, 25, 50, 100].map(amount => (
                       <Button key={amount} size="sm" variant="outlined" color="neutral"
                         sx={{ fontSize: '11px', minHeight: '28px', px: 1.5 }}
-                        onClick={() => setGrantTokens(String(amount))}>
-                        +{formatTokens(amount)}
+                        onClick={() => setGrantMessages(String(amount))}>
+                        +{amount}
                       </Button>
                     ))}
                   </Stack>
-                  <Button size="sm" onClick={handleGrantTokens} loading={grantingTokens}
-                    disabled={!grantTokens} color="warning" fullWidth>
-                    Grant Tokens
+                  <Button size="sm" onClick={handleGrantMessages} loading={grantingMessages}
+                    disabled={!grantMessages} color="warning" fullWidth>
+                    Grant Messages
                   </Button>
                 </Stack>
               </CardContent>
             </Card>
 
             {/* RECENT NOTIFICATIONS */}
-            <Card variant="outlined">
+            <Card sx={{ ...adminCard as Record<string, unknown> }}>
               <CardContent sx={{ p: 3 }}>
                 <SectionHeader icon={<Bell size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />} title="Notifications" count={data?.notifications?.length || 0} />
                 <Divider sx={{ my: 2 }} />
@@ -601,13 +652,13 @@ export default function AdminUserDetailPage() {
 
             {/* FEEDBACK */}
             {data?.feedback?.length > 0 && (
-              <Card variant="outlined">
+              <Card sx={{ ...adminCard as Record<string, unknown> }}>
                 <CardContent sx={{ p: 3 }}>
                   <SectionHeader icon={<MessageSquare size={16} style={{ color: 'var(--joy-palette-success-500)' }} />} title="Feedback" count={data.feedback.length} />
                   <Divider sx={{ my: 2 }} />
                   <Stack spacing={1.5}>
                     {data.feedback.slice(0, 5).map((fb: any) => (
-                      <Card key={fb.id} variant="soft" sx={{ p: 0 }}>
+                      <Card key={fb.id} sx={{ ...liquidGlassSubtle as Record<string, unknown>, p: 0 }}>
                         <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
                           <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                             <Box sx={{ minWidth: 0, flex: 1 }}>
@@ -634,18 +685,21 @@ export default function AdminUserDetailPage() {
               </Card>
             )}
 
-            {/* TOKEN PURCHASES */}
+            {/* LEGACY TOKEN PURCHASES */}
             {data?.tokenPurchases?.length > 0 && (
-              <Card variant="outlined">
+              <Card sx={{ ...adminCard as Record<string, unknown> }}>
                 <CardContent sx={{ p: 3 }}>
-                  <SectionHeader icon={<Receipt size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />} title="Token Purchases" count={data.tokenPurchases.length} />
+                  <SectionHeader icon={<Receipt size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />} title="Legacy Token Purchases (Deprecated)" count={data.tokenPurchases.length} />
+                  <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.5, mb: 1 }}>
+                    Historical token purchases from the previous billing model.
+                  </Typography>
                   <Divider sx={{ my: 2 }} />
                   <Stack spacing={1}>
                     {data.tokenPurchases.slice(0, 5).map((purchase: any) => (
                       <Stack key={purchase.id} direction="row" justifyContent="space-between" alignItems="center" sx={{ py: 0.5 }}>
                         <Box>
                           <Typography level="body-xs" fontWeight={600}>
-                            {formatTokens(purchase.tokensTotal || purchase.tokens || 0)} tokens
+                            {formatTokensLegacy(purchase.tokensTotal || purchase.tokens || 0)} tokens
                           </Typography>
                           <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '10px' }}>
                             {formatDate(purchase.purchasedAt)}
@@ -664,7 +718,7 @@ export default function AdminUserDetailPage() {
 
             {/* BILLING HISTORY */}
             {data?.billingHistory?.length > 0 && (
-              <Card variant="outlined">
+              <Card sx={{ ...adminCard as Record<string, unknown> }}>
                 <CardContent sx={{ p: 3 }}>
                   <SectionHeader icon={<Receipt size={16} style={{ color: 'var(--joy-palette-neutral-500)' }} />} title="Billing History" count={data.billingHistory.length} />
                   <Divider sx={{ my: 2 }} />
@@ -718,6 +772,22 @@ export default function AdminUserDetailPage() {
         userId={userId}
         userEmail={user?.email || ''}
         userName={user?.name}
+      />
+
+      <DangerousConfirmDialog
+        open={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={confirmDelete}
+        title="Delete User Account"
+        description="This will permanently remove the user from Firebase Auth and Firestore."
+        confirmPhrase="DELETE"
+        confirmText="Delete User"
+        loading={deleting}
+        warningItems={[
+          'User authentication record',
+          'All Firestore user data',
+          'All companies and related data',
+        ]}
       />
     </Box>
   );

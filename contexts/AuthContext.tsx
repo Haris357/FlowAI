@@ -18,6 +18,7 @@ import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 
+
 interface AuthContextType {
   user: User | null;
   loading: boolean;
@@ -41,17 +42,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
         try {
-          const userRef = doc(db, 'users', user.uid);
+          const userRef = doc(db, 'users', firebaseUser.uid);
           const userSnap = await getDoc(userRef);
 
           if (!userSnap.exists()) {
             await setDoc(userRef, {
-              email: user.email,
-              name: user.displayName || user.email?.split('@')[0],
-              photoURL: user.photoURL,
+              email: firebaseUser.email,
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+              photoURL: firebaseUser.photoURL,
               createdAt: serverTimestamp(),
               updatedAt: serverTimestamp(),
             });
@@ -61,9 +62,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                userId: user.uid,
-                userName: user.displayName || user.email?.split('@')[0],
-                userEmail: user.email,
+                userId: firebaseUser.uid,
+                userName: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+                userEmail: firebaseUser.email,
               }),
             }).catch(() => {});
           }
@@ -72,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      setUser(user);
+      setUser(firebaseUser);
       setLoading(false);
       setInitializing(false);
     });

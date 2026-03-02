@@ -22,16 +22,16 @@ import { RichResponse, ActionButton } from '@/lib/ai-config';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 
 // ==========================================
-// TOKEN USAGE TRACKING
+// SESSION USAGE TRACKING
 // ==========================================
 
-export interface TokenUsage {
-  totalTokens: number;
+export interface SessionUsage {
+  totalMessages: number;
   requestCount: number;
 }
 
-const EMPTY_TOKEN_USAGE: TokenUsage = {
-  totalTokens: 0,
+const EMPTY_SESSION_USAGE: SessionUsage = {
+  totalMessages: 0,
   requestCount: 0,
 };
 
@@ -142,15 +142,15 @@ interface ChatContextType {
   toggleSidebar: () => void;
   chatSettings: ChatSettings;
   updateChatSettings: (settings: Partial<ChatSettings>) => void;
-  tokenUsage: TokenUsage;
-  resetTokenUsage: () => void;
+  sessionUsage: SessionUsage;
+  resetSessionUsage: () => void;
   searchTerm: string;
   setSearchTerm: (term: string) => void;
   filteredSessions: Chat[];
   selectedModel: string;
   setSelectedModel: (model: string) => void;
-  tokenLimitReached: boolean;
-  dismissTokenLimit: () => void;
+  messageLimitReached: boolean;
+  dismissMessageLimit: () => void;
 }
 
 const defaultSettings: ChatSettings = {
@@ -195,12 +195,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return defaultSettings;
   });
 
-  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(() => {
+  const [sessionUsage, setSessionUsage] = useState<SessionUsage>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('flow_ai_token_usage');
-      return saved ? JSON.parse(saved) : EMPTY_TOKEN_USAGE;
+      const saved = localStorage.getItem('flow_ai_session_usage');
+      return saved ? JSON.parse(saved) : EMPTY_SESSION_USAGE;
     }
-    return EMPTY_TOKEN_USAGE;
+    return EMPTY_SESSION_USAGE;
   });
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -212,8 +212,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     return 'gpt-4.1-mini';
   });
 
-  const [tokenLimitReached, setTokenLimitReached] = useState(false);
-  const dismissTokenLimit = useCallback(() => setTokenLimitReached(false), []);
+  const [messageLimitReached, setMessageLimitReached] = useState(false);
+  const dismissMessageLimit = useCallback(() => setMessageLimitReached(false), []);
 
   const filteredSessions = searchTerm
     ? sessions.filter(s => s.title.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -226,12 +226,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => { localStorage.setItem('chat_sidebar_collapsed', String(sidebarCollapsed)); }, [sidebarCollapsed]);
   useEffect(() => { localStorage.setItem('chat_settings', JSON.stringify(chatSettings)); }, [chatSettings]);
-  useEffect(() => { localStorage.setItem('flow_ai_token_usage', JSON.stringify(tokenUsage)); }, [tokenUsage]);
+  useEffect(() => { localStorage.setItem('flow_ai_session_usage', JSON.stringify(sessionUsage)); }, [sessionUsage]);
   useEffect(() => { localStorage.setItem('flow_ai_model', selectedModel); }, [selectedModel]);
 
-  const resetTokenUsage = useCallback(() => {
-    setTokenUsage(EMPTY_TOKEN_USAGE);
-    localStorage.removeItem('flow_ai_token_usage');
+  const resetSessionUsage = useCallback(() => {
+    setSessionUsage(EMPTY_SESSION_USAGE);
+    localStorage.removeItem('flow_ai_session_usage');
   }, []);
 
   const loadSessions = useCallback(async () => {
@@ -383,17 +383,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
 
-          // Handle token limit specifically
-          if (response.status === 403 && errorData.error === 'token_limit_reached') {
+          // Handle message limit (session or weekly)
+          if (response.status === 403 && errorData.error === 'message_limit_reached') {
             refreshSubscription();
             refreshUsage();
-            setTokenLimitReached(true);
+            setMessageLimitReached(true);
             setIsAITyping(false);
             setThinkingSteps([]);
             const limitMsg: ChatMessage = {
               id: `temp-limit-${Date.now()}`,
               role: 'assistant',
-              content: "You've reached your AI token limit for this month. Please upgrade your plan or purchase additional tokens to continue chatting.",
+              content: errorData.message || "You've reached your AI message limit. Please wait for it to reset or upgrade your plan.",
               createdAt: { toDate: () => new Date() } as any,
             };
             setCurrentMessages(prev => [...prev, limitMsg]);
@@ -408,8 +408,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
         // Track token usage
         if (data.usage) {
-          setTokenUsage(prev => ({
-            totalTokens: prev.totalTokens + (data.usage.totalTokens || 0),
+          setSessionUsage(prev => ({
+            totalMessages: prev.totalMessages + 1,
             requestCount: prev.requestCount + 1,
           }));
         }
@@ -439,8 +439,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             if (retryRes.ok) {
               const retryData = await retryRes.json();
               if (retryData.usage) {
-                setTokenUsage(prev => ({
-                  totalTokens: prev.totalTokens + (retryData.usage.totalTokens || 0),
+                setSessionUsage(prev => ({
+                  totalMessages: prev.totalMessages + 1,
                   requestCount: prev.requestCount + 1,
                 }));
               }
@@ -522,10 +522,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
               if (followUpRes.ok) {
                 const followUpData = await followUpRes.json();
 
-                // Track token usage from follow-up
+                // Track message usage from follow-up
                 if (followUpData.usage) {
-                  setTokenUsage(prev => ({
-                    totalTokens: prev.totalTokens + (followUpData.usage.totalTokens || 0),
+                  setSessionUsage(prev => ({
+                    totalMessages: prev.totalMessages + 1,
                     requestCount: prev.requestCount + 1,
                   }));
                 }
@@ -813,8 +813,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     refreshSessions,
     sidebarCollapsed,
     toggleSidebar,
-    tokenUsage,
-    resetTokenUsage,
+    sessionUsage,
+    resetSessionUsage,
     chatSettings,
     updateChatSettings,
     searchTerm,
@@ -822,8 +822,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     filteredSessions,
     selectedModel,
     setSelectedModel,
-    tokenLimitReached,
-    dismissTokenLimit,
+    messageLimitReached,
+    dismissMessageLimit,
   };
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;

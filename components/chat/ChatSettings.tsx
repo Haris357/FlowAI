@@ -18,13 +18,14 @@ import {
   IconButton,
   Chip,
 } from '@mui/joy';
-import { Settings, Trash2, Clock, Mic, MessageSquare, Database, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Settings, Trash2, Clock, Mic, MessageSquare, Database, RefreshCw, AlertTriangle, Zap, CalendarDays, Calendar } from 'lucide-react';
 import { ChatSettings as ChatSettingsType } from '@/types';
 import DangerousConfirmDialog from '@/components/common/DangerousConfirmDialog';
 import { useMemoryStats } from '@/hooks/useMemoryStats';
 import { clearAllConversationMemory, MEMORY_CONFIG } from '@/lib/ai-memory';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 
 interface ChatSettingsProps {
   open: boolean;
@@ -45,19 +46,45 @@ export default function ChatSettings({
 }: ChatSettingsProps) {
   const { company } = useCompany();
   const { user } = useAuth();
+  const { usage, plan, sessionRemaining, sessionPercentUsed, sessionTimeLeft, weeklyRemaining, weeklyPercentUsed, weeklyResetsAt, refreshUsage } = useSubscription();
   const { stats, loading: loadingStats, refresh: refreshStats } = useMemoryStats();
 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showMemoryResetConfirm, setShowMemoryResetConfirm] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
   const [isResettingMemory, setIsResettingMemory] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [timeSinceUpdate, setTimeSinceUpdate] = useState('');
 
   // Refresh stats when modal opens
   useEffect(() => {
     if (open) {
       refreshStats();
+      refreshUsage();
+      setLastUpdated(new Date());
     }
   }, [open]);
+
+  // Update "last updated" text every 10s
+  useEffect(() => {
+    if (!lastUpdated) return;
+    const update = () => {
+      const diff = Math.floor((Date.now() - lastUpdated.getTime()) / 1000);
+      if (diff < 10) setTimeSinceUpdate('Just now');
+      else if (diff < 60) setTimeSinceUpdate(`${diff}s ago`);
+      else setTimeSinceUpdate(`${Math.floor(diff / 60)}m ago`);
+    };
+    update();
+    const interval = setInterval(update, 10_000);
+    return () => clearInterval(interval);
+  }, [lastUpdated]);
+
+  // Track when real-time snapshot updates
+  useEffect(() => {
+    if (open && usage) {
+      setLastUpdated(new Date());
+    }
+  }, [usage?.sessionMessagesUsed, usage?.weeklyMessagesUsed]);
 
   const handleClearAllChats = async () => {
     setIsClearing(true);
@@ -88,16 +115,25 @@ export default function ChatSettings({
 
   const getMemoryHealthColor = (health: string) => {
     switch (health) {
-      case 'healthy':
-        return 'success';
-      case 'warning':
-        return 'warning';
-      case 'critical':
-        return 'danger';
-      default:
-        return 'neutral';
+      case 'healthy': return 'success';
+      case 'warning': return 'warning';
+      case 'critical': return 'danger';
+      default: return 'neutral';
     }
   };
+
+  const getUsageColor = (percent: number): 'primary' | 'warning' | 'danger' => {
+    if (percent > 80) return 'danger';
+    if (percent > 50) return 'warning';
+    return 'primary';
+  };
+
+  const sessionUsed = usage?.sessionMessagesUsed || 0;
+  const sessionLimit = plan.sessionMessageLimit;
+  const sessionPct = sessionLimit > 0 ? Math.min(100, (sessionUsed / sessionLimit) * 100) : 0;
+  const weeklyUsed = usage?.weeklyMessagesUsed || 0;
+  const weeklyLimit = plan.weeklyMessageLimit;
+  const weeklyPct = weeklyLimit > 0 ? Math.min(100, (weeklyUsed / weeklyLimit) * 100) : 0;
 
   return (
     <>
@@ -105,7 +141,7 @@ export default function ChatSettings({
         <ModalDialog
           variant="outlined"
           sx={{
-            width: 420,
+            width: 460,
             borderRadius: 'lg',
           }}
         >
@@ -130,6 +166,112 @@ export default function ChatSettings({
           <Divider sx={{ my: 2 }} />
 
           <Stack spacing={2.5} sx={{ overflowY: 'auto', maxHeight: '70vh', pr: 0.5 }}>
+
+            {/* ── Plan Usage Limits ── */}
+            <Box>
+              <Typography level="body-xs" fontWeight={600} textTransform="uppercase" letterSpacing="0.05em" sx={{ mb: 1.5, color: 'text.tertiary' }}>
+                Plan usage limits
+              </Typography>
+
+              <Box
+                sx={{
+                  p: 2,
+                  borderRadius: 'md',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  bgcolor: 'background.level1',
+                }}
+              >
+                <Stack spacing={2}>
+                  {/* Session Usage */}
+                  <Box>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Zap size={14} style={{ color: 'var(--joy-palette-primary-500)' }} />
+                        <Typography level="body-sm" fontWeight={600}>Current session</Typography>
+                      </Stack>
+                      <Typography level="body-xs" fontWeight={600} sx={{ color: getUsageColor(sessionPct) === 'danger' ? 'danger.500' : getUsageColor(sessionPct) === 'warning' ? 'warning.600' : 'text.secondary' }}>
+                        {Math.round(sessionPct)}% used
+                      </Typography>
+                    </Stack>
+                    <LinearProgress
+                      determinate
+                      value={sessionPct}
+                      color={getUsageColor(sessionPct)}
+                      sx={{ height: 6, borderRadius: 'sm', bgcolor: 'background.level2' }}
+                    />
+                    <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                        {sessionUsed} / {sessionLimit} messages
+                      </Typography>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                        {sessionTimeLeft ? `Resets in ${sessionTimeLeft}` : 'New session'}
+                      </Typography>
+                    </Stack>
+                  </Box>
+
+                  <Divider />
+
+                  {/* Weekly Usage */}
+                  <Box>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <CalendarDays size={14} style={{ color: 'var(--joy-palette-neutral-500)' }} />
+                        <Typography level="body-sm" fontWeight={600}>This week</Typography>
+                      </Stack>
+                      <Typography level="body-xs" fontWeight={600} sx={{ color: getUsageColor(weeklyPct) === 'danger' ? 'danger.500' : getUsageColor(weeklyPct) === 'warning' ? 'warning.600' : 'text.secondary' }}>
+                        {Math.round(weeklyPct)}% used
+                      </Typography>
+                    </Stack>
+                    <LinearProgress
+                      determinate
+                      value={weeklyPct}
+                      color={getUsageColor(weeklyPct)}
+                      sx={{ height: 6, borderRadius: 'sm', bgcolor: 'background.level2' }}
+                    />
+                    <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                        {weeklyUsed} / {weeklyLimit} messages
+                      </Typography>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                        Resets Monday
+                      </Typography>
+                    </Stack>
+                  </Box>
+
+                  <Divider />
+
+                  {/* Plan & Last Updated */}
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Chip size="sm" variant="soft" color="primary" sx={{ fontWeight: 600, textTransform: 'capitalize' }}>
+                        {plan.name} Plan
+                      </Chip>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                        {sessionLimit} msgs/session · {weeklyLimit}/week
+                      </Typography>
+                    </Stack>
+                    <Stack direction="row" spacing={0.5} alignItems="center">
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '0.675rem' }}>
+                        Updated: {timeSinceUpdate}
+                      </Typography>
+                      <IconButton
+                        size="sm"
+                        variant="plain"
+                        color="neutral"
+                        onClick={() => { refreshUsage(); setLastUpdated(new Date()); }}
+                        sx={{ '--IconButton-size': '22px' }}
+                      >
+                        <RefreshCw size={11} />
+                      </IconButton>
+                    </Stack>
+                  </Stack>
+                </Stack>
+              </Box>
+            </Box>
+
+            <Divider />
+
             {/* Display Settings */}
             <Box>
               <Typography level="body-xs" fontWeight={600} textTransform="uppercase" letterSpacing="0.05em" sx={{ mb: 1.5, color: 'text.tertiary' }}>
@@ -272,7 +414,7 @@ export default function ChatSettings({
                     <Box>
                       <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.75 }}>
                         <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                          Token Usage
+                          Context Usage
                         </Typography>
                         <Typography level="body-xs" fontWeight={600} sx={{ color: 'text.secondary' }}>
                           {formatNumber(stats.totalTokens)} / {formatNumber(MEMORY_CONFIG.CONTEXT_BUDGET)}
@@ -416,7 +558,7 @@ export default function ChatSettings({
           `${stats?.totalConversations || 0} conversation${(stats?.totalConversations || 0) > 1 ? 's' : ''}`,
           `${stats?.totalMessages || 0} messages`,
           'All conversation summaries and context',
-          'Token usage history',
+          'Context usage history',
         ]}
       />
     </>

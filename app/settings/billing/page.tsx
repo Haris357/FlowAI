@@ -21,11 +21,6 @@ export default function BillingPage() {
       refreshSubscription();
       refreshUsage();
     }
-    if (searchParams.get('token_purchase') === 'true') {
-      toast.success('Token pack purchased successfully!');
-      refreshUsage();
-    }
-
     // Redirect to companies page (settings is now a modal)
     router.replace('/companies');
   }, [searchParams, refreshSubscription, refreshUsage, router]);

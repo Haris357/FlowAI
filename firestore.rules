@@ -40,10 +40,14 @@ service cloud.firestore {
         allow read, write: if isAuthenticated() && request.auth.uid == userId;
       }
 
-      // Token purchases subcollection
+      // Daily usage tracking subcollection
+      match /dailyUsage/{dateId} {
+        allow read, write: if isAuthenticated() && request.auth.uid == userId;
+      }
+
+      // Token purchases subcollection (read-only, historical data)
       match /tokenPurchases/{purchaseId} {
         allow read: if isAuthenticated() && request.auth.uid == userId;
-        allow write: if false; // Only admin SDK can write
       }
 
       // Billing history subcollection

@@ -11,6 +11,7 @@ import StatCard from '@/components/admin/StatCard';
 import { useRouter } from 'next/navigation';
 import { PLANS } from '@/lib/plans';
 import { adminFetch } from '@/lib/admin-fetch';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 
 interface AdminStats {
   totalUsers: number;
@@ -107,7 +108,7 @@ export default function AdminDashboard() {
           {/* Left Column */}
           <Stack spacing={2.5} sx={{ flex: 1.2 }}>
             {/* Plan Distribution */}
-            <Card variant="outlined">
+            <Card sx={{ ...adminCard as Record<string, unknown> }}>
               <CardContent sx={{ p: 3 }}>
                 <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
                   <Box sx={{
@@ -129,7 +130,7 @@ export default function AdminDashboard() {
                     { label: 'Pro', count: dist.pro, color: 'primary' as const },
                     { label: 'Max', count: dist.max, color: 'success' as const },
                   ].map(plan => (
-                    <Card key={plan.label} variant="soft" sx={{ flex: 1, textAlign: 'center', p: 2.5 }}>
+                    <Card key={plan.label} sx={{ ...liquidGlassSubtle as Record<string, unknown>, flex: 1, textAlign: 'center', p: 2.5 }}>
                       {loading ? (
                         <>
                           <Skeleton variant="text" width={60} sx={{ fontSize: '1.75rem', mx: 'auto' }} />
@@ -157,7 +158,8 @@ export default function AdminDashboard() {
                 {QUICK_ACTIONS.map(link => {
                   const Icon = link.icon;
                   return (
-                    <Card key={link.label} variant="outlined" sx={{
+                    <Card key={link.label} sx={{
+                      ...adminCard as Record<string, unknown>,
                       flex: '1 1 calc(50% - 8px)', minWidth: 200, cursor: 'pointer',
                       transition: 'border-color 0.2s, box-shadow 0.2s',
                       '&:hover': { borderColor: `${link.color}.300`, boxShadow: 'sm' },
@@ -187,7 +189,7 @@ export default function AdminDashboard() {
           {/* Right Column */}
           <Stack spacing={2.5} sx={{ flex: 0.8, minWidth: 280 }}>
             {/* Recent Users */}
-            <Card variant="outlined">
+            <Card sx={{ ...adminCard as Record<string, unknown> }}>
               <CardContent sx={{ p: 3 }}>
                 <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
                   <Box sx={{
@@ -240,7 +242,7 @@ export default function AdminDashboard() {
             </Card>
 
             {/* Recent Activity */}
-            <Card variant="outlined">
+            <Card sx={{ ...adminCard as Record<string, unknown> }}>
               <CardContent sx={{ p: 3 }}>
                 <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
                   <Box sx={{

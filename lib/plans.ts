@@ -1,4 +1,4 @@
-import type { PlanDefinition, PlanId, TokenPackDefinition } from '@/types/subscription';
+import type { PlanDefinition, PlanId } from '@/types/subscription';
 
 // ==========================================
 // PLAN DEFINITIONS (Single Source of Truth)
@@ -10,7 +10,9 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     name: 'Free',
     price: 0,
     description: 'Perfect for trying out Flowbooks.',
-    tokenAllocation: 50_000,
+    sessionMessageLimit: 25,
+    sessionDurationHours: 5,
+    weeklyMessageLimit: 150,
     allowedModels: ['gpt-4.1-mini'],
     maxCompanies: 1,
     maxCollaboratorsPerCompany: 0,
@@ -26,7 +28,6 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
       exportPdfExcel: false,
       payroll: false,
       customBranding: false,
-      tokenPurchases: false,
     },
     lemonSqueezyVariantId: '',
   },
@@ -35,7 +36,9 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     name: 'Pro',
     price: 29.99,
     description: 'For growing businesses needing more power.',
-    tokenAllocation: 500_000,
+    sessionMessageLimit: 100,
+    sessionDurationHours: 4,
+    weeklyMessageLimit: 750,
     allowedModels: ['gpt-4.1-mini', 'gpt-4o-mini'],
     maxCompanies: 3,
     maxCollaboratorsPerCompany: 3,
@@ -51,7 +54,6 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
       exportPdfExcel: true,
       payroll: true,
       customBranding: true,
-      tokenPurchases: true,
     },
     lemonSqueezyVariantId: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_PRO_VARIANT_ID || '',
   },
@@ -60,7 +62,9 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     name: 'Max',
     price: 99.99,
     description: 'Advanced features for established teams.',
-    tokenAllocation: 2_000_000,
+    sessionMessageLimit: 400,
+    sessionDurationHours: 4,
+    weeklyMessageLimit: 3000,
     allowedModels: ['gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4.1-nano', 'gpt-4o'],
     maxCompanies: 10,
     maxCollaboratorsPerCompany: -1,
@@ -76,39 +80,10 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
       exportPdfExcel: true,
       payroll: true,
       customBranding: true,
-      tokenPurchases: true,
     },
     lemonSqueezyVariantId: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_MAX_VARIANT_ID || '',
   },
 };
-
-// ==========================================
-// TOKEN PACKS
-// ==========================================
-
-export const TOKEN_PACKS: TokenPackDefinition[] = [
-  {
-    id: 'starter',
-    name: 'Starter Pack',
-    tokens: 100_000,
-    price: 4.99,
-    lemonSqueezyVariantId: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_TOKEN_STARTER_VARIANT_ID || '',
-  },
-  {
-    id: 'power',
-    name: 'Power Pack',
-    tokens: 500_000,
-    price: 19.99,
-    lemonSqueezyVariantId: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_TOKEN_POWER_VARIANT_ID || '',
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise Pack',
-    tokens: 2_000_000,
-    price: 59.99,
-    lemonSqueezyVariantId: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_TOKEN_ENTERPRISE_VARIANT_ID || '',
-  },
-];
 
 // ==========================================
 // HELPERS
@@ -122,23 +97,49 @@ export function getPlanByVariantId(variantId: string): PlanDefinition | null {
   return Object.values(PLANS).find(p => p.lemonSqueezyVariantId === variantId) || null;
 }
 
-export function getTokenPack(packId: string): TokenPackDefinition | undefined {
-  return TOKEN_PACKS.find(p => p.id === packId);
-}
-
-export function getTokenPackByVariantId(variantId: string): TokenPackDefinition | undefined {
-  return TOKEN_PACKS.find(p => p.lemonSqueezyVariantId === variantId);
-}
-
-export function formatTokens(tokens: number | undefined | null): string {
-  if (tokens == null || isNaN(tokens)) return '0';
-  if (tokens >= 1_000_000) return `${(tokens / 1_000_000).toFixed(1)}M`;
-  if (tokens >= 1_000) return `${(tokens / 1_000).toFixed(0)}K`;
-  return tokens.toString();
+export function formatMessages(count: number | undefined | null): string {
+  if (count == null || isNaN(count)) return '0';
+  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}M`;
+  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
+  return count.toLocaleString();
 }
 
 export function isUnlimited(value: number): boolean {
   return value === -1;
+}
+
+export function getCurrentDay(): string {
+  return new Date().toISOString().slice(0, 10); // "2026-03-02"
+}
+
+/** Returns Monday's date for the current week as "YYYY-MM-DD" */
+export function getCurrentWeekStart(): string {
+  const now = new Date();
+  const day = now.getUTCDay(); // 0=Sun, 1=Mon, ...
+  const diff = day === 0 ? 6 : day - 1; // Distance from Monday
+  const monday = new Date(now);
+  monday.setUTCDate(now.getUTCDate() - diff);
+  return monday.toISOString().slice(0, 10);
+}
+
+/** Returns next Monday's date as "YYYY-MM-DD" */
+export function getNextWeekStart(): string {
+  const now = new Date();
+  const day = now.getUTCDay();
+  const daysUntilMonday = day === 0 ? 1 : 8 - day;
+  const nextMonday = new Date(now);
+  nextMonday.setUTCDate(now.getUTCDate() + daysUntilMonday);
+  return nextMonday.toISOString().slice(0, 10);
+}
+
+/** Format milliseconds as "Xh Ym" */
+export function formatDuration(ms: number): string {
+  if (ms <= 0) return '0m';
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+  if (hours > 0) return `${hours}h`;
+  return `${minutes}m`;
 }
 
 export const DEFAULT_SUBSCRIPTION = {

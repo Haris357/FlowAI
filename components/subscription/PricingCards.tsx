@@ -2,7 +2,7 @@
 import { Box, Card, CardContent, Typography, Stack, Button, Chip, Divider } from '@mui/joy';
 import { Check, Zap, Crown, Sparkles } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { PLANS, formatTokens } from '@/lib/plans';
+import { PLANS, formatMessages } from '@/lib/plans';
 import type { PlanId, PlanDefinition } from '@/types/subscription';
 
 interface PricingCardsProps {
@@ -120,7 +120,7 @@ export default function PricingCards({ onSelectPlan, loading }: PricingCardsProp
 function getFeatureList(plan: PlanDefinition): string[] {
   const features: string[] = [];
 
-  features.push(`~${formatTokens(plan.tokenAllocation)} AI tokens/month`);
+  features.push(`${plan.sessionMessageLimit} msgs/session · ${plan.weeklyMessageLimit}/week`);
   features.push(`${plan.allowedModels.length === 1 ? 'Basic AI' : plan.allowedModels.length <= 2 ? 'Enhanced AI' : 'Advanced AI capabilities'}`);
   features.push(`${plan.maxCompanies === 1 ? '1 company' : `Up to ${plan.maxCompanies} companies`}`);
 
@@ -148,7 +148,6 @@ function getFeatureList(plan: PlanDefinition): string[] {
   else features.push('Basic reports (P&L)');
 
   if (plan.features.payroll) features.push('Payroll & salary slips');
-  if (plan.features.tokenPurchases) features.push('Buy extra AI tokens');
 
   return features;
 }

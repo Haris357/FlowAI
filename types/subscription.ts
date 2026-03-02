@@ -12,7 +12,9 @@ export interface PlanDefinition {
   name: string;
   price: number;
   description: string;
-  tokenAllocation: number;
+  sessionMessageLimit: number;       // Messages per session
+  sessionDurationHours: number;      // Session window in hours
+  weeklyMessageLimit: number;        // Messages per week
   allowedModels: string[];
   maxCompanies: number;
   maxCollaboratorsPerCompany: number; // -1 = unlimited
@@ -28,7 +30,6 @@ export interface PlanDefinition {
     exportPdfExcel: boolean;
     payroll: boolean;
     customBranding: boolean;
-    tokenPurchases: boolean;
   };
   lemonSqueezyVariantId: string;
 }
@@ -61,34 +62,48 @@ export interface ModelUsageBreakdown {
   requests: number;
 }
 
-export interface UsagePeriod {
+export interface UsageState {
   userId: string;
-  period: string; // "2026-02"
   planId: PlanId;
-  tokenAllocation: number;
-  tokensUsed: number;
-  bonusTokens: number;
-  requestCount: number;
+  // Session tracking
+  sessionStart: Timestamp;            // When current session began
+  sessionMessagesUsed: number;        // Messages used in current session
+  sessionLimit: number;               // Snapshot of plan's session limit
+  sessionDurationMs: number;          // Snapshot of plan's session duration in ms
+  // Weekly tracking
+  weekStart: string;                  // "2026-03-02" (Monday of current week)
+  weeklyMessagesUsed: number;         // Messages used this week
+  weeklyLimit: number;                // Snapshot of plan's weekly limit
+  // Admin-granted bonus (applies to weekly)
+  bonusMessages: number;
+  // Internal cost tracking (admin only)
+  totalTokensConsumed: number;
   costAccumulated: number;
+  requestCount: number;
+  breakdown: Record<string, ModelUsageBreakdown>;
+  updatedAt: Timestamp;
+}
+
+/** @deprecated kept for historical data — replaced by UsageState */
+export interface DailyUsage {
+  userId: string;
+  date: string;
+  planId: PlanId;
+  dailyMessageLimit: number;
+  messagesUsed: number;
+  bonusMessages: number;
+  totalTokensConsumed: number;
+  costAccumulated: number;
+  requestCount: number;
   breakdown: Record<string, ModelUsageBreakdown>;
   resetAt: Timestamp;
   updatedAt: Timestamp;
 }
 
-// ==========================================
-// TOKEN PURCHASES
-// ==========================================
-
+/** @deprecated kept for historical billing data */
 export type TokenPackId = 'starter' | 'power' | 'enterprise';
 
-export interface TokenPackDefinition {
-  id: TokenPackId;
-  name: string;
-  tokens: number;
-  price: number;
-  lemonSqueezyVariantId: string;
-}
-
+/** @deprecated kept for historical billing data */
 export interface TokenPurchase {
   id: string;
   lemonSqueezyOrderId: string;
@@ -110,7 +125,7 @@ export type BillingEventType =
   | 'subscription_renewed'
   | 'subscription_cancelled'
   | 'subscription_updated'
-  | 'token_purchase'
+  | 'token_purchase' // @deprecated — kept for historical billing data
   | 'payment_failed'
   | 'refund';
 

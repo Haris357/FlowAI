@@ -94,7 +94,8 @@ const pricingPlans: PricingPlan[] = [
     description: 'Perfect for trying out Flowbooks.',
     features: [
       '1 company',
-      '~100 AI messages/month',
+      '25 AI messages/session (5h)',
+      '150 AI messages/week',
       '10 customers & vendors',
       '5 invoices/month',
       'Basic reports (P&L)',
@@ -111,7 +112,8 @@ const pricingPlans: PricingPlan[] = [
     description: 'For growing businesses needing more power.',
     features: [
       '3 companies',
-      '~1,000 AI messages/month',
+      '100 AI messages/session (4h)',
+      '750 AI messages/week',
       'Unlimited clients',
       'All financial reports',
       'Payroll & salary slips',
@@ -130,12 +132,12 @@ const pricingPlans: PricingPlan[] = [
     description: 'Advanced features for established teams.',
     features: [
       '10 companies',
-      '~4,000 AI messages/month',
+      '400 AI messages/session (4h)',
+      '3,000 AI messages/week',
       'Advanced AI capabilities',
       'Unlimited everything',
       'Unlimited collaborators',
       'Priority support',
-      'Buy extra AI tokens',
     ],
     cta: 'Start Free Trial',
     popular: false,
@@ -152,7 +154,8 @@ interface ComparisonRow {
 
 const comparisonData: ComparisonRow[] = [
   { feature: 'Companies', free: '1', pro: '3', max: '10' },
-  { feature: 'AI Messages', free: '~100/mo', pro: '~1,000/mo', max: '~4,000/mo' },
+  { feature: 'AI Messages/Session', free: '25 (5h)', pro: '100 (4h)', max: '400 (4h)' },
+  { feature: 'AI Messages/Week', free: '150', pro: '750', max: '3,000' },
   { feature: 'Customers', free: '10', pro: 'Unlimited', max: 'Unlimited' },
   { feature: 'Invoices', free: '5/mo', pro: 'Unlimited', max: 'Unlimited' },
   { feature: 'Reports', free: 'P&L only', pro: 'All reports', max: 'All reports' },
@@ -160,7 +163,6 @@ const comparisonData: ComparisonRow[] = [
   { feature: 'Collaborators', free: '0', pro: '3', max: 'Unlimited' },
   { feature: 'Email Sends', free: false, pro: '50/mo', max: 'Unlimited' },
   { feature: 'Chat History', free: '7 days', pro: '90 days', max: 'Unlimited' },
-  { feature: 'Token Purchases', free: false, pro: true, max: true },
   { feature: 'Custom Branding', free: false, pro: true, max: true },
   { feature: 'Export PDF/Excel', free: false, pro: true, max: true },
 ];
@@ -171,8 +173,8 @@ const faqs = [
     a: 'Yes, you can upgrade or downgrade your plan at any time. When upgrading, you\'ll get immediate access to the new features. When downgrading, the change takes effect at the end of your current billing period.',
   },
   {
-    q: 'What happens when I exceed my AI tokens?',
-    a: 'When you reach your monthly AI message limit, messages will be limited until the next billing period. On Pro and Max plans, you can purchase additional token packs at any time to keep going without interruption.',
+    q: 'What happens when I hit my message limit?',
+    a: 'Each session has a message cap and a time window (4-5 hours depending on your plan). If you use all session messages before the timer expires, you\'ll need to wait for the session to reset. There\'s also a weekly limit that resets every Monday. Upgrade your plan for higher session and weekly limits.',
   },
   {
     q: 'Is there a free trial?',

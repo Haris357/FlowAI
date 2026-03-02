@@ -20,9 +20,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ userId: 
     }
 
     // Parallel fetch all user data
-    const now = new Date();
-    const periodKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-
     const userData = userDoc.data() || {};
 
     // Helper: safe query — returns empty array if index missing or collection doesn't exist
@@ -45,7 +42,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ userId: 
       billingSnap,
     ] = await Promise.all([
       auth.getUser(userId).catch(() => null),
-      safeGet(db.collection('users').doc(userId).collection('usage').doc(periodKey)),
+      safeGet(db.collection('users').doc(userId).collection('usage').doc('current')),
       safeQuery(() => db.collection('companies').where('ownerId', '==', userId).get()),
       safeQuery(() => db.collection('supportTickets').where('userId', '==', userId).orderBy('createdAt', 'desc').limit(10).get()),
       safeQuery(() => db.collection('users').doc(userId).collection('notifications').orderBy('createdAt', 'desc').limit(10).get()),
@@ -100,7 +97,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ userId: 
       authInfo,
       subscription,
       usage: usageData,
-      usagePeriod: periodKey,
       companies,
       companiesCount: companies.length,
       tickets,

@@ -25,6 +25,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 import { getAllPosts, deletePost } from '@/services/blog';
 import type { BlogPost } from '@/types/blog';
 
@@ -132,7 +133,7 @@ export default function AdminBlogsPage() {
         />
 
         {/* Table */}
-        <Card variant="outlined" sx={{ overflow: 'hidden' }}>
+        <Card sx={{ ...adminCard as Record<string, unknown>, overflow: 'hidden' }}>
           <Sheet sx={{ overflow: 'auto' }}>
             <Table
               sx={{

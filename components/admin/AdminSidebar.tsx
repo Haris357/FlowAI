@@ -12,6 +12,7 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import NextLink from 'next/link';
 import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
+import { liquidGlassStrong } from '@/lib/admin-theme';
 
 const NAV_ITEMS = [
   { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
@@ -54,14 +55,14 @@ export default function AdminSidebar({ collapsed = false, onToggle }: AdminSideb
         left: 0,
         width: sidebarWidth,
         height: '100vh',
-        bgcolor: 'background.surface',
-        borderRight: '1px solid',
-        borderColor: 'divider',
         display: 'flex',
         flexDirection: 'column',
         zIndex: 1100,
         transition: 'width 0.2s ease',
         overflow: 'hidden',
+        ...liquidGlassStrong as Record<string, unknown>,
+        borderRight: '1px solid rgba(255, 255, 255, 0.2)',
+        borderRadius: 0,
       }}
     >
       {/* Header */}

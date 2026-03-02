@@ -7,12 +7,13 @@ import {
 } from '@mui/joy';
 import { Send, Mail, FileText } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { adminFetch } from '@/lib/admin-fetch';
 
 const EMAIL_TEMPLATES = [
   { value: 'custom', label: 'Custom Message', description: 'Write a custom email' },
   { value: 'welcome', label: 'Welcome', description: 'Welcome new user to Flowbooks' },
   { value: 'plan_changed', label: 'Plan Changed', description: 'Notify about plan change' },
-  { value: 'tokens_granted', label: 'Tokens Granted', description: 'Notify about bonus tokens' },
+  { value: 'messages_granted', label: 'Messages Granted', description: 'Notify about bonus messages' },
   { value: 'account_warning', label: 'Account Warning', description: 'Send account warning' },
   { value: 'support_reply', label: 'Support Reply', description: 'Reply to support ticket' },
 ];
@@ -30,7 +31,7 @@ export default function SendEmailModal({ open, onClose, userId, userEmail, userN
   const [subject, setSubject] = useState('');
   const [message, setMessage] = useState('');
   const [planName, setPlanName] = useState('');
-  const [tokenAmount, setTokenAmount] = useState('');
+  const [messageAmount, setMessageAmount] = useState('');
   const [warningMessage, setWarningMessage] = useState('');
   const [ticketSubject, setTicketSubject] = useState('');
   const [sending, setSending] = useState(false);
@@ -40,7 +41,7 @@ export default function SendEmailModal({ open, onClose, userId, userEmail, userN
     setSubject('');
     setMessage('');
     setPlanName('');
-    setTokenAmount('');
+    setMessageAmount('');
     setWarningMessage('');
     setTicketSubject('');
   };
@@ -68,7 +69,7 @@ export default function SendEmailModal({ open, onClose, userId, userEmail, userN
           body.planName = planName || 'Pro';
           break;
         case 'tokens_granted':
-          body.tokenAmount = parseInt(tokenAmount) || 10000;
+          body.messageAmount = parseInt(messageAmount) || 50;
           break;
         case 'account_warning':
           body.warningMessage = warningMessage.trim() || 'Your account requires attention.';
@@ -79,7 +80,7 @@ export default function SendEmailModal({ open, onClose, userId, userEmail, userN
           break;
       }
 
-      const res = await fetch(`/api/admin/users/${userId}/send-email`, {
+      const res = await adminFetch(`/api/admin/users/${userId}/send-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -155,11 +156,11 @@ export default function SendEmailModal({ open, onClose, userId, userEmail, userN
             </FormControl>
           )}
 
-          {template === 'tokens_granted' && (
+          {template === 'messages_granted' && (
             <FormControl size="sm">
-              <FormLabel>Token Amount</FormLabel>
-              <Input type="number" value={tokenAmount} onChange={(e) => setTokenAmount(e.target.value)}
-                placeholder="e.g., 50000" />
+              <FormLabel>Message Amount</FormLabel>
+              <Input type="number" value={messageAmount} onChange={(e) => setMessageAmount(e.target.value)}
+                placeholder="e.g., 50" />
             </FormControl>
           )}
 

@@ -206,7 +206,9 @@ async function handleSend(body: {
     newsletterFooterNote: footerNote || '',
   };
 
-  // Send emails in batches of 10, respecting user email preferences
+  // Send emails in batches of 10
+  // Admin-initiated newsletters only respect the master notifyEmail switch,
+  // NOT the notifyWeekly preference (that controls automated/scheduled newsletters only)
   let sent = 0;
   let failed = 0;
   let skipped = 0;
@@ -216,8 +218,8 @@ async function handleSend(body: {
     const batch = users.slice(i, i + batchSize);
     const results = await Promise.allSettled(
       batch.map(async (user) => {
-        // Check if user has opted into newsletter/weekly emails
-        const allowed = await canSendEmail(user.id, 'newsletter');
+        // Only respect the master email switch — if user disabled all emails, skip
+        const allowed = await canSendEmail(user.id, 'announcement');
         if (!allowed) {
           skipped++;
           return;

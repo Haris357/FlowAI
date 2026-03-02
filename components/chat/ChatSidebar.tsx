@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import {
   Accordion,
   AccordionDetails,
@@ -20,10 +21,12 @@ import {
   ChevronLeft,
   ChevronRight,
   History,
+  Search,
   ChevronDown,
   Zap,
 } from 'lucide-react';
 import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
+import UsageMeter from '@/components/subscription/UsageMeter';
 import { Chat } from '@/types';
 import FormShortcuts, { FormShortcut } from './FormShortcuts';
 import ChatHistoryModal from './ChatHistoryModal';
@@ -53,6 +56,9 @@ export default function ChatSidebar({
   onSelectShortcut,
   onOpenSettings,
 }: ChatSidebarProps) {
+  const router = useRouter();
+  const params = useParams();
+  const companyId = params.companyId as string;
   const [historyModalOpen, setHistoryModalOpen] = useState(false);
 
   const sidebarWidth = collapsed ? 60 : 240;
@@ -123,7 +129,7 @@ export default function ChatSidebar({
         </Box>
 
         {/* Chats Button */}
-        <Box sx={{ px: collapsed ? 1 : 1.5, pb: 1.5 }}>
+        <Box sx={{ px: collapsed ? 1 : 1.5, pb: 0.5 }}>
           {collapsed ? (
             <Tooltip title={`Chats (${sessions.length})`} placement="right">
               <IconButton
@@ -163,6 +169,37 @@ export default function ChatSidebar({
                   {sessions.length}
                 </Typography>
               </Box>
+            </Button>
+          )}
+        </Box>
+
+        {/* Search Chats Button */}
+        <Box sx={{ px: collapsed ? 1 : 1.5, pb: 1.5 }}>
+          {collapsed ? (
+            <Tooltip title="Search Chats" placement="right">
+              <IconButton
+                variant="plain"
+                color="neutral"
+                onClick={() => router.push(`/companies/${companyId}/chats`)}
+                sx={{ width: '100%', borderRadius: 'sm' }}
+              >
+                <Search size={18} />
+              </IconButton>
+            </Tooltip>
+          ) : (
+            <Button
+              variant="plain"
+              color="neutral"
+              startDecorator={<Search size={16} />}
+              onClick={() => router.push(`/companies/${companyId}/chats`)}
+              fullWidth
+              sx={{
+                borderRadius: 'sm',
+                justifyContent: 'flex-start',
+                fontWeight: 500,
+              }}
+            >
+              Search Chats
             </Button>
           )}
         </Box>
@@ -215,6 +252,13 @@ export default function ChatSidebar({
         </Box>
 
         <Divider />
+
+        {/* Usage Meter */}
+        {!collapsed && (
+          <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
+            <UsageMeter compact />
+          </Box>
+        )}
 
         {/* Settings Button */}
         <Box sx={{ p: collapsed ? 1 : 1.5 }}>

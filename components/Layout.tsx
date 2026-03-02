@@ -500,7 +500,7 @@ export default function Layout({ children }: LayoutProps) {
           <Box sx={{ borderTop: '1px solid', borderColor: mode === 'light' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.04)' }}>
             {!sidebarCollapsed ? (
               <>
-                {/* Token Usage — top */}
+                {/* Message Usage — top */}
                 <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
                   <UsageMeter compact />
                 </Box>
@@ -745,7 +745,7 @@ export default function Layout({ children }: LayoutProps) {
 
           {/* User Section */}
           <Box sx={{ borderTop: '1px solid', borderColor: mode === 'light' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.04)' }}>
-            {/* Token Usage — top */}
+            {/* Message Usage — top */}
             <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
               <UsageMeter compact />
             </Box>
