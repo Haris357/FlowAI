@@ -173,6 +173,36 @@ const theme = extendTheme({
           borderRadius: '8px',
           '[data-joy-color-scheme="dark"] &': {
             '--Input-focusedHighlight': 'var(--joy-palette-primary-500)',
+            color: 'var(--joy-palette-text-primary)',
+          },
+        },
+        input: {
+          '[data-joy-color-scheme="dark"] &': {
+            color: 'var(--joy-palette-text-primary)',
+            '&::placeholder': {
+              color: 'var(--joy-palette-text-tertiary)',
+              opacity: 1,
+            },
+          },
+        },
+      },
+    },
+    JoyTextarea: {
+      styleOverrides: {
+        root: {
+          borderRadius: '8px',
+          '[data-joy-color-scheme="dark"] &': {
+            '--Textarea-focusedHighlight': 'var(--joy-palette-primary-500)',
+            color: 'var(--joy-palette-text-primary)',
+          },
+        },
+        textarea: {
+          '[data-joy-color-scheme="dark"] &': {
+            color: 'var(--joy-palette-text-primary)',
+            '&::placeholder': {
+              color: 'var(--joy-palette-text-tertiary)',
+              opacity: 1,
+            },
           },
         },
       },
@@ -181,6 +211,46 @@ const theme = extendTheme({
       styleOverrides: {
         root: {
           borderRadius: '8px',
+          '[data-joy-color-scheme="dark"] &': {
+            color: 'var(--joy-palette-text-primary)',
+          },
+        },
+      },
+    },
+    JoyAutocomplete: {
+      styleOverrides: {
+        root: {
+          borderRadius: '8px',
+          '[data-joy-color-scheme="dark"] &': {
+            color: 'var(--joy-palette-text-primary)',
+          },
+        },
+        input: {
+          '[data-joy-color-scheme="dark"] &': {
+            color: 'var(--joy-palette-text-primary)',
+            '&::placeholder': {
+              color: 'var(--joy-palette-text-tertiary)',
+              opacity: 1,
+            },
+          },
+        },
+        listbox: {
+          '[data-joy-color-scheme="dark"] &': {
+            color: 'var(--joy-palette-text-primary)',
+            backgroundColor: 'var(--joy-palette-background-surface)',
+          },
+        },
+        option: {
+          '[data-joy-color-scheme="dark"] &': {
+            color: 'var(--joy-palette-text-primary)',
+            '&[aria-selected="true"]': {
+              backgroundColor: 'var(--joy-palette-primary-softBg)',
+              color: 'var(--joy-palette-text-primary)',
+            },
+            '&:hover': {
+              backgroundColor: 'var(--joy-palette-neutral-plainHoverBg)',
+            },
+          },
         },
       },
     },

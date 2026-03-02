@@ -170,11 +170,17 @@ export default function CompanyCard(props: CompanyCardProps) {
   if (viewMode === 'compact') {
     return (
       <Card
-        variant="outlined"
+        variant="plain"
         sx={{
           cursor: 'pointer', height: '100%', position: 'relative', overflow: 'hidden',
+          background: 'var(--joy-palette-background-surface)',
+          backdropFilter: 'blur(16px) saturate(150%)',
+          border: '1px solid',
+          borderColor: 'var(--joy-palette-divider)',
+          borderRadius: '16px',
           transition: 'all 0.25s ease',
-          '&:hover': { boxShadow: 'md', transform: 'translateY(-3px)', borderColor: 'primary.400' },
+          boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
+          '&:hover': { boxShadow: '0 8px 24px rgba(0,0,0,0.08)', transform: 'translateY(-3px)', borderColor: 'primary.400' },
         }}
         onClick={() => onSelect(company)}
       >
@@ -204,11 +210,17 @@ export default function CompanyCard(props: CompanyCardProps) {
   if (viewMode === 'list') {
     return (
       <Card
-        variant="outlined"
+        variant="plain"
         sx={{
           cursor: 'pointer', position: 'relative', overflow: 'hidden',
+          background: 'var(--joy-palette-background-surface)',
+          backdropFilter: 'blur(16px) saturate(150%)',
+          border: '1px solid',
+          borderColor: 'var(--joy-palette-divider)',
+          borderRadius: '14px',
           transition: 'all 0.2s ease',
-          '&:hover': { boxShadow: 'sm', borderColor: 'primary.400' },
+          boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+          '&:hover': { boxShadow: '0 6px 20px rgba(0,0,0,0.07)', borderColor: 'primary.400' },
         }}
         onClick={() => onSelect(company)}
       >
@@ -238,12 +250,20 @@ export default function CompanyCard(props: CompanyCardProps) {
   // Grid view (default)
   return (
     <Card
-      variant="outlined"
+      variant="plain"
       sx={{
         cursor: 'pointer', position: 'relative', overflow: 'hidden', height: '100%',
+        background: 'var(--joy-palette-background-surface)',
+        backdropFilter: 'blur(16px) saturate(150%)',
+        border: '1px solid',
+        borderColor: 'var(--joy-palette-divider)',
+        borderRadius: '16px',
         transition: 'all 0.25s ease',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.04)',
         '&:hover': {
-          boxShadow: 'lg', transform: 'translateY(-4px)', borderColor: 'primary.400',
+          boxShadow: '0 12px 40px rgba(0,0,0,0.1)',
+          transform: 'translateY(-4px)',
+          borderColor: 'primary.400',
           '&::before': { opacity: 1 },
         },
         '&::before': {
@@ -298,13 +318,13 @@ export default function CompanyCard(props: CompanyCardProps) {
           </Stack>
 
           {/* Footer */}
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pt: 0.5, borderTop: '1px solid', borderColor: 'divider' }}>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ pt: 0.5, borderTop: '1px solid', borderColor: 'var(--joy-palette-divider)' }}>
             <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
               {company.createdAt?.toDate
                 ? new Date(company.createdAt.toDate()).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
                 : ''}
             </Typography>
-            <IconButton size="sm" variant="soft" color="primary" sx={{ width: 28, height: 28 }}
+            <IconButton size="sm" variant="soft" color="primary" sx={{ width: 28, height: 28, borderRadius: '50%' }}
               onClick={(e) => { e.stopPropagation(); onSelect(company); }}>
               <ArrowRight size={14} />
             </IconButton>

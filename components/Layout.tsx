@@ -232,13 +232,13 @@ export default function Layout({ children }: LayoutProps) {
               }
             }}
             sx={{
-              borderRadius: 'sm',
+              borderRadius: isActive && !collapsed ? '10px' : 'sm',
               transition: 'all 0.15s ease-in-out',
               justifyContent: collapsed ? 'center' : 'flex-start',
               pl: collapsed ? undefined : depth * 2 + 1,
-              bgcolor: isActive && !collapsed ? 'primary.50' : undefined,
+              bgcolor: isActive && !collapsed ? (mode === 'light' ? 'rgba(217,119,87,0.08)' : 'rgba(217,119,87,0.12)') : undefined,
               '&:hover': {
-                bgcolor: isActive ? 'primary.100' : 'neutral.100',
+                bgcolor: isActive ? (mode === 'light' ? 'rgba(217,119,87,0.12)' : 'rgba(217,119,87,0.18)') : 'neutral.100',
               },
             }}
           >
@@ -335,10 +335,11 @@ export default function Layout({ children }: LayoutProps) {
           pl: collapsed ? undefined : depth * 2 + 1,
           textDecoration: 'none',
           '&.Mui-selected': {
-            background: 'linear-gradient(135deg, var(--joy-palette-primary-100) 0%, var(--joy-palette-primary-200) 100%)',
-            color: 'primary.700',
+            background: mode === 'light' ? 'rgba(217,119,87,0.08)' : 'rgba(217,119,87,0.12)',
+            color: mode === 'light' ? 'primary.700' : 'primary.300',
+            borderRadius: '10px',
             '&:hover': {
-              background: 'linear-gradient(135deg, var(--joy-palette-primary-200) 0%, var(--joy-palette-primary-300) 100%)',
+              background: mode === 'light' ? 'rgba(217,119,87,0.12)' : 'rgba(217,119,87,0.18)',
             },
           },
         }}
@@ -427,9 +428,12 @@ export default function Layout({ children }: LayoutProps) {
             left: 0,
             width: sidebarCollapsed ? SIDEBAR_COLLAPSED_WIDTH : SIDEBAR_WIDTH,
             height: '100vh',
-            bgcolor: 'background.surface',
+            background: mode === 'light' ? 'rgba(255, 255, 255, 0.55)' : 'rgba(26, 25, 21, 0.65)',
+            backdropFilter: 'blur(24px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
             borderRight: '1px solid',
-            borderColor: 'divider',
+            borderColor: mode === 'light' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.06)',
+            boxShadow: mode === 'light' ? 'inset -1px 0 0 rgba(255,255,255,0.1)' : 'inset -1px 0 0 rgba(255,255,255,0.02)',
             display: { xs: 'none', md: 'flex' },
             flexDirection: 'column',
             zIndex: 1100,
@@ -441,8 +445,8 @@ export default function Layout({ children }: LayoutProps) {
             sx={{
               p: 2,
               borderBottom: '1px solid',
-              borderColor: 'divider',
-              background: 'linear-gradient(135deg, var(--joy-palette-primary-50) 0%, var(--joy-palette-primary-100) 100%)',
+              borderColor: mode === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)',
+              background: mode === 'light' ? 'rgba(217,119,87,0.04)' : 'rgba(217,119,87,0.03)',
               position: 'relative',
             }}
           >
@@ -471,12 +475,14 @@ export default function Layout({ children }: LayoutProps) {
                   width: 28,
                   height: 28,
                   borderRadius: '50%',
-                  bgcolor: 'background.surface',
+                  bgcolor: mode === 'light' ? 'rgba(255,255,255,0.8)' : 'rgba(35,34,32,0.8)',
+                  backdropFilter: 'blur(12px)',
+                  WebkitBackdropFilter: 'blur(12px)',
                   border: '1px solid',
-                  borderColor: 'divider',
+                  borderColor: mode === 'light' ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.08)',
                   boxShadow: 'sm',
                   '&:hover': {
-                    bgcolor: 'background.level1',
+                    bgcolor: mode === 'light' ? 'rgba(255,255,255,0.95)' : 'rgba(35,34,32,0.95)',
                   },
                 }}
               >
@@ -491,7 +497,7 @@ export default function Layout({ children }: LayoutProps) {
           </Box>
 
           {/* User Section */}
-          <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ borderTop: '1px solid', borderColor: mode === 'light' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.04)' }}>
             {!sidebarCollapsed ? (
               <>
                 {/* Token Usage — top */}
@@ -512,11 +518,11 @@ export default function Layout({ children }: LayoutProps) {
                       size="sm"
                       onClick={toggleMode}
                       sx={{
-                        borderRadius: '8px',
+                        borderRadius: '50%',
                         width: 34,
                         height: 34,
                         transition: 'all 0.2s ease',
-                        '&:hover': { bgcolor: 'background.level2', transform: 'rotate(180deg)' },
+                        '&:hover': { bgcolor: 'rgba(217,119,87,0.08)', transform: 'rotate(180deg)' },
                       }}
                     >
                       {mode === 'light' ? <Moon size={16} /> : <Sun size={16} />}
@@ -529,11 +535,11 @@ export default function Layout({ children }: LayoutProps) {
                       size="sm"
                       onClick={() => setSettingsModalOpen(true)}
                       sx={{
-                        borderRadius: '8px',
+                        borderRadius: '50%',
                         width: 34,
                         height: 34,
                         transition: 'all 0.2s ease',
-                        '&:hover': { bgcolor: 'background.level2' },
+                        '&:hover': { bgcolor: 'rgba(217,119,87,0.08)' },
                       }}
                     >
                       <Settings size={16} />
@@ -616,11 +622,11 @@ export default function Layout({ children }: LayoutProps) {
                     size="sm"
                     onClick={toggleMode}
                     sx={{
-                      borderRadius: '8px',
+                      borderRadius: '50%',
                       width: 34,
                       height: 34,
                       transition: 'all 0.2s ease',
-                      '&:hover': { bgcolor: 'background.level2', transform: 'rotate(180deg)' },
+                      '&:hover': { bgcolor: 'rgba(217,119,87,0.08)', transform: 'rotate(180deg)' },
                     }}
                   >
                     {mode === 'light' ? <Moon size={16} /> : <Sun size={16} />}
@@ -703,9 +709,12 @@ export default function Layout({ children }: LayoutProps) {
             left: mobileOpen ? 0 : -SIDEBAR_WIDTH,
             width: SIDEBAR_WIDTH,
             height: '100vh',
-            bgcolor: 'background.surface',
+            background: mode === 'light' ? 'rgba(255, 255, 255, 0.55)' : 'rgba(26, 25, 21, 0.65)',
+            backdropFilter: 'blur(24px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
             borderRight: '1px solid',
-            borderColor: 'divider',
+            borderColor: mode === 'light' ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.06)',
+            boxShadow: mode === 'light' ? 'inset -1px 0 0 rgba(255,255,255,0.1)' : 'inset -1px 0 0 rgba(255,255,255,0.02)',
             display: { xs: 'flex', md: 'none' },
             flexDirection: 'column',
             transition: 'left 0.2s ease-in-out',
@@ -717,8 +726,8 @@ export default function Layout({ children }: LayoutProps) {
             sx={{
               p: 2,
               borderBottom: '1px solid',
-              borderColor: 'divider',
-              background: 'linear-gradient(135deg, var(--joy-palette-primary-50) 0%, var(--joy-palette-primary-100) 100%)',
+              borderColor: mode === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.04)',
+              background: mode === 'light' ? 'rgba(217,119,87,0.04)' : 'rgba(217,119,87,0.03)',
             }}
           >
             <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -735,7 +744,7 @@ export default function Layout({ children }: LayoutProps) {
           </Box>
 
           {/* User Section */}
-          <Box sx={{ borderTop: '1px solid', borderColor: 'divider' }}>
+          <Box sx={{ borderTop: '1px solid', borderColor: mode === 'light' ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.04)' }}>
             {/* Token Usage — top */}
             <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
               <UsageMeter compact />
@@ -754,11 +763,11 @@ export default function Layout({ children }: LayoutProps) {
                   size="sm"
                   onClick={toggleMode}
                   sx={{
-                    borderRadius: '8px',
+                    borderRadius: '50%',
                     width: 34,
                     height: 34,
                     transition: 'all 0.2s ease',
-                    '&:hover': { bgcolor: 'background.level2', transform: 'rotate(180deg)' },
+                    '&:hover': { bgcolor: 'rgba(217,119,87,0.08)', transform: 'rotate(180deg)' },
                   }}
                 >
                   {mode === 'light' ? <Moon size={16} /> : <Sun size={16} />}
@@ -771,11 +780,11 @@ export default function Layout({ children }: LayoutProps) {
                   size="sm"
                   onClick={() => { setMobileOpen(false); setSettingsModalOpen(true); }}
                   sx={{
-                    borderRadius: '8px',
+                    borderRadius: '50%',
                     width: 34,
                     height: 34,
                     transition: 'all 0.2s ease',
-                    '&:hover': { bgcolor: 'background.level2' },
+                    '&:hover': { bgcolor: 'rgba(217,119,87,0.08)' },
                   }}
                 >
                   <Settings size={16} />
@@ -846,9 +855,11 @@ export default function Layout({ children }: LayoutProps) {
               px: 2,
               py: 1.5,
               borderBottom: '1px solid',
-              borderColor: 'divider',
+              borderColor: mode === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)',
               zIndex: 1000,
-              background: 'linear-gradient(135deg, var(--joy-palette-primary-50) 0%, var(--joy-palette-primary-100) 100%)',
+              background: mode === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(26,25,21,0.7)',
+              backdropFilter: 'blur(20px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(20px) saturate(180%)',
             }}
           >
             <IconButton variant="plain" onClick={() => setMobileOpen(true)}>

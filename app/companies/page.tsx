@@ -332,55 +332,37 @@ export default function CompaniesPage() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: 'background.body', position: 'relative' }}>
-      {/* ===== Boxes Background ===== */}
+      {/* ===== Dot Pattern + Gradient Blobs Background ===== */}
       <Box sx={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
-        {[
-          { w: 64, h: 64, left: '6%', top: '10%', rot: 12, filled: false },
-          { w: 48, h: 48, left: '20%', top: '65%', rot: 35, filled: true },
-          { w: 80, h: 80, left: '72%', top: '6%', rot: -8, filled: false },
-          { w: 44, h: 44, left: '85%', top: '42%', rot: 22, filled: true },
-          { w: 56, h: 56, left: '3%', top: '76%', rot: -15, filled: false },
-          { w: 100, h: 100, left: '58%', top: '70%', rot: 18, filled: false },
-          { w: 36, h: 36, left: '40%', top: '4%', rot: 40, filled: true },
-          { w: 72, h: 72, left: '88%', top: '78%', rot: -25, filled: false },
-          { w: 52, h: 52, left: '14%', top: '36%', rot: 30, filled: false },
-          { w: 44, h: 44, left: '66%', top: '33%', rot: -12, filled: true },
-          { w: 60, h: 60, left: '48%', top: '86%', rot: 8, filled: false },
-          { w: 32, h: 32, left: '33%', top: '50%', rot: 45, filled: false },
-          { w: 90, h: 90, left: '80%', top: '15%', rot: -20, filled: false },
-          { w: 42, h: 42, left: '53%', top: '52%', rot: 15, filled: true },
-          { w: 70, h: 70, left: '26%', top: '20%', rot: -35, filled: false },
-          { w: 50, h: 50, left: '92%', top: '60%', rot: 28, filled: false },
-        ].map((box, i) => (
-          <Box
-            key={i}
-            sx={{
-              position: 'absolute',
-              width: box.w,
-              height: box.h,
-              left: box.left,
-              top: box.top,
-              borderRadius: '12px',
-              transform: `rotate(${box.rot}deg)`,
-              border: box.filled ? 'none' : '1.5px solid',
-              borderColor: box.filled ? 'transparent' : 'var(--joy-palette-primary-200)',
-              bgcolor: box.filled ? 'primary.50' : 'transparent',
-            }}
-          />
-        ))}
-        {/* Soft radial glow */}
+        {/* Dot pattern */}
         <Box sx={{
           position: 'absolute', inset: 0,
-          background: 'radial-gradient(circle at 25% 35%, var(--joy-palette-primary-50), transparent 55%), radial-gradient(circle at 75% 65%, var(--joy-palette-primary-50), transparent 55%)',
-          opacity: 0.35,
+          opacity: mode === 'light' ? 0.03 : 0.02,
+          backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 0.5px, transparent 0.5px)',
+          backgroundSize: '32px 32px',
+        }} />
+        {/* Gradient blobs */}
+        <Box sx={{
+          position: 'absolute', top: '-20%', right: '-10%', width: 500, height: 500,
+          borderRadius: '50%',
+          background: mode === 'light' ? 'rgba(217,119,87,0.06)' : 'rgba(217,119,87,0.03)',
+          filter: 'blur(120px)',
+        }} />
+        <Box sx={{
+          position: 'absolute', bottom: '-20%', left: '-10%', width: 400, height: 400,
+          borderRadius: '50%',
+          background: mode === 'light' ? 'rgba(196,105,77,0.05)' : 'rgba(196,105,77,0.02)',
+          filter: 'blur(100px)',
         }} />
       </Box>
       {/* ===== Navbar ===== */}
       <Sheet sx={{
         position: 'sticky', top: 0, zIndex: 1000,
-        borderBottom: '1px solid', borderColor: 'divider',
-        bgcolor: 'background.surface',
-        backdropFilter: 'blur(12px)',
+        borderBottom: '1px solid',
+        borderColor: mode === 'light' ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)',
+        background: mode === 'light' ? 'rgba(255,255,255,0.6)' : 'rgba(26,25,21,0.7)',
+        backdropFilter: 'blur(20px) saturate(180%)',
+        WebkitBackdropFilter: 'blur(20px) saturate(180%)',
       }}>
         <Box sx={{ maxWidth: 1152, mx: 'auto', px: { xs: 2, sm: 3 } }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ height: 56 }}>
@@ -450,8 +432,14 @@ export default function CompaniesPage() {
             </Box>
             <Button size="sm" startDecorator={<Plus size={16} />} onClick={() => setCreateModalOpen(true)}
               sx={{
+                borderRadius: '20px',
                 background: 'linear-gradient(135deg, var(--joy-palette-primary-500), var(--joy-palette-primary-600))',
-                '&:hover': { background: 'linear-gradient(135deg, var(--joy-palette-primary-600), var(--joy-palette-primary-700))' },
+                '&:hover': {
+                  background: 'linear-gradient(135deg, var(--joy-palette-primary-600), var(--joy-palette-primary-700))',
+                  transform: 'translateY(-1px)',
+                },
+                transition: 'all 0.2s ease',
+                boxShadow: '0 4px 12px rgba(217,119,87,0.25)',
               }}>
               New Company
             </Button>
@@ -466,7 +454,7 @@ export default function CompaniesPage() {
                 onChange={e => setSearchQuery(e.target.value)}
                 startDecorator={<Search size={16} />}
                 size="sm"
-                sx={{ flex: 1, maxWidth: 320 }}
+                sx={{ flex: 1, maxWidth: 320, borderRadius: '20px' }}
               />
               <Stack direction="row" spacing={0.25}>
                 {(['grid', 'compact', 'list', 'table'] as const).map(m => {
@@ -474,7 +462,8 @@ export default function CompaniesPage() {
                   const Icon = icons[m];
                   return (
                     <IconButton key={m} size="sm" variant={viewMode === m ? 'solid' : 'plain'}
-                      color={viewMode === m ? 'primary' : 'neutral'} onClick={() => setViewMode(m)}>
+                      color={viewMode === m ? 'primary' : 'neutral'} onClick={() => setViewMode(m)}
+                      sx={{ borderRadius: '10px' }}>
                       <Icon size={16} />
                     </IconButton>
                   );
@@ -586,7 +575,15 @@ export default function CompaniesPage() {
 
       {/* Create Company Modal */}
       <Modal open={createModalOpen} onClose={() => !creating && setCreateModalOpen(false)}>
-        <ModalDialog sx={{ maxWidth: 500, width: '90vw', maxHeight: '90vh', overflow: 'auto', p: 3 }}>
+        <ModalDialog sx={{
+          maxWidth: 500, width: '90vw', maxHeight: '90vh', overflow: 'auto', p: 3,
+          background: mode === 'light' ? 'rgba(255,255,255,0.85)' : 'rgba(35,34,32,0.9)',
+          backdropFilter: 'blur(40px) saturate(200%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(200%)',
+          border: '1px solid',
+          borderColor: mode === 'light' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)',
+          borderRadius: '20px',
+        }}>
           <ModalClose disabled={creating} />
           <Typography level="title-lg" fontWeight={700} sx={{ mb: 0.25 }}>Create New Company</Typography>
           <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 2 }}>Just the basics — you can update everything in settings later.</Typography>
@@ -675,7 +672,15 @@ export default function CompaniesPage() {
 
       {/* Security Modal */}
       <Modal open={securityModalOpen} onClose={() => setSecurityModalOpen(false)}>
-        <ModalDialog sx={{ maxWidth: 380, p: 3 }}>
+        <ModalDialog sx={{
+          maxWidth: 380, p: 3,
+          background: mode === 'light' ? 'rgba(255,255,255,0.85)' : 'rgba(35,34,32,0.9)',
+          backdropFilter: 'blur(40px) saturate(200%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(200%)',
+          border: '1px solid',
+          borderColor: mode === 'light' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)',
+          borderRadius: '20px',
+        }}>
           <ModalClose />
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
             <Box sx={{ width: 36, height: 36, borderRadius: 'md', bgcolor: 'warning.softBg', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -702,7 +707,15 @@ export default function CompaniesPage() {
 
       {/* Verify Passcode Modal */}
       <Modal open={verifyModalOpen} onClose={() => setVerifyModalOpen(false)}>
-        <ModalDialog sx={{ maxWidth: 380, p: 3 }}>
+        <ModalDialog sx={{
+          maxWidth: 380, p: 3,
+          background: mode === 'light' ? 'rgba(255,255,255,0.85)' : 'rgba(35,34,32,0.9)',
+          backdropFilter: 'blur(40px) saturate(200%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(200%)',
+          border: '1px solid',
+          borderColor: mode === 'light' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)',
+          borderRadius: '20px',
+        }}>
           <ModalClose />
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
             <Box sx={{ width: 36, height: 36, borderRadius: 'md', bgcolor: 'primary.softBg', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -723,7 +736,15 @@ export default function CompaniesPage() {
 
       {/* Collaborators Modal */}
       <Modal open={usersModalOpen} onClose={() => setUsersModalOpen(false)}>
-        <ModalDialog sx={{ maxWidth: 460, p: 3 }}>
+        <ModalDialog sx={{
+          maxWidth: 460, p: 3,
+          background: mode === 'light' ? 'rgba(255,255,255,0.85)' : 'rgba(35,34,32,0.9)',
+          backdropFilter: 'blur(40px) saturate(200%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(200%)',
+          border: '1px solid',
+          borderColor: mode === 'light' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)',
+          borderRadius: '20px',
+        }}>
           <ModalClose />
           <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
             <Box sx={{ width: 36, height: 36, borderRadius: 'md', bgcolor: 'primary.softBg', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

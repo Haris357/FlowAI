@@ -9,8 +9,9 @@ import {
 import {
   User, Settings, Bell, Shield, CreditCard, Zap,
   FileText, GraduationCap, HelpCircle, MessageSquare, Sparkles, Info,
-  ChevronLeft, ChevronRight,
+  ChevronLeft, ChevronRight, X,
 } from 'lucide-react';
+import { useTheme } from '@/contexts/ThemeContext';
 import ProfileSection from './ProfileSection';
 import PreferencesSection from './PreferencesSection';
 import NotificationsSection from './NotificationsSection';
@@ -94,6 +95,7 @@ interface SettingsModalProps {
 export default function SettingsModal({ open, onClose, initialSection = 'profile' }: SettingsModalProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
   const [mobileNavVisible, setMobileNavVisible] = useState(false);
+  const { mode } = useTheme();
 
   const section = SECTION_META[activeSection];
 
@@ -101,6 +103,8 @@ export default function SettingsModal({ open, onClose, initialSection = 'profile
     setActiveSection(id);
     setMobileNavVisible(false);
   };
+
+  const isLight = mode === 'light';
 
   return (
     <Modal open={open} onClose={onClose}>
@@ -111,7 +115,7 @@ export default function SettingsModal({ open, onClose, initialSection = 'profile
           maxWidth: 960,
           maxHeight: '92vh',
           width: '95vw',
-          borderRadius: 'xl',
+          borderRadius: '24px',
           overflow: 'hidden',
           mx: 'auto',
           my: 'auto',
@@ -119,19 +123,28 @@ export default function SettingsModal({ open, onClose, initialSection = 'profile
           flexDirection: 'column',
           '--ModalDialog-minWidth': 'unset',
           layout: 'center',
+          background: isLight ? 'rgba(255, 255, 255, 0.75)' : 'rgba(26, 25, 21, 0.8)',
+          backdropFilter: 'blur(40px) saturate(200%)',
+          WebkitBackdropFilter: 'blur(40px) saturate(200%)',
+          border: '1px solid',
+          borderColor: isLight ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.08)',
+          boxShadow: isLight
+            ? '0 24px 80px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.8)'
+            : '0 24px 80px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.05)',
         }}
       >
         {/* Top bar */}
         <Box
           sx={{
             px: 2.5,
-            py: 1.75,
+            py: 2,
             borderBottom: '1px solid',
-            borderColor: 'divider',
+            borderColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)',
             display: 'flex',
             alignItems: 'center',
             gap: 1.5,
             flexShrink: 0,
+            background: isLight ? 'rgba(217,119,87,0.03)' : 'rgba(217,119,87,0.04)',
           }}
         >
           {/* Mobile nav toggle */}
@@ -139,11 +152,19 @@ export default function SettingsModal({ open, onClose, initialSection = 'profile
             variant="plain"
             size="sm"
             onClick={() => setMobileNavVisible(!mobileNavVisible)}
-            sx={{ display: { xs: 'flex', sm: 'none' } }}
+            sx={{ display: { xs: 'flex', sm: 'none' }, borderRadius: '10px' }}
           >
             {mobileNavVisible ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
           </IconButton>
-          <Settings size={18} style={{ color: 'var(--joy-palette-primary-500)', flexShrink: 0 }} />
+          <Box sx={{
+            width: 36, height: 36, borderRadius: '12px',
+            background: 'linear-gradient(135deg, var(--joy-palette-primary-500), var(--joy-palette-primary-600))',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(217,119,87,0.3)',
+            flexShrink: 0,
+          }}>
+            <Settings size={18} style={{ color: '#fff' }} />
+          </Box>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography level="title-md" fontWeight={700}>
               Settings
@@ -152,7 +173,22 @@ export default function SettingsModal({ open, onClose, initialSection = 'profile
               Manage your account, preferences, and get help
             </Typography>
           </Box>
-          <ModalClose sx={{ position: 'static' }} />
+          <IconButton
+            variant="plain"
+            size="sm"
+            onClick={onClose}
+            sx={{
+              borderRadius: '50%',
+              width: 32,
+              height: 32,
+              background: isLight ? 'rgba(0,0,0,0.04)' : 'rgba(255,255,255,0.06)',
+              '&:hover': {
+                background: isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.1)',
+              },
+            }}
+          >
+            <X size={16} />
+          </IconButton>
         </Box>
 
         {/* Body */}
@@ -160,33 +196,33 @@ export default function SettingsModal({ open, onClose, initialSection = 'profile
           {/* Sidebar nav */}
           <Box
             sx={{
-              width: 220,
+              width: 230,
               flexShrink: 0,
               borderRight: '1px solid',
-              borderColor: 'divider',
+              borderColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)',
               overflow: 'auto',
-              py: 1.5,
-              px: 1,
+              py: 2,
+              px: 1.25,
               display: { xs: mobileNavVisible ? 'block' : 'none', sm: 'block' },
               position: { xs: 'absolute', sm: 'static' },
-              top: { xs: 52, sm: 'unset' },
+              top: { xs: 60, sm: 'unset' },
               left: 0,
               bottom: 0,
               zIndex: 10,
-              bgcolor: 'background.surface',
+              background: isLight ? 'rgba(245,243,240,0.5)' : 'rgba(20,19,16,0.3)',
             }}
           >
             {NAV_GROUPS.map(group => (
-              <Box key={group.label} sx={{ mb: 1.5 }}>
+              <Box key={group.label} sx={{ mb: 2 }}>
                 <Typography
                   level="body-xs"
                   sx={{
                     color: 'text.tertiary',
                     textTransform: 'uppercase',
                     fontWeight: 700,
-                    letterSpacing: '0.06em',
-                    px: 1,
-                    mb: 0.25,
+                    letterSpacing: '0.08em',
+                    px: 1.25,
+                    mb: 0.5,
                     fontSize: '10px',
                   }}
                 >
@@ -202,16 +238,31 @@ export default function SettingsModal({ open, onClose, initialSection = 'profile
                           selected={isActive}
                           onClick={() => handleSelect(item.id)}
                           sx={{
-                            borderRadius: 'sm',
-                            py: 0.75,
+                            borderRadius: '12px',
+                            py: 0.85,
+                            px: 1.25,
+                            transition: 'all 0.2s ease',
                             '&.Mui-selected': {
-                              bgcolor: 'primary.softBg',
-                              color: 'primary.700',
+                              background: isLight
+                                ? 'linear-gradient(135deg, rgba(217,119,87,0.1) 0%, rgba(217,119,87,0.06) 100%)'
+                                : 'linear-gradient(135deg, rgba(217,119,87,0.15) 0%, rgba(217,119,87,0.08) 100%)',
+                              color: isLight ? 'primary.700' : 'primary.300',
+                              boxShadow: isLight
+                                ? '0 2px 8px rgba(217,119,87,0.1)'
+                                : '0 2px 8px rgba(217,119,87,0.08)',
+                              '&:hover': {
+                                background: isLight
+                                  ? 'linear-gradient(135deg, rgba(217,119,87,0.14) 0%, rgba(217,119,87,0.08) 100%)'
+                                  : 'linear-gradient(135deg, rgba(217,119,87,0.2) 0%, rgba(217,119,87,0.12) 100%)',
+                              },
+                            },
+                            '&:hover': {
+                              background: isLight ? 'rgba(0,0,0,0.03)' : 'rgba(255,255,255,0.04)',
                             },
                           }}
                         >
                           <ListItemDecorator sx={{ color: isActive ? 'primary.500' : 'text.tertiary', minInlineSize: 28 }}>
-                            <Icon size={15} />
+                            <Icon size={16} />
                           </ListItemDecorator>
                           <ListItemContent>
                             <Typography level="body-sm" fontWeight={isActive ? 600 : 400} sx={{ fontSize: '13px' }}>
@@ -237,15 +288,18 @@ export default function SettingsModal({ open, onClose, initialSection = 'profile
             }}
           >
             {/* Section header */}
-            <Box sx={{ mb: 2.5 }}>
-              <Typography level="title-lg" fontWeight={700} sx={{ mb: 0.25 }}>
+            <Box sx={{ mb: 3 }}>
+              <Typography level="title-lg" fontWeight={700} sx={{ mb: 0.5, fontSize: '1.25rem' }}>
                 {section.label}
               </Typography>
               <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
                 {section.description}
               </Typography>
             </Box>
-            <Divider sx={{ mb: 2.5 }} />
+            <Divider sx={{
+              mb: 3,
+              borderColor: isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)',
+            }} />
 
             {/* Section content */}
             {activeSection === 'profile' && <ProfileSection />}

@@ -5,6 +5,7 @@ import {
   Zap,
   TrendingUp,
   Shield,
+  Clock,
   Users,
   ArrowRight,
   Check,
@@ -14,12 +15,15 @@ import {
   FileText,
   Wallet,
   BookOpen,
+  PieChart,
   CreditCard,
+  Building2,
   RefreshCw,
   Calculator,
   Menu,
   X,
   ChevronDown,
+  MousePointer,
   CheckCircle2,
   Plus,
   Minus,
@@ -35,9 +39,7 @@ import {
   Info,
   Lock,
   Mail,
-  Banknote,
-  ClipboardList,
-  FileSignature,
+  Home,
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,10 +48,10 @@ import FlowBooksLogo from '@/components/FlowBooksLogo';
 
 const AccordionItem = ({ question, answer, isOpen, onClick, index }: { question: string; answer: string; isOpen: boolean; onClick: () => void; index: number }) => (
   <div
-    className={`group rounded-2xl transition-all duration-300 ${
+    className={`group rounded-2xl border transition-all duration-300 ${
       isOpen
-        ? 'liquid-glass shadow-lg shadow-slate-200/50 dark:shadow-black/20'
-        : 'bg-transparent border border-transparent hover:bg-slate-50/50 dark:hover:bg-white/[0.02]'
+        ? 'bg-white dark:bg-[#232220] border-slate-200 dark:border-[#3D3A37] shadow-lg shadow-slate-200/50 dark:shadow-black/20'
+        : 'bg-transparent border-transparent hover:bg-slate-50/50 dark:hover:bg-white/[0.02]'
     }`}
   >
     <button
@@ -111,6 +113,28 @@ const faqs = [
     a: "Flowbooks automatically applies default tax rates based on your location settings. You can also customize tax rules for specific items or clients."
   }
 ];
+
+const featureCards = [
+  { icon: BarChart3, title: 'Real-time Reports', desc: 'P&L, Balance Sheets, Cash Flow — generated instantly.', color: 'purple', stat: '+24%', statLabel: 'Revenue Growth' },
+  { icon: Receipt, title: 'Expense Tracking', desc: 'Snap receipts. AI extracts the data automatically.', color: 'amber', stat: '2.4s', statLabel: 'Avg Processing' },
+  { icon: Wallet, title: 'Bank Sync', desc: '10,000+ banks connected with enterprise-grade security.', color: 'rose', stat: '10K+', statLabel: 'Banks Connected' },
+  { icon: Users, title: 'Customer CRM', desc: 'Track client details, invoices, and payment history.', color: 'blue', stat: '360°', statLabel: 'Client View' },
+  { icon: RefreshCw, title: 'Recurring Billing', desc: 'Set up auto-invoicing for retainers and subscriptions.', color: 'emerald', stat: '0', statLabel: 'Missed Invoices' },
+  { icon: CreditCard, title: 'Multi-Currency', desc: 'Invoice in any currency with real-time conversion rates.', color: 'indigo', stat: '135+', statLabel: 'Currencies' },
+  { icon: Shield, title: 'Audit Proof', desc: 'Every single change is logged with full traceability.', color: 'brand', stat: '100%', statLabel: 'Compliance' },
+  { icon: Calculator, title: 'Tax Ready', desc: 'Auto-calculate tax obligations and file on time.', color: 'cyan', stat: '92%', statLabel: 'Auto-Filed' },
+];
+
+const colorMap: Record<string, { bg: string; text: string; border: string; statBg: string }> = {
+  purple: { bg: 'bg-purple-100 dark:bg-purple-900/30', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-200/60 dark:border-purple-800/30', statBg: 'bg-purple-50 dark:bg-purple-900/20' },
+  amber: { bg: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-200/60 dark:border-amber-800/30', statBg: 'bg-amber-50 dark:bg-amber-900/20' },
+  rose: { bg: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-200/60 dark:border-rose-800/30', statBg: 'bg-rose-50 dark:bg-rose-900/20' },
+  blue: { bg: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-200/60 dark:border-blue-800/30', statBg: 'bg-blue-50 dark:bg-blue-900/20' },
+  emerald: { bg: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-200/60 dark:border-emerald-800/30', statBg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+  indigo: { bg: 'bg-indigo-100 dark:bg-indigo-900/30', text: 'text-indigo-600 dark:text-indigo-400', border: 'border-indigo-200/60 dark:border-indigo-800/30', statBg: 'bg-indigo-50 dark:bg-indigo-900/20' },
+  brand: { bg: 'bg-brand-100 dark:bg-brand-900/30', text: 'text-brand-600 dark:text-brand-400', border: 'border-brand-200/60 dark:border-brand-800/30', statBg: 'bg-brand-50 dark:bg-brand-900/20' },
+  cyan: { bg: 'bg-cyan-100 dark:bg-cyan-900/30', text: 'text-cyan-600 dark:text-cyan-400', border: 'border-cyan-200/60 dark:border-cyan-800/30', statBg: 'bg-cyan-50 dark:bg-cyan-900/20' },
+};
 
 export default function LandingPage() {
   const { user } = useAuth();
@@ -200,7 +224,7 @@ export default function LandingPage() {
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
           scrolled
-            ? 'py-1.5 liquid-glass-strong'
+            ? 'py-1.5 bg-white/80 dark:bg-[#1A1915]/80 backdrop-blur-2xl border-b border-slate-200/50 dark:border-white/[0.06] shadow-sm shadow-slate-200/20 dark:shadow-black/10'
             : 'py-3 bg-transparent'
         }`}
       >
@@ -208,7 +232,7 @@ export default function LandingPage() {
           <div className="flex items-center justify-between h-12">
             <FlowBooksLogo size="sm" />
 
-            <div className="hidden lg:flex items-center gap-0.5 liquid-glass-subtle rounded-full px-1.5 py-1">
+            <div className="hidden lg:flex items-center gap-0.5 bg-slate-100/60 dark:bg-white/[0.04] rounded-full px-1.5 py-1 border border-slate-200/40 dark:border-white/[0.04]">
               <Link href="/pricing" className="px-3.5 py-1.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-full hover:bg-white dark:hover:bg-white/[0.06] transition-all flex items-center gap-1.5">
                 <CreditCard className="w-3.5 h-3.5" />Pricing
               </Link>
@@ -231,7 +255,7 @@ export default function LandingPage() {
                   More
                   <ChevronDown className={`w-3 h-3 transition-transform duration-300 ${isMoreOpen ? 'rotate-180' : ''}`} />
                 </button>
-                <div className={`absolute right-0 top-full mt-2 w-52 liquid-glass-strong rounded-2xl overflow-hidden transition-all duration-300 origin-top ${isMoreOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}>
+                <div className={`absolute right-0 top-full mt-2 w-52 bg-white dark:bg-[#232220] border border-slate-200/80 dark:border-[#3D3A37] rounded-2xl shadow-xl shadow-black/8 dark:shadow-black/30 overflow-hidden transition-all duration-300 origin-top ${isMoreOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}>
                   <div className="p-2">
                     <Link href="/privacy" className="flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">
                       <Shield className="w-4 h-4" />Privacy Policy
@@ -295,7 +319,7 @@ export default function LandingPage() {
         </div>
 
         <div
-          className={`lg:hidden liquid-glass-strong overflow-hidden transition-all duration-300 ${
+          className={`lg:hidden bg-white/95 dark:bg-[#1A1915]/95 backdrop-blur-2xl border-t border-slate-200/50 dark:border-white/[0.06] overflow-hidden transition-all duration-300 ${
             isMenuOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'
           }`}
         >
@@ -399,7 +423,7 @@ export default function LandingPage() {
             <div className="absolute -inset-px rounded-[20px] bg-gradient-to-b from-brand-500/20 via-brand-500/5 to-transparent pointer-events-none" />
             <div className="absolute -inset-8 bg-gradient-to-b from-brand-500/8 to-transparent rounded-3xl blur-2xl pointer-events-none" />
 
-            <div className="relative rounded-[20px] overflow-hidden liquid-glass-strong">
+            <div className="relative rounded-[20px] overflow-hidden border border-slate-200/70 dark:border-white/[0.08] shadow-2xl shadow-slate-300/30 dark:shadow-black/40 bg-white dark:bg-[#1A1915]">
               <div className="flex items-center gap-2.5 px-4 py-2.5 bg-slate-50/80 dark:bg-[#232220] border-b border-slate-200/60 dark:border-white/[0.06]">
                 <div className="flex gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full bg-red-400/70" />
@@ -526,14 +550,14 @@ export default function LandingPage() {
       {/* ============ SOCIAL PROOF STRIP ============ */}
       <section className="relative z-10 py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
             {[
               { value: '12K+', label: 'Active businesses' },
               { value: '$2.4B', label: 'Invoices processed' },
               { value: '99.9%', label: 'Uptime SLA' },
               { value: '4.9/5', label: 'User rating' },
             ].map((s, i) => (
-              <div key={i} className="text-center liquid-glass-subtle rounded-2xl py-5 px-4">
+              <div key={i} className="text-center">
                 <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{s.value}</div>
                 <div className="text-xs text-slate-500 dark:text-[#78736D] mt-1">{s.label}</div>
               </div>
@@ -588,7 +612,7 @@ export default function LandingPage() {
 
             <div className="relative">
               <div className="absolute -inset-4 bg-gradient-to-br from-brand-500/8 to-transparent rounded-3xl blur-xl pointer-events-none" />
-              <div className="relative liquid-glass rounded-2xl p-5 space-y-3">
+              <div className="relative bg-white dark:bg-[#232220] border border-slate-200 dark:border-[#2D2B28] rounded-2xl shadow-xl p-5 space-y-3">
                 <div className="flex justify-end">
                   <div className="bg-gradient-to-r from-brand-500 to-brand-600 text-white rounded-2xl rounded-br-sm px-4 py-2.5 text-[13px] max-w-[80%] shadow-lg shadow-brand-500/15">
                     Spent $150 at Office Depot for printer paper and ink
@@ -613,7 +637,7 @@ export default function LandingPage() {
           <div className="grid lg:grid-cols-2 gap-6 lg:gap-12 items-center">
             <div className="order-2 lg:order-1 relative group">
               <div className="absolute -inset-4 bg-gradient-to-br from-blue-500/8 to-transparent rounded-3xl blur-xl pointer-events-none" />
-              <div className="relative liquid-glass-strong rounded-2xl overflow-hidden transform group-hover:scale-[1.005] transition-transform duration-500">
+              <div className="relative bg-white dark:bg-[#232220] border border-slate-200 dark:border-[#2D2B28] rounded-2xl shadow-2xl overflow-hidden transform group-hover:scale-[1.005] transition-transform duration-500">
                 <div className="h-1 bg-gradient-to-r from-brand-500 to-brand-600" />
                 <div className="px-5 pt-4 pb-3 flex justify-between items-start">
                   <div>
@@ -700,12 +724,12 @@ export default function LandingPage() {
                 Create professional invoices in seconds. Let Flowbooks automatically follow up with clients who are late on payments using polite, customizable email sequences.
               </p>
               <div className="grid grid-cols-2 gap-3 pt-1">
-                <div className="p-4 liquid-glass-subtle rounded-2xl">
+                <div className="p-4 bg-slate-50/80 dark:bg-[#2D2B28]/50 rounded-2xl border border-slate-100 dark:border-[#3D3A37]">
                   <RefreshCw className="w-4 h-4 text-brand-500 mb-2" />
                   <h4 className="font-bold text-slate-900 dark:text-white mb-0.5 text-sm">Recurring Bills</h4>
                   <p className="text-xs text-slate-500 dark:text-[#A8A29E]">Set it and forget it for retainers.</p>
                 </div>
-                <div className="p-4 liquid-glass-subtle rounded-2xl">
+                <div className="p-4 bg-slate-50/80 dark:bg-[#2D2B28]/50 rounded-2xl border border-slate-100 dark:border-[#3D3A37]">
                   <Zap className="w-4 h-4 text-brand-500 mb-2" />
                   <h4 className="font-bold text-slate-900 dark:text-white mb-0.5 text-sm">Pay Links</h4>
                   <p className="text-xs text-slate-500 dark:text-[#A8A29E]">One-click payment for clients.</p>
@@ -716,289 +740,54 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ============ BENTO GRID ============ */}
+      {/* ============ CAPABILITIES GRID ============ */}
       <section id="how-it-works" className="relative z-10 py-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="text-center max-w-3xl mx-auto mb-14">
+          <div className="text-center max-w-2xl mx-auto mb-14">
             <p className="text-brand-600 dark:text-brand-400 text-xs font-semibold tracking-widest uppercase mb-3">Capabilities</p>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-3">Everything you need to run your business</h2>
             <p className="text-base text-slate-500 dark:text-[#A8A29E]">From day one to IPO, we&apos;ve got the tools to keep your finances healthy.</p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 auto-rows-[180px]">
-
-             {/* 1 — Financial Reporting (wide) */}
-             <div className="md:col-span-2 md:row-span-2 liquid-glass p-5 rounded-2xl hover:shadow-xl hover:shadow-slate-200/20 dark:hover:shadow-black/20 transition-all group overflow-hidden relative">
-               <div className="relative z-10">
-                 <div className="w-9 h-9 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mb-3">
-                   <BarChart3 className="w-4.5 h-4.5 text-purple-600 dark:text-purple-400" />
-                 </div>
-                 <h3 className="text-base font-bold mb-1 text-slate-900 dark:text-white">Real-time Financial Reporting</h3>
-                 <p className="text-slate-500 dark:text-[#A8A29E] max-w-xs text-[13px] leading-relaxed">Generate P&L, Balance Sheets, and Cash Flow statements instantly.</p>
-               </div>
-               <div className="absolute right-4 bottom-4 w-52 h-36 liquid-glass-subtle rounded-xl p-3 transform group-hover:translate-x-[-4px] transition-transform duration-300">
-                 <div className="flex items-center justify-between mb-2">
-                   <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-400">Revenue</span>
-                   <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 flex items-center gap-0.5"><TrendingUp className="w-3 h-3" /> +24%</span>
-                 </div>
-                 <div className="flex items-end justify-between h-[calc(100%-24px)] gap-1.5 pb-1">
-                   {[35, 50, 40, 65, 55, 80, 70, 90].map((h, i) => (
-                     <div key={i} className="flex-1 rounded-sm bg-purple-200 dark:bg-purple-700/50" style={{ height: `${h}%` }} />
-                   ))}
-                 </div>
-               </div>
-             </div>
-
-             {/* 2 — Expense Tracking */}
-             <div className="liquid-glass p-5 rounded-2xl hover:shadow-xl hover:shadow-slate-200/20 dark:hover:shadow-black/20 transition-all overflow-hidden relative group">
-                <div className="w-9 h-9 bg-amber-100 dark:bg-amber-900/30 rounded-xl flex items-center justify-center mb-2.5">
-                  <Receipt className="w-4.5 h-4.5 text-amber-600 dark:text-amber-400" />
-                </div>
-                <h3 className="text-base font-bold mb-1 text-slate-900 dark:text-white">Expense Tracking</h3>
-                <p className="text-slate-500 dark:text-[#A8A29E] text-[13px]">Snap receipts. AI extracts the data.</p>
-                <div className="absolute bottom-3 right-3 w-20 h-24 liquid-glass-subtle rounded-lg p-2 transform rotate-3 group-hover:rotate-0 transition-transform">
-                  <div className="h-1.5 w-10 bg-amber-200 dark:bg-amber-700/40 rounded mb-1.5" />
-                  <div className="h-1 w-14 bg-amber-100 dark:bg-amber-800/30 rounded mb-1" />
-                  <div className="h-1 w-12 bg-amber-100 dark:bg-amber-800/30 rounded mb-1" />
-                  <div className="border-t border-dashed border-amber-200 dark:border-amber-700/40 my-1.5" />
-                  <div className="h-1.5 w-8 bg-amber-200 dark:bg-amber-700/40 rounded ml-auto" />
-                </div>
-             </div>
-
-             {/* 3 — Bank Sync */}
-             <div className="liquid-glass p-5 rounded-2xl hover:shadow-xl hover:shadow-slate-200/20 dark:hover:shadow-black/20 transition-all overflow-hidden relative">
-                <div className="w-9 h-9 bg-rose-100 dark:bg-rose-900/30 rounded-xl flex items-center justify-center mb-2.5">
-                  <Wallet className="w-4.5 h-4.5 text-rose-600 dark:text-rose-400" />
-                </div>
-                <h3 className="text-base font-bold mb-1 text-slate-900 dark:text-white">Bank Sync</h3>
-                <p className="text-slate-500 dark:text-[#A8A29E] text-[13px]">10,000+ banks connected securely.</p>
-                <div className="absolute bottom-4 right-4 flex items-center gap-1">
-                  <div className="w-5 h-5 rounded-full bg-rose-100 dark:bg-rose-900/30 border border-rose-200 dark:border-rose-800/30" />
-                  <div className="w-6 h-0.5 bg-rose-200 dark:bg-rose-700/40" />
-                  <div className="w-5 h-5 rounded-full bg-rose-200 dark:bg-rose-800/30 border border-rose-300 dark:border-rose-700/30" />
-                  <div className="w-6 h-0.5 bg-rose-200 dark:bg-rose-700/40" />
-                  <div className="w-5 h-5 rounded-full bg-rose-300 dark:bg-rose-700/40 border border-rose-300 dark:border-rose-700/30 flex items-center justify-center">
-                    <Check className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {featureCards.map((card, i) => {
+              const c = colorMap[card.color];
+              return (
+                <div
+                  key={i}
+                  className="group relative bg-white dark:bg-[#232220] rounded-2xl border border-slate-200/80 dark:border-[#2D2B28] p-5 hover:shadow-xl hover:shadow-slate-200/30 dark:hover:shadow-black/20 hover:-translate-y-1 transition-all duration-300 overflow-hidden"
+                >
+                  <div className={`w-10 h-10 ${c.bg} rounded-xl flex items-center justify-center mb-3.5`}>
+                    <card.icon className={`w-5 h-5 ${c.text}`} />
+                  </div>
+                  <h3 className="text-sm font-bold mb-1.5 text-slate-900 dark:text-white">{card.title}</h3>
+                  <p className="text-slate-500 dark:text-[#A8A29E] text-[13px] leading-relaxed mb-4">{card.desc}</p>
+                  <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full ${c.statBg} border ${c.border}`}>
+                    <span className={`text-sm font-bold ${c.text}`}>{card.stat}</span>
+                    <span className="text-[10px] text-slate-500 dark:text-[#78736D]">{card.statLabel}</span>
                   </div>
                 </div>
-             </div>
-
-             {/* 4 — Customer Management (tall) */}
-             <div className="md:row-span-2 liquid-glass p-5 rounded-2xl hover:shadow-xl hover:shadow-slate-200/20 dark:hover:shadow-black/20 transition-all">
-                <div className="h-full flex flex-col">
-                  <div className="w-9 h-9 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mb-2.5">
-                    <Users className="w-4.5 h-4.5 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <h3 className="text-base font-bold mb-1 text-slate-900 dark:text-white">Customer Management</h3>
-                  <p className="text-slate-500 dark:text-[#A8A29E] text-[13px] mb-3">Track details and payment history.</p>
-                  <div className="flex-1 space-y-2">
-                    {[
-                      { name: 'Sarah Chen', amount: '$12,400', color: 'bg-blue-500' },
-                      { name: 'Alex Rivera', amount: '$8,750', color: 'bg-emerald-500' },
-                      { name: 'Jordan Lee', amount: '$5,200', color: 'bg-purple-500' },
-                      { name: 'Morgan Taylor', amount: '$3,800', color: 'bg-amber-500' },
-                    ].map((c, i) => (
-                      <div key={i} className="flex items-center gap-2.5 liquid-glass-subtle p-2 rounded-lg">
-                        <div className={`w-6 h-6 rounded-full ${c.color} flex items-center justify-center text-[9px] font-bold text-white`}>{c.name[0]}</div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[11px] font-medium text-slate-700 dark:text-[#DBD8D0] truncate">{c.name}</div>
-                        </div>
-                        <div className="text-[11px] font-semibold text-slate-600 dark:text-[#A8A29E]">{c.amount}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-             </div>
-
-             {/* 5 — Recurring Billing */}
-             <div className="liquid-glass p-5 rounded-2xl hover:shadow-xl hover:shadow-slate-200/20 dark:hover:shadow-black/20 transition-all overflow-hidden relative">
-                <div className="w-9 h-9 bg-emerald-100 dark:bg-emerald-900/30 rounded-xl flex items-center justify-center mb-2.5">
-                  <RefreshCw className="w-4.5 h-4.5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <h3 className="text-base font-bold mb-1 text-slate-900 dark:text-white">Recurring Billing</h3>
-                <p className="text-slate-500 dark:text-[#A8A29E] text-[13px]">Automate retainer invoices.</p>
-                <div className="absolute bottom-3 right-3 grid grid-cols-4 gap-1">
-                  {[...Array(12)].map((_, i) => (
-                    <div key={i} className={`w-3 h-3 rounded-full ${i === 2 || i === 6 || i === 10 ? 'bg-emerald-400 dark:bg-emerald-500' : 'liquid-glass-subtle'}`} />
-                  ))}
-                </div>
-             </div>
-
-             {/* 6 — Multi-Currency (wide) */}
-             <div className="md:col-span-2 liquid-glass p-5 rounded-2xl hover:shadow-xl hover:shadow-slate-200/20 dark:hover:shadow-black/20 transition-all overflow-hidden relative">
-                <div className="flex items-start gap-4">
-                  <div>
-                    <div className="w-9 h-9 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center mb-2.5">
-                      <CreditCard className="w-4.5 h-4.5 text-indigo-600 dark:text-indigo-400" />
-                    </div>
-                    <h3 className="text-base font-bold mb-1 text-slate-900 dark:text-white">Multi-Currency Support</h3>
-                    <p className="text-slate-500 dark:text-[#A8A29E] text-[13px]">Invoice and track in any currency. Auto-conversion at real-time rates.</p>
-                  </div>
-                  <div className="flex items-center gap-2 ml-auto flex-shrink-0 mt-1">
-                    {[
-                      { code: 'USD', symbol: '$', color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/30' },
-                      { code: 'EUR', symbol: '\u20AC', color: 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/30' },
-                      { code: 'GBP', symbol: '\u00A3', color: 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800/30' },
-                    ].map((cur, i) => (
-                      <div key={i} className={`px-2.5 py-2 rounded-lg border text-center ${cur.color}`}>
-                        <div className="text-base font-bold">{cur.symbol}</div>
-                        <div className="text-[9px] font-semibold mt-0.5">{cur.code}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-             </div>
-
-             {/* 7 — Audit Trail */}
-             <div className="liquid-glass p-5 rounded-2xl hover:shadow-xl hover:shadow-slate-200/20 dark:hover:shadow-black/20 transition-all overflow-hidden relative">
-                <div className="w-9 h-9 bg-brand-100 dark:bg-brand-900/30 rounded-xl flex items-center justify-center mb-2.5">
-                  <Shield className="w-4.5 h-4.5 text-brand-600 dark:text-brand-400" />
-                </div>
-                <h3 className="text-base font-bold mb-1 text-slate-900 dark:text-white">Audit Proof</h3>
-                <p className="text-slate-500 dark:text-[#A8A29E] text-[13px]">Every change is logged.</p>
-                <div className="absolute bottom-3 left-5 right-5 space-y-1">
-                  {['Invoice created', 'Payment received', 'Status updated'].map((log, i) => (
-                    <div key={i} className="flex items-center gap-1.5 text-[9px]">
-                      <div className="w-1 h-1 rounded-full bg-brand-400" />
-                      <span className="text-slate-400 dark:text-[#5C5752]">{log}</span>
-                    </div>
-                  ))}
-                </div>
-             </div>
-
-             {/* 8 — Tax Ready */}
-             <div className="liquid-glass p-5 rounded-2xl hover:shadow-xl hover:shadow-slate-200/20 dark:hover:shadow-black/20 transition-all overflow-hidden relative group">
-                <div className="w-9 h-9 bg-cyan-100 dark:bg-cyan-900/30 rounded-xl flex items-center justify-center mb-2.5">
-                  <Calculator className="w-4.5 h-4.5 text-cyan-600 dark:text-cyan-400" />
-                </div>
-                <h3 className="text-base font-bold mb-1 text-slate-900 dark:text-white">Tax Ready</h3>
-                <p className="text-slate-500 dark:text-[#A8A29E] text-[13px]">Auto-calculate and file on time.</p>
-                <div className="absolute bottom-4 left-5 right-5">
-                  <div className="flex justify-between text-[9px] text-cyan-600 dark:text-cyan-400 font-medium mb-1">
-                    <span>Tax Report</span>
-                    <span>92%</span>
-                  </div>
-                  <div className="h-1.5 bg-slate-100 dark:bg-[#2D2B28] rounded-full overflow-hidden">
-                    <div className="h-full w-[92%] bg-cyan-400 dark:bg-cyan-500 rounded-full" />
-                  </div>
-                </div>
-             </div>
-
-             {/* 9 — Payroll */}
-             <div className="liquid-glass p-5 rounded-2xl hover:shadow-xl hover:shadow-slate-200/20 dark:hover:shadow-black/20 transition-all overflow-hidden relative group">
-                <div className="w-9 h-9 bg-violet-100 dark:bg-violet-900/30 rounded-xl flex items-center justify-center mb-2.5">
-                  <Banknote className="w-4.5 h-4.5 text-violet-600 dark:text-violet-400" />
-                </div>
-                <h3 className="text-base font-bold mb-1 text-slate-900 dark:text-white">Payroll</h3>
-                <p className="text-slate-500 dark:text-[#A8A29E] text-[13px]">Generate salary slips instantly.</p>
-                <div className="absolute bottom-3 left-5 right-5 space-y-1">
-                  <div className="flex items-center justify-between liquid-glass-subtle px-2 py-1.5 rounded-md">
-                    <span className="text-[9px] font-medium text-slate-600 dark:text-[#A8A29E]">Basic + HRA</span>
-                    <span className="text-[9px] font-bold text-emerald-600 dark:text-emerald-400">$4,200</span>
-                  </div>
-                  <div className="flex items-center justify-between liquid-glass-subtle px-2 py-1.5 rounded-md">
-                    <span className="text-[9px] font-medium text-slate-600 dark:text-[#A8A29E]">Deductions</span>
-                    <span className="text-[9px] font-bold text-red-500 dark:text-red-400">-$680</span>
-                  </div>
-                  <div className="flex items-center justify-between px-2 pt-1">
-                    <span className="text-[9px] font-semibold text-slate-700 dark:text-[#DBD8D0]">Net Pay</span>
-                    <span className="text-[9px] font-bold text-violet-600 dark:text-violet-400">$3,520</span>
-                  </div>
-                </div>
-             </div>
-
-             {/* 10 — Purchase Orders */}
-             <div className="liquid-glass p-5 rounded-2xl hover:shadow-xl hover:shadow-slate-200/20 dark:hover:shadow-black/20 transition-all overflow-hidden relative group">
-                <div className="w-9 h-9 bg-pink-100 dark:bg-pink-900/30 rounded-xl flex items-center justify-center mb-2.5">
-                  <ClipboardList className="w-4.5 h-4.5 text-pink-600 dark:text-pink-400" />
-                </div>
-                <h3 className="text-base font-bold mb-1 text-slate-900 dark:text-white">Purchase Orders</h3>
-                <p className="text-slate-500 dark:text-[#A8A29E] text-[13px]">Track procurement end-to-end.</p>
-                <div className="absolute bottom-3 left-5 right-5">
-                  <div className="flex items-center gap-1 mb-1.5">
-                    {['Draft', 'Sent', 'Confirmed', 'Received'].map((s, i) => (
-                      <React.Fragment key={i}>
-                        <div className={`h-1.5 flex-1 rounded-full ${i <= 2 ? 'bg-pink-400 dark:bg-pink-500' : 'bg-slate-200 dark:bg-[#2D2B28]'}`} />
-                      </React.Fragment>
-                    ))}
-                  </div>
-                  <div className="flex justify-between text-[8px] text-slate-400 dark:text-[#5C5752]">
-                    <span>Draft</span>
-                    <span className="text-pink-500 dark:text-pink-400 font-semibold">Confirmed</span>
-                    <span>Received</span>
-                  </div>
-                </div>
-             </div>
-
-             {/* 11 — Quotes & Estimates */}
-             <div className="liquid-glass p-5 rounded-2xl hover:shadow-xl hover:shadow-slate-200/20 dark:hover:shadow-black/20 transition-all overflow-hidden relative group">
-                <div className="w-9 h-9 bg-teal-100 dark:bg-teal-900/30 rounded-xl flex items-center justify-center mb-2.5">
-                  <FileSignature className="w-4.5 h-4.5 text-teal-600 dark:text-teal-400" />
-                </div>
-                <h3 className="text-base font-bold mb-1 text-slate-900 dark:text-white">Quotes</h3>
-                <p className="text-slate-500 dark:text-[#A8A29E] text-[13px]">Send estimates, convert to invoices.</p>
-                <div className="absolute bottom-3 left-5 right-5 liquid-glass-subtle rounded-lg p-2">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-[9px] font-medium text-slate-600 dark:text-[#A8A29E]">Quote #1042</span>
-                    <span className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-1.5 py-0.5 rounded-full">Accepted</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[8px] text-slate-400 dark:text-[#5C5752]">→ Converted to Invoice</span>
-                    <span className="text-[9px] font-bold text-teal-600 dark:text-teal-400">$8,500</span>
-                  </div>
-                </div>
-             </div>
-
+              );
+            })}
           </div>
         </div>
       </section>
 
       {/* ============ PRICING CTA ============ */}
-      <section className="relative z-10 py-20">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="grid md:grid-cols-3 gap-5">
-            {[
-              { name: 'Free', price: '$0', desc: 'Perfect for trying out Flowbooks', features: ['1 company', '~100 AI messages/mo', 'Basic reports'], href: '/signup', cta: 'Start Free' },
-              { name: 'Pro', price: '$29', desc: 'For growing businesses', features: ['3 companies', '~1,000 AI messages/mo', 'All reports & payroll'], href: '/signup?plan=pro', cta: 'Start Free Trial', popular: true },
-              { name: 'Max', price: '$99', desc: 'For established teams', features: ['10 companies', '~4,000 AI messages/mo', 'Unlimited everything'], href: '/signup?plan=max', cta: 'Start Free Trial' },
-            ].map((plan, i) => (
-              <div key={i} className={`relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 ${plan.popular ? 'liquid-glass-strong shadow-xl shadow-brand-500/10 ring-2 ring-brand-500/20' : 'liquid-glass hover:shadow-lg'}`}>
-                {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-brand-500 to-brand-600 text-white px-4 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide shadow-lg shadow-brand-500/25">
-                    Most Popular
-                  </div>
-                )}
-                <h3 className={`text-lg font-bold mb-1 ${plan.popular ? 'text-brand-600 dark:text-brand-400' : 'text-slate-900 dark:text-white'}`}>{plan.name}</h3>
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-3xl font-bold text-slate-900 dark:text-white">{plan.price}</span>
-                  {plan.price !== '$0' && <span className="text-slate-500 dark:text-[#78736D] text-xs">/month</span>}
-                </div>
-                <p className="text-[13px] text-slate-500 dark:text-[#A8A29E] mb-5">{plan.desc}</p>
-                <ul className="space-y-2 mb-6">
-                  {plan.features.map((f, j) => (
-                    <li key={j} className="flex items-center gap-2 text-[13px] text-slate-700 dark:text-[#DBD8D0]">
-                      <Check className="w-3.5 h-3.5 text-brand-500 flex-shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href={plan.href}
-                  className={`group w-full py-2.5 rounded-full font-semibold text-sm text-center block transition-all ${
-                    plan.popular
-                      ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 hover:-translate-y-0.5'
-                      : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 hover:-translate-y-0.5'
-                  }`}
-                >
-                  {plan.cta}
-                </Link>
-              </div>
-            ))}
-          </div>
-          <div className="text-center mt-6">
-            <Link href="/pricing" className="group inline-flex items-center gap-2 text-sm font-medium text-brand-600 dark:text-brand-400 hover:text-brand-700 dark:hover:text-brand-300 transition-colors">
-              Compare all features <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
-            </Link>
+      <section className="relative z-10 py-16">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6">
+          <div className="relative rounded-3xl overflow-hidden bg-slate-50 dark:bg-[#232220] border border-slate-200/80 dark:border-[#2D2B28] p-8 md:p-12 text-center">
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[200px] bg-brand-500/10 rounded-full blur-[80px] pointer-events-none" />
+            <div className="relative z-10">
+              <h2 className="text-2xl md:text-3xl font-bold text-slate-900 dark:text-white mb-3">Simple, transparent pricing</h2>
+              <p className="text-slate-500 dark:text-[#A8A29E] text-sm mb-7 max-w-md mx-auto">Choose the plan that fits your business. No hidden fees, cancel anytime.</p>
+              <Link
+                href="/pricing"
+                className="group inline-flex items-center gap-2 px-7 py-3 rounded-full text-white font-semibold text-sm bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 transition-all hover:-translate-y-0.5"
+              >
+                View Pricing <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              </Link>
+            </div>
           </div>
         </div>
       </section>
@@ -1027,32 +816,32 @@ export default function LandingPage() {
 
       {/* ============ FINAL CTA ============ */}
       <section className="relative z-10 py-20 px-4 sm:px-6">
-        <div className="max-w-4xl mx-auto relative rounded-[2rem] overflow-hidden bg-gradient-to-br from-brand-500 to-brand-700 shadow-2xl shadow-brand-500/20">
-          <div className="absolute inset-0 backdrop-blur-sm" />
-          <div className="absolute inset-0 opacity-[0.06]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, white 0.5px, transparent 0.5px)', backgroundSize: '24px 24px' }} />
+        <div className="max-w-4xl mx-auto relative rounded-[2rem] overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-br from-brand-500 to-brand-600" />
+          <div className="absolute inset-0" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(255,255,255,0.08) 1px, transparent 0)', backgroundSize: '24px 24px' }} />
           <div className="absolute top-0 right-0 w-80 h-80 bg-white/10 rounded-full blur-[100px] transform translate-x-1/3 -translate-y-1/3" />
           <div className="absolute bottom-0 left-0 w-60 h-60 bg-white/10 rounded-full blur-[80px] transform -translate-x-1/3 translate-y-1/3" />
 
           <div className="relative z-10 px-6 py-16 md:py-20 text-center">
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-white/90 text-[11px] font-semibold mb-6" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.25)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2)' }}>
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 border border-white/20 text-white/90 text-[11px] font-semibold mb-6 backdrop-blur-sm">
               <Sparkles className="w-3 h-3" /> Join 12,000+ businesses
             </div>
             <h2 className="text-2xl md:text-4xl font-bold text-white mb-5 leading-tight max-w-lg mx-auto">
               Start your financial freedom today
             </h2>
-            <p className="text-base text-white/80 mb-8 max-w-xl mx-auto">
+            <p className="text-base text-white/75 mb-8 max-w-xl mx-auto">
               Join thousands of business owners who have traded spreadsheet headaches for AI-powered clarity.
             </p>
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
                 href="/signup"
-                className="group bg-white text-slate-900 px-7 py-3.5 rounded-full font-bold text-sm hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 flex items-center gap-2 shadow-lg"
+                className="group bg-white text-slate-900 px-7 py-3 rounded-full font-bold text-sm hover:shadow-2xl hover:scale-105 transition-all duration-300 flex items-center gap-2"
               >
                 Get Started Free <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </Link>
               <Link
                 href="/login"
-                className="px-7 py-3.5 rounded-full font-bold text-sm text-white transition-all duration-300 flex items-center gap-2" style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.25)' }}
+                className="px-7 py-3 rounded-full font-bold text-sm text-white border border-white/30 hover:bg-white/10 transition-all duration-300"
               >
                 Sign In
               </Link>
