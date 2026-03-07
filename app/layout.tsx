@@ -2,10 +2,12 @@ import './globals.css';
 import type { Metadata } from 'next';
 import { Inter } from 'next/font/google';
 import NextTopLoader from 'nextjs-toploader';
+import { Suspense } from 'react';
 import Layout from '@/components/Layout';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import PostHogProvider from '@/components/PostHogProvider';
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' });
 
@@ -53,11 +55,15 @@ export default function RootLayout({
         />
         <ThemeProvider>
           <AuthProvider>
-            <SubscriptionProvider>
-              <Layout>
-                {children}
-              </Layout>
-            </SubscriptionProvider>
+            <Suspense fallback={null}>
+              <PostHogProvider>
+                <SubscriptionProvider>
+                  <Layout>
+                    {children}
+                  </Layout>
+                </SubscriptionProvider>
+              </PostHogProvider>
+            </Suspense>
           </AuthProvider>
         </ThemeProvider>
       </body>

@@ -1,9 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { Box, Typography, Stack, Container, Button } from '@mui/joy';
+import { Box } from '@mui/joy';
 import { useRouter, usePathname } from 'next/navigation';
 import AdminSidebar from '@/components/admin/AdminSidebar';
-import { ShieldAlert, LogIn } from 'lucide-react';
 import { adminPageBg } from '@/lib/admin-theme';
 
 function getAdminSession(): { email: string; expiresAt: number } | null {
@@ -60,22 +59,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (!authorized) {
     return (
-      <Container maxWidth="sm" sx={{ py: 8, textAlign: 'center' }}>
-        <Stack spacing={2} alignItems="center">
-          <ShieldAlert size={48} style={{ color: 'var(--joy-palette-danger-500)' }} />
-          <Typography level="h3" fontWeight={700}>Admin Login Required</Typography>
-          <Typography level="body-md" sx={{ color: 'text.secondary' }}>
-            You need to sign in with admin credentials to access this panel.
-          </Typography>
-          <Button
-            startDecorator={<LogIn size={16} />}
-            onClick={() => router.push('/admin/login')}
-            sx={{ mt: 1 }}
-          >
-            Go to Admin Login
-          </Button>
-        </Stack>
-      </Container>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <Box sx={{ width: 24, height: 24, border: '2px solid', borderColor: 'neutral.300', borderTopColor: 'primary.500', borderRadius: '50%', animation: 'spin 0.6s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </Box>
     );
   }
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
 import { verifyAdminRequest } from '@/lib/admin-server';
+import { isAdminEmail } from '@/lib/admin';
 
 initAdmin();
 const db = getFirestore();
@@ -21,10 +22,9 @@ export async function GET(req: Request) {
       .limit(limitParam);
 
     const snap = await query.get();
-    let users = snap.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    let users = snap.docs
+      .map(doc => ({ id: doc.id, ...doc.data() }))
+      .filter(u => !isAdminEmail((u as any).email));
 
     // Client-side search filter (Firestore doesn't support text search)
     if (search) {

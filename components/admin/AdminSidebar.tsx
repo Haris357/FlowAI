@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, CreditCard, Zap, HelpCircle,
   MessageSquare, Settings, ArrowLeft, ShieldCheck,
   PanelLeftClose, PanelLeftOpen, FileText, Star, LogOut,
-  Mail, Bell, Activity, Megaphone, Newspaper,
+  Mail, Bell, Activity, Megaphone, Newspaper, BarChart3,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import NextLink from 'next/link';
@@ -22,6 +22,7 @@ const NAV_ITEMS = [
   { label: 'Announcements', path: '/admin/announcements', icon: Megaphone },
   { label: 'Subscriptions', path: '/admin/subscriptions', icon: CreditCard },
   { label: 'AI Usage', path: '/admin/ai-usage', icon: Zap },
+  { label: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
   { label: 'Notifications', path: '/admin/notifications', icon: Bell },
   { label: 'Blogs', path: '/admin/blogs', icon: FileText },
   { label: 'Testimonials', path: '/admin/testimonials', icon: Star },

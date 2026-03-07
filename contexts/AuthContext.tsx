@@ -15,6 +15,8 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider, db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { isAdminEmail } from '@/lib/admin';
+import { analytics } from '@/lib/analytics';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 
@@ -44,32 +46,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        try {
-          const userRef = doc(db, 'users', firebaseUser.uid);
-          const userSnap = await getDoc(userRef);
+        // Skip user doc creation and welcome email for admin users
+        if (!isAdminEmail(firebaseUser.email)) {
+          try {
+            const userRef = doc(db, 'users', firebaseUser.uid);
+            const userSnap = await getDoc(userRef);
 
-          if (!userSnap.exists()) {
-            await setDoc(userRef, {
-              email: firebaseUser.email,
-              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
-              photoURL: firebaseUser.photoURL,
-              createdAt: serverTimestamp(),
-              updatedAt: serverTimestamp(),
-            });
+            if (!userSnap.exists()) {
+              await setDoc(userRef, {
+                email: firebaseUser.email,
+                name: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+                photoURL: firebaseUser.photoURL,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp(),
+              });
 
-            // Send welcome email (fire-and-forget)
-            fetch('/api/emails/welcome', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: firebaseUser.uid,
-                userName: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
-                userEmail: firebaseUser.email,
-              }),
-            }).catch(() => {});
+              // Send welcome email (fire-and-forget)
+              fetch('/api/emails/welcome', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: firebaseUser.uid,
+                  userName: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+                  userEmail: firebaseUser.email,
+                }),
+              }).catch(() => {});
+            }
+          } catch (error) {
+            console.error('Error creating user document:', error);
           }
-        } catch (error) {
-          console.error('Error creating user document:', error);
         }
       }
 
@@ -86,6 +91,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const result = await signInWithPopup(auth, googleProvider);
 
       if (result.user) {
+        analytics.userSignedIn('google');
         toast.success('Signed in successfully!');
 
         // Check company in parallel
@@ -131,6 +137,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }),
       }).catch(() => {});
 
+      analytics.userSignedUp('email');
       toast.success('Account created successfully!');
       router.push('/onboarding');
     } catch (error: any) {
@@ -149,6 +156,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await signInWithEmailAndPassword(auth, email, password);
 
+      analytics.userSignedIn('email');
       toast.success('Signed in successfully!');
 
       // Check company
@@ -172,6 +180,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = useCallback(async () => {
     try {
+      analytics.userSignedOut();
       await firebaseSignOut(auth);
       toast.success('Signed out successfully');
       router.push('/login');

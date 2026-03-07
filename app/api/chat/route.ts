@@ -19,6 +19,7 @@ import {
 } from '@/services/userContext';
 import { checkUsageBudgetAdmin, trackUsageAdmin, type UsageBudgetResult } from '@/services/subscription-admin';
 import { formatDuration } from '@/lib/plans';
+import { trackServer } from '@/lib/analytics-server';
 
 // ==========================================
 // CONFIGURATION
@@ -222,6 +223,7 @@ export async function POST(request: NextRequest) {
     try {
       usageBudget = await checkUsageBudgetAdmin(userId);
       if (!usageBudget.canSend) {
+        trackServer(userId, 'message_limit_hit', { blocked_by: usageBudget.blockedBy, plan: usageBudget.planId });
         const timeLeft = formatDuration(Math.max(0, usageBudget.session.resetsAt - Date.now()));
         const msg = usageBudget.blockedBy === 'session'
           ? `You've used all messages in this session. Resets in ${timeLeft}.`
@@ -444,6 +446,17 @@ export async function POST(request: NextRequest) {
     }
 
     console.log(`[Flow AI] ${MODEL} — ${promptTokens}+${completionTokens}=${totalTokens} tokens, $${cost.toFixed(6)}`);
+
+    // Track analytics
+    trackServer(userId, 'message_sent', { model: MODEL, company_id: companyId, conversation_id: conversationId });
+    trackServer(userId, 'ai_response_received', {
+      model: MODEL,
+      tokens: totalTokens,
+      prompt_tokens: promptTokens,
+      completion_tokens: completionTokens,
+      cost,
+      tool_calls_count: toolCalls.length,
+    });
 
     return NextResponse.json({
       message: responseText,
