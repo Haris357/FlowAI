@@ -1,13 +1,13 @@
 'use client';
 import { Modal, ModalDialog, ModalClose, Typography, Box, Stack, Button, Chip, Divider } from '@mui/joy';
 import { Zap, ArrowRight, Check } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useSettingsModal } from '@/contexts/SettingsModalContext';
 import { PLANS, getPlan } from '@/lib/plans';
 
 export default function UpgradeModal() {
   const { upgradeReason, dismissUpgradeModal, plan, isTrial, isTrialExpired: trialExpired } = useSubscription();
-  const router = useRouter();
+  const { openSettings } = useSettingsModal();
 
   if (!upgradeReason) return null;
 
@@ -68,7 +68,7 @@ export default function UpgradeModal() {
               endDecorator={<ArrowRight size={16} />}
               onClick={() => {
                 dismissUpgradeModal();
-                router.push('/settings/billing');
+                openSettings('subscription');
               }}
             >
               {trialExpired ? 'Subscribe Now' : 'View Plans'}

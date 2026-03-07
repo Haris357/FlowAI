@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Modal, ModalDialog, ModalClose, Box, Typography, Stack,
   List, ListItem, ListItemButton, ListItemDecorator, ListItemContent,
@@ -95,6 +95,10 @@ interface SettingsModalProps {
 export default function SettingsModal({ open, onClose, initialSection = 'profile' }: SettingsModalProps) {
   const [activeSection, setActiveSection] = useState<SettingsSection>(initialSection);
   const [mobileNavVisible, setMobileNavVisible] = useState(false);
+
+  useEffect(() => {
+    if (open) setActiveSection(initialSection);
+  }, [open, initialSection]);
   const { mode } = useTheme();
 
   const section = SECTION_META[activeSection];

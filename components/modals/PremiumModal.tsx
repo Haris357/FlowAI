@@ -7,14 +7,14 @@ import {
 import { Crown, Check, ArrowRight, X, Clock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { useRouter } from 'next/navigation';
+import { useSettingsModal } from '@/contexts/SettingsModalContext';
 import { useColorScheme } from '@mui/joy/styles';
 import { PLANS, formatMessages } from '@/lib/plans';
 
 export default function PremiumModal() {
   const { user } = useAuth();
   const { plan, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
-  const router = useRouter();
+  const { openSettings } = useSettingsModal();
   const { mode } = useColorScheme();
   const [open, setOpen] = useState(false);
 
@@ -36,7 +36,7 @@ export default function PremiumModal() {
 
   const handleUpgrade = () => {
     setOpen(false);
-    router.push('/settings/billing');
+    openSettings('subscription');
   };
 
   if (!open) return null;

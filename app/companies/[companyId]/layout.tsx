@@ -3,6 +3,7 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { CompanyProvider } from '@/contexts/CompanyContext';
+import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useEffect, useState } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -12,16 +13,23 @@ export default function CompanyLayout({ children }: { children: React.ReactNode 
   const params = useParams();
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
+  const { isTrialExpired: trialExpired, isTrial, loading: subLoading } = useSubscription();
   const companyId = params.companyId as string;
   const [validating, setValidating] = useState(true);
   const [isValid, setIsValid] = useState(false);
 
   useEffect(() => {
     async function validateCompany() {
-      if (authLoading) return;
+      if (authLoading || subLoading) return;
 
       if (!user) {
         router.replace('/login');
+        return;
+      }
+
+      // Block expired trial users — redirect to companies page
+      if (isTrial && trialExpired) {
+        router.replace('/companies');
         return;
       }
 
@@ -60,9 +68,9 @@ export default function CompanyLayout({ children }: { children: React.ReactNode 
     }
 
     validateCompany();
-  }, [companyId, user, authLoading, router]);
+  }, [companyId, user, authLoading, subLoading, isTrial, trialExpired, router]);
 
-  if (authLoading || validating) {
+  if (authLoading || subLoading || validating) {
     return (
       <Box
         sx={{

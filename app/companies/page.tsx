@@ -11,7 +11,7 @@ import {
   DollarSign, Shield, Mail, X, Moon, Sun, LogOut, Settings,
   Search, LayoutGrid, List as ListIcon, Check, FileText, ArrowRight,
   Table as TableIcon, Grid3x3, MoreVertical, Briefcase, Home, Bell,
-  Sparkles, Loader2,
+  Sparkles, Loader2, Clock, Crown, CreditCard,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -35,6 +35,8 @@ import CompanyCard, { type CompanyData } from '@/components/companies/CompanyCar
 import NotificationBell from '@/components/notifications/NotificationBell';
 import NotificationPanel from '@/components/notifications/NotificationPanel';
 import SettingsModal from '@/components/settings/SettingsModal';
+import { useSettingsModal } from '@/contexts/SettingsModalContext';
+import { PLANS, formatMessages, TRIAL_DURATION_DAYS } from '@/lib/plans';
 
 const BUSINESS_TYPES = ALL_SETTINGS.find(s => s.code === 'business_type')?.options.map(o => o.label) || [
   'Freelancer', 'Consulting', 'Retail', 'Services', 'Other',
@@ -43,7 +45,7 @@ const BUSINESS_TYPES = ALL_SETTINGS.find(s => s.code === 'business_type')?.optio
 export default function CompaniesPage() {
   const { user, signOut } = useAuth();
   const { mode, toggleMode } = useTheme();
-  const { plan, checkLimit, showUpgradeModal } = useSubscription();
+  const { plan, checkLimit, showUpgradeModal, isTrial, isTrialExpired: trialExpired, subscription } = useSubscription();
   const router = useRouter();
   const [companies, setCompanies] = useState<CompanyData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +54,7 @@ export default function CompaniesPage() {
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'table' | 'compact'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const { isOpen: settingsModalOpen, section: settingsSection, openSettings, closeSettings } = useSettingsModal();
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; companyId: string; companyName: string } | null>(null);
   const [removeUserConfirm, setRemoveUserConfirm] = useState<{ open: boolean; email: string } | null>(null);
@@ -240,6 +242,10 @@ export default function CompaniesPage() {
   };
 
   const handleSelectCompany = async (company: CompanyData) => {
+    if (isTrial && trialExpired) {
+      openSettings('subscription');
+      return;
+    }
     if (!company.accountsCreated) {
       try {
         const accountsRef = collection(db, `companies/${company.id}/chartOfAccounts`);
@@ -383,7 +389,7 @@ export default function CompaniesPage() {
             <Stack direction="row" spacing={0.5} alignItems="center">
               <NotificationBell onClick={() => setNotificationPanelOpen(true)} />
               <Tooltip title="Settings">
-                <IconButton variant="plain" size="sm" onClick={() => setSettingsModalOpen(true)}>
+                <IconButton variant="plain" size="sm" onClick={() => openSettings()}>
                   <Settings size={18} />
                 </IconButton>
               </Tooltip>
@@ -407,7 +413,7 @@ export default function CompaniesPage() {
                     </Stack>
                   </MenuItem>
                   <Divider />
-                  <MenuItem onClick={() => setSettingsModalOpen(true)}><Settings size={14} /> Account Settings</MenuItem>
+                  <MenuItem onClick={() => openSettings()}><Settings size={14} /> Account Settings</MenuItem>
                   <Divider />
                   <MenuItem color="danger" onClick={signOut}><LogOut size={14} /> Sign out</MenuItem>
                 </Menu>
@@ -420,6 +426,84 @@ export default function CompaniesPage() {
       {/* ===== Page Content ===== */}
       <Box sx={{ maxWidth: 1152, mx: 'auto', px: { xs: 2, sm: 3 }, py: { xs: 3, md: 4 } }}>
         <Stack spacing={3}>
+
+          {/* Trial Expired Block */}
+          {isTrial && trialExpired && (
+            <Card variant="outlined" sx={{
+              borderColor: 'danger.300',
+              borderWidth: 2,
+              overflow: 'hidden',
+            }}>
+              <Box sx={{
+                p: 3, pb: 2.5,
+                background: 'linear-gradient(135deg, #DC2626 0%, #D97757 50%, #E8956F 100%)',
+                textAlign: 'center',
+              }}>
+                <Box sx={{
+                  width: 56, height: 56, borderRadius: '50%', mx: 'auto', mb: 1.5,
+                  bgcolor: 'rgba(255,255,255,0.2)', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Clock size={28} color="white" />
+                </Box>
+                <Typography level="h3" sx={{ color: 'white', fontWeight: 700 }}>
+                  Your Free Trial Has Ended
+                </Typography>
+                <Typography level="body-sm" sx={{ color: 'rgba(255,255,255,0.85)', mt: 0.5 }}>
+                  Subscribe to continue accessing your companies and all Flowbooks features
+                </Typography>
+              </Box>
+              <CardContent sx={{ p: 3 }}>
+                <Stack spacing={2.5}>
+                  {/* Plan options */}
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+                    {[PLANS.pro, PLANS.max].map(p => (
+                      <Card key={p.id} variant="outlined" sx={{
+                        flex: 1,
+                        borderColor: p.id === 'pro' ? 'primary.400' : 'neutral.300',
+                        borderWidth: p.id === 'pro' ? 2 : 1,
+                        position: 'relative',
+                      }}>
+                        {p.id === 'pro' && (
+                          <Chip size="sm" variant="solid" color="primary" sx={{
+                            position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
+                            fontSize: '0.65rem', fontWeight: 700,
+                          }}>
+                            POPULAR
+                          </Chip>
+                        )}
+                        <CardContent sx={{ p: 2, textAlign: 'center' }}>
+                          <Typography level="title-sm" fontWeight={700}>{p.name}</Typography>
+                          <Stack direction="row" alignItems="baseline" justifyContent="center" spacing={0.25} sx={{ my: 0.5 }}>
+                            <Typography level="h4" fontWeight={700}>${p.price}</Typography>
+                            <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>/mo</Typography>
+                          </Stack>
+                          <Typography level="body-xs" sx={{ color: 'text.secondary', mb: 1.5 }}>
+                            {formatMessages(p.sessionMessageLimit)} msgs/session &middot; {formatMessages(p.weeklyMessageLimit)}/week
+                          </Typography>
+                          <Button
+                            variant={p.id === 'pro' ? 'solid' : 'outlined'}
+                            color="primary"
+                            size="sm"
+                            fullWidth
+                            endDecorator={<ArrowRight size={14} />}
+                            onClick={() => openSettings('subscription')}
+                          >
+                            Subscribe to {p.name}
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </Stack>
+
+                  <Typography level="body-xs" sx={{ color: 'text.tertiary', textAlign: 'center' }}>
+                    Your data is safe. Subscribe to pick up right where you left off.
+                  </Typography>
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Welcome + New Company */}
           <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={2}>
             <Box>
@@ -430,16 +514,18 @@ export default function CompaniesPage() {
                 {companies.length} {companies.length === 1 ? 'company' : 'companies'} in your portfolio
               </Typography>
             </Box>
-            <Button size="sm" startDecorator={<Plus size={16} />} onClick={() => setCreateModalOpen(true)}
+            <Button size="sm" startDecorator={<Plus size={16} />}
+              disabled={isTrial && trialExpired}
+              onClick={() => setCreateModalOpen(true)}
               sx={{
                 borderRadius: '20px',
-                background: 'linear-gradient(135deg, var(--joy-palette-primary-500), var(--joy-palette-primary-600))',
+                background: (isTrial && trialExpired) ? undefined : 'linear-gradient(135deg, var(--joy-palette-primary-500), var(--joy-palette-primary-600))',
                 '&:hover': {
-                  background: 'linear-gradient(135deg, var(--joy-palette-primary-600), var(--joy-palette-primary-700))',
-                  transform: 'translateY(-1px)',
+                  background: (isTrial && trialExpired) ? undefined : 'linear-gradient(135deg, var(--joy-palette-primary-600), var(--joy-palette-primary-700))',
+                  transform: (isTrial && trialExpired) ? undefined : 'translateY(-1px)',
                 },
                 transition: 'all 0.2s ease',
-                boxShadow: '0 4px 12px rgba(217,119,87,0.25)',
+                boxShadow: (isTrial && trialExpired) ? undefined : '0 4px 12px rgba(217,119,87,0.25)',
               }}>
               New Company
             </Button>
@@ -798,7 +884,7 @@ export default function CompaniesPage() {
       )}
 
       <NotificationPanel open={notificationPanelOpen} onClose={() => setNotificationPanelOpen(false)} />
-      <SettingsModal open={settingsModalOpen} onClose={() => setSettingsModalOpen(false)} />
+      <SettingsModal open={settingsModalOpen} onClose={closeSettings} initialSection={settingsSection} />
     </Box>
   );
 }

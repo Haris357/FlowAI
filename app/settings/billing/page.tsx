@@ -2,28 +2,28 @@
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useSettingsModal } from '@/contexts/SettingsModalContext';
 import { LoadingSpinner } from '@/components/common';
-import toast from 'react-hot-toast';
 
 /**
  * Billing page — handles Lemon Squeezy success redirects,
- * then forwards to /settings?section=subscription.
+ * then shows the subscription success modal.
  */
 export default function BillingPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refreshSubscription, refreshUsage } = useSubscription();
+  const { showSubscriptionSuccess } = useSettingsModal();
 
   useEffect(() => {
-    // Handle Lemon Squeezy success callbacks
     if (searchParams.get('success') === 'true') {
-      toast.success('Subscription activated! Welcome aboard.');
       refreshSubscription();
       refreshUsage();
+      // Small delay to let subscription data refresh before showing modal
+      setTimeout(() => showSubscriptionSuccess(), 1500);
     }
-    // Redirect to companies page (settings is now a modal)
     router.replace('/companies');
-  }, [searchParams, refreshSubscription, refreshUsage, router]);
+  }, [searchParams, refreshSubscription, refreshUsage, router, showSubscriptionSuccess]);
 
   return <LoadingSpinner />;
 }

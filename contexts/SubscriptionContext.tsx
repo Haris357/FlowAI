@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './AuthContext';
@@ -91,7 +91,6 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null);
   const [trialEndsAtMs, setTrialEndsAtMs] = useState<number | null>(null);
   const [trialTimeLeft, setTrialTimeLeft] = useState('');
-  const fetchedRef = useRef(false);
 
   const isTrial = subscription?.status === 'trialing';
   const trialExpired = isTrial && subscription?.trialEndsAt ? isTrialExpired(subscription.trialEndsAt) : false;
@@ -212,25 +211,34 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   }, [user?.uid, effectivePlanId]);
 
   // ── Initial load ──
+  // ── Real-time listener for subscription (user doc) ──
   useEffect(() => {
     if (!user?.uid) {
       setSubscription(null);
       setUsage(null);
       setLoading(false);
-      fetchedRef.current = false;
       return;
     }
 
-    if (fetchedRef.current) return;
-    fetchedRef.current = true;
-
-    const load = async () => {
-      setLoading(true);
-      await refreshSubscription();
+    setLoading(true);
+    const userRef = doc(db, 'users', user.uid);
+    const unsubscribe = onSnapshot(userRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        if (data.subscription) {
+          setSubscription(data.subscription as UserSubscription);
+        } else {
+          setSubscription(null);
+        }
+      }
       setLoading(false);
-    };
-    load();
-  }, [user?.uid, refreshSubscription]);
+    }, (err) => {
+      console.error('Subscription listener error:', err);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
 
   // ── Real-time listener for usage/current ──
   useEffect(() => {

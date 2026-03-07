@@ -23,6 +23,7 @@ import { Toaster } from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import PlanBadge from '@/components/subscription/PlanBadge';
+import { useSettingsModal } from '@/contexts/SettingsModalContext';
 import UsageMeter from '@/components/subscription/UsageMeter';
 import UpgradeModal from '@/components/subscription/UpgradeModal';
 import NotificationBell from '@/components/notifications/NotificationBell';
@@ -30,6 +31,8 @@ import NotificationPanel from '@/components/notifications/NotificationPanel';
 import WelcomeTutorialModal from '@/components/settings/WelcomeTutorialModal';
 import FeedbackPromptModal from '@/components/modals/FeedbackPromptModal';
 import PremiumModal from '@/components/modals/PremiumModal';
+import SubscriptionSuccessModal from '@/components/subscription/SubscriptionSuccessModal';
+import TrialWelcomeModal from '@/components/subscription/TrialWelcomeModal';
 import SettingsModal from '@/components/settings/SettingsModal';
 import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
 import { usePathname, useRouter, useParams } from 'next/navigation';
@@ -149,7 +152,7 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const { isOpen: settingsModalOpen, section: settingsSection, openSettings, closeSettings } = useSettingsModal();
 
   // Get companyId from URL params
   const companyId = params?.companyId as string | undefined;
@@ -533,7 +536,7 @@ export default function Layout({ children }: LayoutProps) {
                     <IconButton
                       variant="plain"
                       size="sm"
-                      onClick={() => setSettingsModalOpen(true)}
+                      onClick={() => openSettings()}
                       sx={{
                         borderRadius: '50%',
                         width: 34,
@@ -602,7 +605,7 @@ export default function Layout({ children }: LayoutProps) {
                       <User size={16} />
                       Company Settings
                     </MenuItem>
-                    <MenuItem onClick={() => setSettingsModalOpen(true)}>
+                    <MenuItem onClick={() => openSettings()}>
                       <Settings size={16} />
                       Account Settings
                     </MenuItem>
@@ -666,7 +669,7 @@ export default function Layout({ children }: LayoutProps) {
                       <User size={16} />
                       Company Settings
                     </MenuItem>
-                    <MenuItem onClick={() => setSettingsModalOpen(true)}>
+                    <MenuItem onClick={() => openSettings()}>
                       <Settings size={16} />
                       Account Settings
                     </MenuItem>
@@ -778,7 +781,7 @@ export default function Layout({ children }: LayoutProps) {
                 <IconButton
                   variant="plain"
                   size="sm"
-                  onClick={() => { setMobileOpen(false); setSettingsModalOpen(true); }}
+                  onClick={() => { setMobileOpen(false); openSettings(); }}
                   sx={{
                     borderRadius: '50%',
                     width: 34,
@@ -803,7 +806,7 @@ export default function Layout({ children }: LayoutProps) {
                 transition: 'background 0.15s ease',
                 '&:hover': { bgcolor: 'background.level1' },
               }}
-              onClick={() => { setMobileOpen(false); setSettingsModalOpen(true); }}
+              onClick={() => { setMobileOpen(false); openSettings(); }}
             >
               <Stack direction="row" spacing={1.25} alignItems="center">
                 <Avatar
@@ -890,10 +893,12 @@ export default function Layout({ children }: LayoutProps) {
 
       <UpgradeModal />
       <NotificationPanel open={notificationPanelOpen} onClose={() => setNotificationPanelOpen(false)} />
-      <SettingsModal open={settingsModalOpen} onClose={() => setSettingsModalOpen(false)} />
+      <SettingsModal open={settingsModalOpen} onClose={closeSettings} initialSection={settingsSection} />
       <WelcomeTutorialModal />
       <FeedbackPromptModal />
       <PremiumModal />
+      <SubscriptionSuccessModal />
+      <TrialWelcomeModal />
 
       <Toaster
         position="top-right"

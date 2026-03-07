@@ -6,6 +6,7 @@ import { Suspense } from 'react';
 import Layout from '@/components/Layout';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SubscriptionProvider } from '@/contexts/SubscriptionContext';
+import { SettingsModalProvider } from '@/contexts/SettingsModalContext';
 import { ThemeProvider } from '@/contexts/ThemeContext';
 import PostHogProvider from '@/components/PostHogProvider';
 
@@ -58,9 +59,11 @@ export default function RootLayout({
             <Suspense fallback={null}>
               <PostHogProvider>
                 <SubscriptionProvider>
-                  <Layout>
-                    {children}
-                  </Layout>
+                  <SettingsModalProvider>
+                    <Layout>
+                      {children}
+                    </Layout>
+                  </SettingsModalProvider>
                 </SubscriptionProvider>
               </PostHogProvider>
             </Suspense>
