@@ -7,9 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit",
-    "pages:build": "npx @cloudflare/next-on-pages",
-    "pages:dev": "npx wrangler pages dev .vercel/output/static --compatibility-flag=nodejs_compat"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.2",
@@ -89,9 +87,6 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@cloudflare/next-on-pages": "^1.13.5",
-    "@cloudflare/workers-types": "^4.20260228.0",
-    "vercel": "^50.22.1",
-    "wrangler": "^3.114.17"
+    "vercel": "^50.22.1"
   }
 }
