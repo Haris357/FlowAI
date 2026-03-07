@@ -16,8 +16,20 @@ export async function POST(request: NextRequest) {
     }
 
     const plan = PLANS[planId as PlanId];
-    if (!plan || !plan.lemonSqueezyVariantId) {
+    if (!plan || plan.price === 0) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
+    }
+
+    // Use server-side env vars (NEXT_PUBLIC_ vars may not be available at runtime in API routes)
+    const variantIdMap: Record<string, string | undefined> = {
+      pro: process.env.LEMON_SQUEEZY_PRO_VARIANT_ID || process.env.NEXT_PUBLIC_LEMON_SQUEEZY_PRO_VARIANT_ID,
+      max: process.env.LEMON_SQUEEZY_MAX_VARIANT_ID || process.env.NEXT_PUBLIC_LEMON_SQUEEZY_MAX_VARIANT_ID,
+    };
+    const variantId = variantIdMap[planId] || plan.lemonSqueezyVariantId;
+
+    if (!variantId) {
+      console.error(`[Checkout] No variant ID for plan: ${planId}`);
+      return NextResponse.json({ error: 'Plan variant not configured' }, { status: 500 });
     }
 
     // Get user email from Firestore
@@ -62,7 +74,7 @@ export async function POST(request: NextRequest) {
               data: { type: 'stores', id: storeId },
             },
             variant: {
-              data: { type: 'variants', id: plan.lemonSqueezyVariantId },
+              data: { type: 'variants', id: variantId },
             },
           },
         },
@@ -71,7 +83,8 @@ export async function POST(request: NextRequest) {
 
     if (!response.ok) {
       const err = await response.text();
-      console.error('[Checkout] Lemon Squeezy error:', err);
+      console.error(`[Checkout] Lemon Squeezy error (${response.status}):`, err);
+      console.error(`[Checkout] Used variantId: ${variantId}, storeId: ${storeId}`);
       return NextResponse.json({ error: 'Failed to create checkout' }, { status: 500 });
     }
 
