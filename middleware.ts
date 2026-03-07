@@ -11,11 +11,11 @@ export function middleware(request: NextRequest) {
     hostname.startsWith('admin-'); // Vercel preview: admin-flowbooksai.vercel.app
 
   if (isAdminSubdomain) {
-    // If already on /admin path, serve as-is
-    if (pathname.startsWith('/admin')) {
+    // API routes and /admin paths pass through as-is
+    if (pathname.startsWith('/api') || pathname.startsWith('/admin')) {
       return NextResponse.next();
     }
-    // Rewrite root and all paths to /admin/*
+    // Rewrite root and all other paths to /admin/*
     const url = request.nextUrl.clone();
     url.pathname = `/admin${pathname === '/' ? '' : pathname}`;
     return NextResponse.rewrite(url);
