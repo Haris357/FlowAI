@@ -2,10 +2,33 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
 export function middleware(request: NextRequest) {
-  // Currently a pass-through — future enhancements:
-  // - Check Firebase session cookies for protected routes
-  // - Rate limiting
-  // - Geo-blocking
+  const hostname = request.headers.get('host') || '';
+  const { pathname } = request.nextUrl;
+
+  // Handle admin subdomain: admin.flowbooksai.com → /admin routes
+  const isAdminSubdomain =
+    hostname.startsWith('admin.') ||
+    hostname.startsWith('admin-'); // Vercel preview: admin-flowbooksai.vercel.app
+
+  if (isAdminSubdomain) {
+    // If already on /admin path, serve as-is
+    if (pathname.startsWith('/admin')) {
+      return NextResponse.next();
+    }
+    // Rewrite root and all paths to /admin/*
+    const url = request.nextUrl.clone();
+    url.pathname = `/admin${pathname === '/' ? '' : pathname}`;
+    return NextResponse.rewrite(url);
+  }
+
+  // On main domain, redirect /admin/* to admin subdomain
+  if (pathname.startsWith('/admin')) {
+    const adminPath = pathname.replace(/^\/admin/, '') || '/';
+    const adminUrl = new URL(adminPath, `https://admin.flowbooksai.com`);
+    adminUrl.search = request.nextUrl.search;
+    return NextResponse.redirect(adminUrl);
+  }
+
   return NextResponse.next();
 }
 
