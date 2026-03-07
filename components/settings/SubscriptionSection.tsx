@@ -16,7 +16,7 @@ import type { BillingEvent, PlanId } from '@/types/subscription';
 
 export default function SubscriptionSection() {
   const { user } = useAuth();
-  const { subscription, plan, loading: subLoading, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
+  const { subscription, plan, loading: subLoading, isPaidSubscriber, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
   const [billingHistory, setBillingHistory] = useState<BillingEvent[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(true);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
@@ -61,7 +61,8 @@ export default function SubscriptionSection() {
     finally { setPortalLoading(false); }
   };
 
-  const statusColor = trialExpired ? 'danger'
+  const statusColor = isPaidSubscriber ? 'success'
+    : trialExpired ? 'danger'
     : subscription?.status === 'active' ? 'success'
     : subscription?.status === 'trialing' ? 'primary'
     : subscription?.status === 'cancelled' ? 'warning'
@@ -86,12 +87,14 @@ export default function SubscriptionSection() {
                 </Typography>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <Typography level="h4" fontWeight={700}>
-                    {trialExpired ? 'Trial Expired' : isTrial ? `${plan.name} (Trial)` : plan.name}
+                    {isPaidSubscriber ? plan.name : trialExpired ? 'Trial Expired' : isTrial ? `${plan.name} (Trial)` : plan.name}
                   </Typography>
                   <PlanBadge />
                 </Stack>
                 <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-                  {trialExpired
+                  {isPaidSubscriber
+                    ? `$${plan.price}/month`
+                    : trialExpired
                     ? 'Subscribe to continue using Flowbooks'
                     : isTrial && trialTimeLeft
                     ? `Free trial · ${trialTimeLeft} remaining`
@@ -100,7 +103,7 @@ export default function SubscriptionSection() {
               </Box>
             </Stack>
             <Chip size="sm" variant="soft" color={statusColor} sx={{ textTransform: 'capitalize' }}>
-              {trialExpired ? 'Expired' : subscription?.status === 'trialing' ? 'Trial' : subscription?.status || 'active'}
+              {isPaidSubscriber ? 'Active' : trialExpired ? 'Expired' : subscription?.status === 'trialing' ? 'Trial' : subscription?.status || 'active'}
             </Chip>
           </Stack>
 

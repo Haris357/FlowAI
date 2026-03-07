@@ -128,6 +128,8 @@ export async function POST(request: NextRequest) {
         const updateData: Record<string, any> = {
           'subscription.status': status,
           'subscription.updatedAt': Timestamp.now(),
+          'subscription.lemonSqueezySubscriptionId': String(payload.data?.id || ''),
+          'subscription.lemonSqueezyCustomerId': String(attrs.customer_id || ''),
         };
 
         if (plan) {
@@ -137,6 +139,11 @@ export async function POST(request: NextRequest) {
 
         if (attrs.renews_at) {
           updateData['subscription.currentPeriodEnd'] = Timestamp.fromDate(new Date(attrs.renews_at));
+        }
+
+        // Clear trial fields when subscription becomes active
+        if (status === 'active') {
+          updateData['subscription.trialEndsAt'] = null;
         }
 
         await adminDb.doc(`users/${userId}`).update(updateData);
@@ -218,6 +225,7 @@ export async function POST(request: NextRequest) {
       case 'subscription_payment_success': {
         await adminDb.doc(`users/${userId}`).update({
           'subscription.status': 'active',
+          'subscription.trialEndsAt': null,
           'subscription.currentPeriodStart': Timestamp.now(),
           'subscription.currentPeriodEnd': attrs.renews_at
             ? Timestamp.fromDate(new Date(attrs.renews_at))

@@ -9,13 +9,14 @@ interface UsageMeterProps {
 }
 
 export default function UsageMeter({ compact = false }: UsageMeterProps) {
-  const { usage, plan, sessionPercentUsed, sessionRemaining, sessionTimeLeft, weeklyPercentUsed, weeklyRemaining, loading, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
+  const { usage, plan, sessionPercentUsed, sessionRemaining, sessionTimeLeft, weeklyPercentUsed, weeklyRemaining, loading, isPaidSubscriber, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   if (loading) return null;
 
+  // Paid subscribers skip trial states entirely
   // Trial expired - show subscribe prompt
-  if (trialExpired) {
+  if (!isPaidSubscriber && trialExpired) {
     if (compact) {
       return (
         <Box sx={{ borderRadius: '6px', p: 1, bgcolor: 'danger.softBg', border: '1px solid', borderColor: 'danger.200' }}>
@@ -47,7 +48,7 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
   }
 
   // Trial active but no usage yet - show trial timer
-  if (isTrial && !usage) {
+  if (!isPaidSubscriber && isTrial && !usage) {
     if (compact) {
       return (
         <Box sx={{ borderRadius: '6px', p: 1, bgcolor: 'primary.softBg', border: '1px solid', borderColor: 'primary.200' }}>
@@ -208,7 +209,7 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
               <Stack direction="row" justifyContent="space-between">
                 <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Plan</Typography>
                 <Typography level="body-xs" fontWeight={600} sx={{ textTransform: 'capitalize' }}>
-                  {isTrial ? `${plan.name} (Trial)` : plan.name}
+                  {isPaidSubscriber ? plan.name : isTrial ? `${plan.name} (Trial)` : plan.name}
                 </Typography>
               </Stack>
 

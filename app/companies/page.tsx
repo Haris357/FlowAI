@@ -430,74 +430,73 @@ export default function CompaniesPage() {
           {/* Trial Expired Block */}
           {isTrial && trialExpired && (
             <Card variant="outlined" sx={{
-              borderColor: 'danger.300',
-              borderWidth: 2,
+              borderColor: 'divider',
               overflow: 'hidden',
+              boxShadow: 'sm',
             }}>
-              <Box sx={{
-                p: 3, pb: 2.5,
-                background: 'linear-gradient(135deg, #DC2626 0%, #D97757 50%, #E8956F 100%)',
-                textAlign: 'center',
-              }}>
-                <Box sx={{
-                  width: 56, height: 56, borderRadius: '50%', mx: 'auto', mb: 1.5,
-                  bgcolor: 'rgba(255,255,255,0.2)', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Clock size={28} color="white" />
-                </Box>
-                <Typography level="h3" sx={{ color: 'white', fontWeight: 700 }}>
-                  Your Free Trial Has Ended
-                </Typography>
-                <Typography level="body-sm" sx={{ color: 'rgba(255,255,255,0.85)', mt: 0.5 }}>
-                  Subscribe to continue accessing your companies and all Flowbooks features
-                </Typography>
-              </Box>
-              <CardContent sx={{ p: 3 }}>
-                <Stack spacing={2.5}>
-                  {/* Plan options */}
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
+              <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
+                <Stack spacing={3} alignItems="center" textAlign="center">
+                  <Box sx={{
+                    width: 56, height: 56, borderRadius: '50%',
+                    bgcolor: 'danger.softBg', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <Clock size={26} style={{ color: 'var(--joy-palette-danger-500)' }} />
+                  </Box>
+
+                  <Box>
+                    <Typography level="h4" fontWeight={800} sx={{ mb: 0.5 }}>
+                      Your trial has ended
+                    </Typography>
+                    <Typography level="body-sm" sx={{ color: 'text.secondary', maxWidth: 400, mx: 'auto' }}>
+                      Subscribe to a plan to continue managing your companies and using AI-powered accounting.
+                    </Typography>
+                  </Box>
+
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ width: '100%', maxWidth: 480 }}>
                     {[PLANS.pro, PLANS.max].map(p => (
                       <Card key={p.id} variant="outlined" sx={{
                         flex: 1,
-                        borderColor: p.id === 'pro' ? 'primary.400' : 'neutral.300',
+                        borderColor: p.id === 'pro' ? 'primary.300' : 'divider',
                         borderWidth: p.id === 'pro' ? 2 : 1,
-                        position: 'relative',
-                      }}>
-                        {p.id === 'pro' && (
-                          <Chip size="sm" variant="solid" color="primary" sx={{
-                            position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
-                            fontSize: '0.65rem', fontWeight: 700,
-                          }}>
-                            POPULAR
-                          </Chip>
-                        )}
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        '&:hover': { borderColor: 'primary.400', boxShadow: 'md' },
+                      }}
+                        onClick={() => openSettings('subscription')}
+                      >
                         <CardContent sx={{ p: 2, textAlign: 'center' }}>
+                          {p.id === 'pro' && (
+                            <Chip size="sm" variant="soft" color="primary" sx={{ mb: 0.75, fontSize: '0.65rem', fontWeight: 700 }}>
+                              RECOMMENDED
+                            </Chip>
+                          )}
                           <Typography level="title-sm" fontWeight={700}>{p.name}</Typography>
                           <Stack direction="row" alignItems="baseline" justifyContent="center" spacing={0.25} sx={{ my: 0.5 }}>
-                            <Typography level="h4" fontWeight={700}>${p.price}</Typography>
+                            <Typography level="h4" fontWeight={800}>${p.price}</Typography>
                             <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>/mo</Typography>
                           </Stack>
-                          <Typography level="body-xs" sx={{ color: 'text.secondary', mb: 1.5 }}>
-                            {formatMessages(p.sessionMessageLimit)} msgs/session &middot; {formatMessages(p.weeklyMessageLimit)}/week
+                          <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                            {formatMessages(p.sessionMessageLimit)} msgs/session
                           </Typography>
-                          <Button
-                            variant={p.id === 'pro' ? 'solid' : 'outlined'}
-                            color="primary"
-                            size="sm"
-                            fullWidth
-                            endDecorator={<ArrowRight size={14} />}
-                            onClick={() => openSettings('subscription')}
-                          >
-                            Subscribe to {p.name}
-                          </Button>
                         </CardContent>
                       </Card>
                     ))}
                   </Stack>
 
-                  <Typography level="body-xs" sx={{ color: 'text.tertiary', textAlign: 'center' }}>
-                    Your data is safe. Subscribe to pick up right where you left off.
+                  <Button
+                    variant="solid"
+                    color="primary"
+                    size="lg"
+                    endDecorator={<ArrowRight size={16} />}
+                    onClick={() => openSettings('subscription')}
+                    sx={{ borderRadius: 'lg', fontWeight: 700, px: 4 }}
+                  >
+                    Choose a Plan
+                  </Button>
+
+                  <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                    Your data is safe and waiting for you.
                   </Typography>
                 </Stack>
               </CardContent>

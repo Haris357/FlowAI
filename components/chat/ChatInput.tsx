@@ -69,7 +69,7 @@ export default function ChatInput({
   showQuickActions = false,
   onSelectAction,
 }: ChatInputProps) {
-  const { usage, plan, sessionRemaining, sessionPercentUsed, sessionTimeLeft, weeklyRemaining, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
+  const { usage, plan, sessionRemaining, sessionPercentUsed, sessionTimeLeft, weeklyRemaining, isPaidSubscriber, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
   const [value, setValue] = useState(initialValue);
   const [isListening, setIsListening] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -297,12 +297,17 @@ export default function ChatInput({
                 <Typography level="body-xs" sx={{ fontWeight: 500, color: 'inherit' }}>
                   Flow AI v1
                 </Typography>
-                {isTrial && trialTimeLeft && (
+                {isPaidSubscriber && (
+                  <Chip size="sm" variant="soft" color={plan.id === 'max' ? 'success' : 'primary'} sx={{ fontSize: '10px', height: 18 }}>
+                    {plan.name}
+                  </Chip>
+                )}
+                {!isPaidSubscriber && isTrial && trialTimeLeft && (
                   <Typography level="body-xs" sx={{ color: 'primary.500', fontSize: '11px', fontWeight: 600 }}>
                     · Trial: {trialTimeLeft}
                   </Typography>
                 )}
-                {trialExpired && (
+                {!isPaidSubscriber && trialExpired && (
                   <Typography level="body-xs" sx={{ color: 'danger.500', fontSize: '11px', fontWeight: 600 }}>
                     · Trial Expired
                   </Typography>

@@ -26,6 +26,7 @@ interface SubscriptionContextType {
   weeklyPercentUsed: number;
   weeklyResetsAt: string | null; // "YYYY-MM-DD"
   // Trial
+  isPaidSubscriber: boolean;
   isTrial: boolean;
   isTrialExpired: boolean;
   trialEndsAt: number | null; // epoch ms
@@ -55,6 +56,7 @@ const SubscriptionContext = createContext<SubscriptionContextType>({
   weeklyRemaining: 0,
   weeklyPercentUsed: 0,
   weeklyResetsAt: null,
+  isPaidSubscriber: false,
   isTrial: false,
   isTrialExpired: false,
   trialEndsAt: null,
@@ -92,11 +94,15 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [trialEndsAtMs, setTrialEndsAtMs] = useState<number | null>(null);
   const [trialTimeLeft, setTrialTimeLeft] = useState('');
 
-  const isTrial = subscription?.status === 'trialing';
+  // A user with a Lemon Squeezy subscription ID is always a paid subscriber
+  const isPaidSubscriber = !!subscription?.lemonSqueezySubscriptionId;
+  const isTrial = !isPaidSubscriber && subscription?.status === 'trialing';
   const trialExpired = isTrial && subscription?.trialEndsAt ? isTrialExpired(subscription.trialEndsAt) : false;
 
-  // Determine effective plan: if trial expired, use free (locked out)
-  const effectivePlanId: PlanId = (isTrial && trialExpired) ? 'free' : (subscription?.planId || 'free');
+  // Determine effective plan: paid subscribers always get their plan, expired trials get locked out
+  const effectivePlanId: PlanId = isPaidSubscriber
+    ? (subscription?.planId || 'pro')
+    : (isTrial && trialExpired) ? 'free' : (subscription?.planId || 'free');
   const plan = getPlan(effectivePlanId);
   const isOverLimit = blockedBy !== 'none';
 
@@ -410,6 +416,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         weeklyRemaining,
         weeklyPercentUsed,
         weeklyResetsAt,
+        isPaidSubscriber,
         isTrial,
         isTrialExpired: trialExpired,
         trialEndsAt: trialEndsAtMs,

@@ -7,12 +7,17 @@ interface PlanBadgeProps {
 }
 
 export default function PlanBadge({ size = 'sm' }: PlanBadgeProps) {
-  const { plan, loading, isTrial, isTrialExpired: trialExpired } = useSubscription();
+  const { plan, loading, isPaidSubscriber, isTrial, isTrialExpired: trialExpired } = useSubscription();
 
   if (loading) return null;
 
-  const color = trialExpired ? 'danger' : isTrial ? 'warning' : plan.id === 'max' ? 'success' : 'primary';
-  const label = trialExpired ? 'Expired' : isTrial ? `${plan.name} Trial` : plan.name;
+  const color = isPaidSubscriber
+    ? (plan.id === 'max' ? 'success' : 'primary')
+    : trialExpired ? 'danger' : isTrial ? 'warning' : 'neutral';
+
+  const label = isPaidSubscriber
+    ? plan.name
+    : trialExpired ? 'Expired' : isTrial ? `${plan.name} Trial` : plan.name;
 
   return (
     <Chip
