@@ -371,10 +371,10 @@ export default function SecurityPage() {
               Contact Security Team
             </Link>
             <a
-              href="mailto:security@flowbooks.com"
+              href="mailto:hello@flowbooksai.com"
               className="px-6 py-2.5 rounded-full font-semibold text-sm text-slate-700 dark:text-[#DBD8D0] liquid-glass-subtle hover:shadow-md transition-all"
             >
-              security@flowbooks.com
+              hello@flowbooksai.com
             </a>
           </div>
         </div>

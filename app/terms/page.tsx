@@ -25,7 +25,7 @@ These Terms constitute a legally binding agreement between you and Flowbooks Inc
 
 **Account Registration:** You must provide accurate, complete, and current information when creating your account. You are responsible for maintaining the accuracy of this information.
 
-**Account Security:** You are responsible for safeguarding your account credentials and for all activity that occurs under your account. You must notify us immediately at security@flowbooks.com if you suspect unauthorized access to your account.
+**Account Security:** You are responsible for safeguarding your account credentials and for all activity that occurs under your account. You must notify us immediately at hello@flowbooksai.com if you suspect unauthorized access to your account.
 
 **One Person Per Account:** Accounts are for individual users. You may not share your login credentials with others. If you need multiple users, please use our collaboration features available on Pro and Max plans.
 
@@ -102,7 +102,7 @@ We reserve the right to suspend or terminate accounts that violate these terms w
     id: 'termination',
     icon: XCircle,
     title: '7. Termination',
-    content: `**By You:** You may terminate your account at any time by navigating to Settings and selecting "Delete Account," or by contacting support@flowbooks.com. Upon termination, your subscription will not renew, and you will retain access until the end of your current billing period.
+    content: `**By You:** You may terminate your account at any time by navigating to Settings and selecting "Delete Account," or by contacting hello@flowbooksai.com. Upon termination, your subscription will not renew, and you will retain access until the end of your current billing period.
 
 **By Us:** We may suspend or terminate your account if you violate these Terms, engage in abusive behavior, fail to pay subscription fees, or if required by law. We will provide reasonable notice before termination unless immediate action is necessary to protect the Service or other users.
 
@@ -135,11 +135,11 @@ We reserve the right to suspend or terminate accounts that violate these terms w
     title: '9. Contact Information',
     content: `If you have questions about these Terms of Service, please contact us:
 
-**Email:** legal@flowbooks.com
-**General Support:** support@flowbooks.com
+**Email:** hello@flowbooksai.com
+**General Support:** hello@flowbooksai.com
 **Mailing Address:** Flowbooks Inc., 548 Market Street, Suite 36879, San Francisco, CA 94104, United States
 
-For urgent matters related to account security or data breaches, contact security@flowbooks.com.`,
+For urgent matters related to account security or data breaches, contact hello@flowbooksai.com.`,
   },
 ];
 

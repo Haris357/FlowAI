@@ -235,7 +235,7 @@ export default function ContactPage() {
                     </div>
                     <div>
                       <div className="text-sm font-semibold text-slate-900 dark:text-white">Email</div>
-                      <a href="mailto:support@flowbooks.com" className="text-[13px] text-brand-600 dark:text-brand-400 hover:underline">support@flowbooks.com</a>
+                      <a href="mailto:hello@flowbooksai.com" className="text-[13px] text-brand-600 dark:text-brand-400 hover:underline">hello@flowbooksai.com</a>
                       <p className="text-[11px] text-slate-500 dark:text-[#78736D] mt-0.5">We typically respond within 24 hours</p>
                     </div>
                   </div>

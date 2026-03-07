@@ -95,7 +95,7 @@ We do not sell, rent, or trade your personal information to third parties for th
 
 **Restriction:** You can request that we restrict processing of your data in certain circumstances.
 
-To exercise any of these rights, contact us at privacy@flowbooks.com.`,
+To exercise any of these rights, contact us at hello@flowbooksai.com.`,
   },
   {
     id: 'cookies',
@@ -133,8 +133,8 @@ For significant changes that materially affect how we handle your data, we will 
     title: '8. Contact Us',
     content: `If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us:
 
-**Email:** privacy@flowbooks.com
-**General Support:** support@flowbooks.com
+**Email:** hello@flowbooksai.com
+**General Support:** hello@flowbooksai.com
 **Mailing Address:** Flowbooks Inc., 548 Market Street, Suite 36879, San Francisco, CA 94104, United States
 
 We aim to respond to all privacy-related inquiries within 5 business days.
