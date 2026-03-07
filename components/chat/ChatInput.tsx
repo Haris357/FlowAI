@@ -69,7 +69,7 @@ export default function ChatInput({
   showQuickActions = false,
   onSelectAction,
 }: ChatInputProps) {
-  const { usage, plan, sessionRemaining, sessionPercentUsed, sessionTimeLeft, weeklyRemaining } = useSubscription();
+  const { usage, plan, sessionRemaining, sessionPercentUsed, sessionTimeLeft, weeklyRemaining, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
   const [value, setValue] = useState(initialValue);
   const [isListening, setIsListening] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
@@ -297,7 +297,17 @@ export default function ChatInput({
                 <Typography level="body-xs" sx={{ fontWeight: 500, color: 'inherit' }}>
                   Flow AI v1
                 </Typography>
-                {usage && (usage.sessionMessagesUsed || 0) > 0 && (
+                {isTrial && trialTimeLeft && (
+                  <Typography level="body-xs" sx={{ color: 'primary.500', fontSize: '11px', fontWeight: 600 }}>
+                    · Trial: {trialTimeLeft}
+                  </Typography>
+                )}
+                {trialExpired && (
+                  <Typography level="body-xs" sx={{ color: 'danger.500', fontSize: '11px', fontWeight: 600 }}>
+                    · Trial Expired
+                  </Typography>
+                )}
+                {!trialExpired && usage && (usage.sessionMessagesUsed || 0) > 0 && (
                   <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '11px' }}>
                     · {usage.sessionMessagesUsed} / {plan.sessionMessageLimit}
                   </Typography>

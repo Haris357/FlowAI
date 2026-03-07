@@ -4,7 +4,7 @@ import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './AuthContext';
 import { getUserSubscription, getRemainingUsage } from '@/services/subscription';
-import { getPlan, getCurrentWeekStart, getNextWeekStart, formatDuration, DEFAULT_SUBSCRIPTION, PLANS } from '@/lib/plans';
+import { getPlan, getCurrentWeekStart, getNextWeekStart, formatDuration, DEFAULT_SUBSCRIPTION, PLANS, isTrialExpired } from '@/lib/plans';
 import type { UserSubscription, UsageState, PlanDefinition, PlanId, PlanLimitCheck } from '@/types/subscription';
 
 // ==========================================
@@ -25,9 +25,14 @@ interface SubscriptionContextType {
   weeklyRemaining: number;
   weeklyPercentUsed: number;
   weeklyResetsAt: string | null; // "YYYY-MM-DD"
+  // Trial
+  isTrial: boolean;
+  isTrialExpired: boolean;
+  trialEndsAt: number | null; // epoch ms
+  trialTimeLeft: string; // "2d 5h"
   // Combined
   isOverLimit: boolean;
-  blockedBy: 'none' | 'session' | 'weekly';
+  blockedBy: 'none' | 'session' | 'weekly' | 'trial_expired';
   // Actions
   refreshSubscription: () => Promise<void>;
   refreshUsage: () => Promise<void>;
@@ -50,6 +55,10 @@ const SubscriptionContext = createContext<SubscriptionContextType>({
   weeklyRemaining: 0,
   weeklyPercentUsed: 0,
   weeklyResetsAt: null,
+  isTrial: false,
+  isTrialExpired: false,
+  trialEndsAt: null,
+  trialTimeLeft: '',
   isOverLimit: false,
   blockedBy: 'none',
   refreshSubscription: async () => {},
@@ -78,12 +87,18 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   const [weeklyRemaining, setWeeklyRemaining] = useState(0);
   const [weeklyPercentUsed, setWeeklyPercentUsed] = useState(0);
   const [weeklyResetsAt, setWeeklyResetsAt] = useState<string | null>(null);
-  const [blockedBy, setBlockedBy] = useState<'none' | 'session' | 'weekly'>('none');
+  const [blockedBy, setBlockedBy] = useState<'none' | 'session' | 'weekly' | 'trial_expired'>('none');
   const [upgradeReason, setUpgradeReason] = useState<string | null>(null);
+  const [trialEndsAtMs, setTrialEndsAtMs] = useState<number | null>(null);
+  const [trialTimeLeft, setTrialTimeLeft] = useState('');
   const fetchedRef = useRef(false);
 
-  const planId: PlanId = subscription?.planId || 'free';
-  const plan = getPlan(planId);
+  const isTrial = subscription?.status === 'trialing';
+  const trialExpired = isTrial && subscription?.trialEndsAt ? isTrialExpired(subscription.trialEndsAt) : false;
+
+  // Determine effective plan: if trial expired, use free (locked out)
+  const effectivePlanId: PlanId = (isTrial && trialExpired) ? 'free' : (subscription?.planId || 'free');
+  const plan = getPlan(effectivePlanId);
   const isOverLimit = blockedBy !== 'none';
 
   // ── Fetch subscription data ──
@@ -97,9 +112,38 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     }
   }, [user?.uid]);
 
+  // ── Compute trial end timestamp ──
+  useEffect(() => {
+    if (subscription?.trialEndsAt) {
+      const endMs = subscription.trialEndsAt.toMillis?.()
+        || (subscription.trialEndsAt as any)?.seconds * 1000
+        || 0;
+      setTrialEndsAtMs(endMs);
+    } else {
+      setTrialEndsAtMs(null);
+    }
+
+    // If trial expired, block immediately
+    if (trialExpired) {
+      setBlockedBy('trial_expired');
+    }
+  }, [subscription?.trialEndsAt, trialExpired]);
+
   // ── Compute remaining from usage snapshot ──
   const computeRemaining = useCallback((usageData: UsageState | null) => {
-    const currentPlan = getPlan(subscription?.planId || 'free');
+    // If trial expired, everything is 0
+    if (trialExpired) {
+      setSessionRemaining(0);
+      setSessionPercentUsed(100);
+      setSessionResetsAt(null);
+      setWeeklyRemaining(0);
+      setWeeklyPercentUsed(100);
+      setWeeklyResetsAt(null);
+      setBlockedBy('trial_expired');
+      return;
+    }
+
+    const currentPlan = getPlan(effectivePlanId);
     const sessionDurationMs = currentPlan.sessionDurationHours * 60 * 60 * 1000;
     const currentWeekStart = getCurrentWeekStart();
     const nextWeekStart = getNextWeekStart();
@@ -148,14 +192,13 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     if (sRemaining <= 0) setBlockedBy('session');
     else if (wRemaining <= 0) setBlockedBy('weekly');
     else setBlockedBy('none');
-  }, [subscription?.planId]);
+  }, [effectivePlanId, trialExpired]);
 
   // ── Manual refresh ──
   const refreshUsage = useCallback(async () => {
     if (!user?.uid) return;
     try {
-      const currentPlanId = subscription?.planId || 'free';
-      const remaining = await getRemainingUsage(user.uid, currentPlanId);
+      const remaining = await getRemainingUsage(user.uid, effectivePlanId);
       setSessionRemaining(remaining.session.remaining);
       setSessionPercentUsed(remaining.session.percentUsed);
       setSessionResetsAt(remaining.session.resetsAt);
@@ -166,7 +209,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     } catch (err) {
       console.error('Failed to fetch usage:', err);
     }
-  }, [user?.uid, subscription?.planId]);
+  }, [user?.uid, effectivePlanId]);
 
   // ── Initial load ──
   useEffect(() => {
@@ -211,7 +254,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     return () => unsubscribe();
   }, [user?.uid, subscription, computeRemaining]);
 
-  // ── Update session countdown every 30s ──
+  // ── Update session + trial countdown every 30s ──
   useEffect(() => {
     const update = () => {
       if (sessionResetsAt) {
@@ -220,14 +263,29 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       } else {
         setSessionTimeLeft('');
       }
+      if (trialEndsAtMs) {
+        const ms = Math.max(0, trialEndsAtMs - Date.now());
+        setTrialTimeLeft(formatDuration(ms));
+      } else {
+        setTrialTimeLeft('');
+      }
     };
     update();
     const interval = setInterval(update, 30_000);
     return () => clearInterval(interval);
-  }, [sessionResetsAt]);
+  }, [sessionResetsAt, trialEndsAtMs]);
 
   // ── Check plan limits ──
   const checkLimit = useCallback((limitType: string, currentCount?: number): PlanLimitCheck => {
+    // If trial expired, block everything
+    if (trialExpired) {
+      return {
+        allowed: false,
+        reason: 'Your free trial has ended. Subscribe to continue using Flowbooks.',
+        upgradeRequired: 'pro',
+      };
+    }
+
     const count = currentCount || 0;
 
     switch (limitType) {
@@ -236,10 +294,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         const allowed = count < plan.maxCompanies;
         return {
           allowed,
-          reason: allowed ? undefined : `Free plan allows ${plan.maxCompanies} company. Upgrade for more.`,
+          reason: allowed ? undefined : `Your plan allows ${plan.maxCompanies} companies. Upgrade for more.`,
           currentUsage: count,
           limit: plan.maxCompanies,
-          upgradeRequired: planId === 'free' ? 'pro' : 'max',
+          upgradeRequired: effectivePlanId === 'pro' ? 'max' : 'pro',
         };
       }
       case 'collaborators': {
@@ -250,7 +308,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           reason: allowed ? undefined : `Your plan allows ${plan.maxCollaboratorsPerCompany} collaborators. Upgrade for more.`,
           currentUsage: count,
           limit: plan.maxCollaboratorsPerCompany,
-          upgradeRequired: planId === 'free' ? 'pro' : 'max',
+          upgradeRequired: effectivePlanId === 'pro' ? 'max' : 'pro',
         };
       }
       case 'customers': {
@@ -258,7 +316,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         const allowed = count < plan.maxCustomers;
         return {
           allowed,
-          reason: allowed ? undefined : `Free plan allows ${plan.maxCustomers} customers. Upgrade for unlimited.`,
+          reason: allowed ? undefined : `Your plan allows ${plan.maxCustomers} customers. Upgrade for unlimited.`,
           currentUsage: count,
           limit: plan.maxCustomers,
           upgradeRequired: 'pro',
@@ -269,7 +327,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         const allowed = count < plan.maxVendors;
         return {
           allowed,
-          reason: allowed ? undefined : `Free plan allows ${plan.maxVendors} vendors. Upgrade for unlimited.`,
+          reason: allowed ? undefined : `Your plan allows ${plan.maxVendors} vendors. Upgrade for unlimited.`,
           currentUsage: count,
           limit: plan.maxVendors,
           upgradeRequired: 'pro',
@@ -280,7 +338,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         const allowed = count < plan.maxInvoicesPerMonth;
         return {
           allowed,
-          reason: allowed ? undefined : `Free plan allows ${plan.maxInvoicesPerMonth} invoices/month. Upgrade for unlimited.`,
+          reason: allowed ? undefined : `Your plan allows ${plan.maxInvoicesPerMonth} invoices/month. Upgrade for unlimited.`,
           currentUsage: count,
           limit: plan.maxInvoicesPerMonth,
           upgradeRequired: 'pro',
@@ -288,7 +346,9 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       }
       case 'messages': {
         const allowed = !isOverLimit;
-        const reason = blockedBy === 'session'
+        const reason = blockedBy === 'trial_expired'
+          ? 'Your free trial has ended. Subscribe to continue.'
+          : blockedBy === 'session'
           ? `You've used all messages in this session. Resets in ${sessionTimeLeft}.`
           : blockedBy === 'weekly'
           ? 'You\'ve reached your weekly AI message limit. Resets Monday.'
@@ -298,7 +358,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
           reason,
           currentUsage: usage?.sessionMessagesUsed || 0,
           limit: plan.sessionMessageLimit,
-          upgradeRequired: planId === 'free' ? 'pro' : planId === 'pro' ? 'max' : undefined,
+          upgradeRequired: effectivePlanId === 'pro' ? 'max' : 'pro',
         };
       }
       case 'payroll': {
@@ -318,7 +378,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       default:
         return { allowed: true };
     }
-  }, [plan, planId, isOverLimit, blockedBy, sessionTimeLeft, usage]);
+  }, [plan, effectivePlanId, isOverLimit, blockedBy, sessionTimeLeft, usage, trialExpired]);
 
   const showUpgradeModal = useCallback((reason: string) => {
     setUpgradeReason(reason);
@@ -342,6 +402,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         weeklyRemaining,
         weeklyPercentUsed,
         weeklyResetsAt,
+        isTrial,
+        isTrialExpired: trialExpired,
+        trialEndsAt: trialEndsAtMs,
+        trialTimeLeft,
         isOverLimit,
         blockedBy,
         refreshSubscription,

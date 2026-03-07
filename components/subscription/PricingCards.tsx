@@ -1,6 +1,6 @@
 'use client';
 import { Box, Card, CardContent, Typography, Stack, Button, Chip, Divider } from '@mui/joy';
-import { Check, Zap, Crown, Sparkles } from 'lucide-react';
+import { Check, Zap, Crown } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PLANS, formatMessages } from '@/lib/plans';
 import type { PlanId, PlanDefinition } from '@/types/subscription';
@@ -11,15 +11,14 @@ interface PricingCardsProps {
 }
 
 const PLAN_ICONS: Record<string, any> = {
-  free: Sparkles,
   pro: Zap,
   max: Crown,
 };
 
 export default function PricingCards({ onSelectPlan, loading }: PricingCardsProps) {
-  const { plan: currentPlan } = useSubscription();
+  const { plan: currentPlan, isTrial, isTrialExpired: trialExpired } = useSubscription();
 
-  const plans: PlanDefinition[] = [PLANS.free, PLANS.pro, PLANS.max];
+  const plans: PlanDefinition[] = [PLANS.pro, PLANS.max];
 
   return (
     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: 'stretch' }}>
@@ -98,15 +97,21 @@ export default function PricingCards({ onSelectPlan, loading }: PricingCardsProp
                 </Stack>
 
                 <Button
-                  variant={isCurrent ? 'outlined' : isPopular ? 'solid' : 'soft'}
-                  color={isCurrent ? 'neutral' : 'primary'}
-                  disabled={isCurrent || loading}
+                  variant={isCurrent && !isTrial ? 'outlined' : isPopular ? 'solid' : 'soft'}
+                  color={isCurrent && !isTrial ? 'neutral' : 'primary'}
+                  disabled={(isCurrent && !isTrial && !trialExpired) || loading}
                   loading={loading}
                   fullWidth
                   onClick={() => onSelectPlan(plan.id)}
                   sx={{ mt: 'auto' }}
                 >
-                  {isCurrent ? 'Current Plan' : plan.price === 0 ? 'Downgrade' : 'Upgrade'}
+                  {isCurrent && !isTrial && !trialExpired
+                    ? 'Current Plan'
+                    : isTrial && currentPlan.id === plan.id
+                    ? 'Subscribe Now'
+                    : trialExpired
+                    ? 'Subscribe'
+                    : 'Upgrade'}
                 </Button>
               </Stack>
             </CardContent>

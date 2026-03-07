@@ -6,12 +6,13 @@ import { useSubscription } from '@/contexts/SubscriptionContext';
 import { PLANS, getPlan } from '@/lib/plans';
 
 export default function UpgradeModal() {
-  const { upgradeReason, dismissUpgradeModal, plan } = useSubscription();
+  const { upgradeReason, dismissUpgradeModal, plan, isTrial, isTrialExpired: trialExpired } = useSubscription();
   const router = useRouter();
 
   if (!upgradeReason) return null;
 
-  const nextPlan = plan.id === 'free' ? PLANS.pro : plan.id === 'pro' ? PLANS.max : null;
+  const isTrialContext = isTrial || trialExpired;
+  const nextPlan = (plan.id === 'free' || isTrialContext) ? PLANS.pro : plan.id === 'pro' ? PLANS.max : null;
 
   return (
     <Modal open={!!upgradeReason} onClose={dismissUpgradeModal}>
@@ -27,7 +28,7 @@ export default function UpgradeModal() {
               <Zap size={20} style={{ color: 'var(--joy-palette-warning-600)' }} />
             </Box>
             <Box>
-              <Typography level="title-lg" fontWeight={700}>Upgrade Required</Typography>
+              <Typography level="title-lg" fontWeight={700}>{trialExpired ? 'Trial Expired' : 'Upgrade Required'}</Typography>
               <Typography level="body-sm" sx={{ color: 'text.secondary' }}>{upgradeReason}</Typography>
             </Box>
           </Stack>
@@ -70,7 +71,7 @@ export default function UpgradeModal() {
                 router.push('/settings/billing');
               }}
             >
-              View Plans
+              {trialExpired ? 'Subscribe Now' : 'View Plans'}
             </Button>
           </Stack>
         </Stack>

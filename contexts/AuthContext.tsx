@@ -14,9 +14,10 @@ import {
   deleteUser
 } from 'firebase/auth';
 import { auth, googleProvider, db } from '@/lib/firebase';
-import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, getDoc, serverTimestamp, Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { isAdminEmail } from '@/lib/admin';
 import { analytics } from '@/lib/analytics';
+import { TRIAL_PLAN, getTrialEndDate, TRIAL_DURATION_DAYS } from '@/lib/plans';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 
@@ -53,10 +54,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             const userSnap = await getDoc(userRef);
 
             if (!userSnap.exists()) {
+              const trialEnd = getTrialEndDate(TRIAL_DURATION_DAYS);
+              const now = Timestamp.now();
               await setDoc(userRef, {
                 email: firebaseUser.email,
                 name: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
                 photoURL: firebaseUser.photoURL,
+                subscription: {
+                  planId: TRIAL_PLAN,
+                  status: 'trialing',
+                  lemonSqueezyCustomerId: null,
+                  lemonSqueezySubscriptionId: null,
+                  lemonSqueezyVariantId: null,
+                  currentPeriodStart: null,
+                  currentPeriodEnd: null,
+                  cancelAt: null,
+                  trialStartedAt: now,
+                  trialEndsAt: Timestamp.fromDate(trialEnd),
+                  createdAt: now,
+                  updatedAt: now,
+                },
                 createdAt: serverTimestamp(),
                 updatedAt: serverTimestamp(),
               });
@@ -117,11 +134,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await createUserWithEmailAndPassword(auth, email, password);
 
+      const trialEnd = getTrialEndDate(TRIAL_DURATION_DAYS);
+      const now = Timestamp.now();
       const userRef = doc(db, 'users', result.user.uid);
       await setDoc(userRef, {
         email: result.user.email,
         name: name,
         photoURL: null,
+        subscription: {
+          planId: TRIAL_PLAN,
+          status: 'trialing',
+          lemonSqueezyCustomerId: null,
+          lemonSqueezySubscriptionId: null,
+          lemonSqueezyVariantId: null,
+          currentPeriodStart: null,
+          currentPeriodEnd: null,
+          cancelAt: null,
+          trialStartedAt: now,
+          trialEndsAt: Timestamp.fromDate(trialEnd),
+          createdAt: now,
+          updatedAt: now,
+        },
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });

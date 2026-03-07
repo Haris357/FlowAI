@@ -46,7 +46,7 @@ export default function ChatSettings({
 }: ChatSettingsProps) {
   const { company } = useCompany();
   const { user } = useAuth();
-  const { usage, plan, sessionRemaining, sessionPercentUsed, sessionTimeLeft, weeklyRemaining, weeklyPercentUsed, weeklyResetsAt, refreshUsage } = useSubscription();
+  const { usage, plan, sessionRemaining, sessionPercentUsed, sessionTimeLeft, weeklyRemaining, weeklyPercentUsed, weeklyResetsAt, refreshUsage, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
   const { stats, loading: loadingStats, refresh: refreshStats } = useMemoryStats();
 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
@@ -244,11 +244,11 @@ export default function ChatSettings({
                   {/* Plan & Last Updated */}
                   <Stack direction="row" justifyContent="space-between" alignItems="center">
                     <Stack direction="row" spacing={1} alignItems="center">
-                      <Chip size="sm" variant="soft" color="primary" sx={{ fontWeight: 600, textTransform: 'capitalize' }}>
-                        {plan.name} Plan
+                      <Chip size="sm" variant="soft" color={trialExpired ? 'danger' : isTrial ? 'warning' : 'primary'} sx={{ fontWeight: 600, textTransform: 'capitalize' }}>
+                        {trialExpired ? 'Trial Expired' : isTrial ? `${plan.name} Trial` : `${plan.name} Plan`}
                       </Chip>
                       <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                        {sessionLimit} msgs/session · {weeklyLimit}/week
+                        {trialExpired ? 'Subscribe to continue' : isTrial && trialTimeLeft ? `${trialTimeLeft} left` : `${sessionLimit} msgs/session · ${weeklyLimit}/week`}
                       </Typography>
                     </Stack>
                     <Stack direction="row" spacing={0.5} alignItems="center">

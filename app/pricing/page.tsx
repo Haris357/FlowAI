@@ -88,24 +88,6 @@ interface PricingPlan {
 
 const pricingPlans: PricingPlan[] = [
   {
-    name: 'Free',
-    monthlyPrice: '0',
-    annualPrice: '0',
-    description: 'Perfect for trying out Flowbooks.',
-    features: [
-      '1 company',
-      '25 AI messages/session (5h)',
-      '150 AI messages/week',
-      '10 customers & vendors',
-      '5 invoices/month',
-      'Basic reports (P&L)',
-      'Community support',
-    ],
-    cta: 'Start Free',
-    popular: false,
-    href: '/signup',
-  },
-  {
     name: 'Pro',
     monthlyPrice: '29.99',
     annualPrice: '23.99',
@@ -121,9 +103,9 @@ const pricingPlans: PricingPlan[] = [
       '3 collaborators',
       'Email support',
     ],
-    cta: 'Start Free Trial',
+    cta: 'Start 3-Day Free Trial',
     popular: true,
-    href: '/signup?plan=pro',
+    href: '/signup',
   },
   {
     name: 'Max',
@@ -139,7 +121,7 @@ const pricingPlans: PricingPlan[] = [
       'Unlimited collaborators',
       'Priority support',
     ],
-    cta: 'Start Free Trial',
+    cta: 'Start 3-Day Free Trial',
     popular: false,
     href: '/signup?plan=max',
   },
@@ -147,24 +129,23 @@ const pricingPlans: PricingPlan[] = [
 
 interface ComparisonRow {
   feature: string;
-  free: string | boolean;
   pro: string | boolean;
   max: string | boolean;
 }
 
 const comparisonData: ComparisonRow[] = [
-  { feature: 'Companies', free: '1', pro: '3', max: '10' },
-  { feature: 'AI Messages/Session', free: '25 (5h)', pro: '100 (4h)', max: '400 (4h)' },
-  { feature: 'AI Messages/Week', free: '150', pro: '750', max: '3,000' },
-  { feature: 'Customers', free: '10', pro: 'Unlimited', max: 'Unlimited' },
-  { feature: 'Invoices', free: '5/mo', pro: 'Unlimited', max: 'Unlimited' },
-  { feature: 'Reports', free: 'P&L only', pro: 'All reports', max: 'All reports' },
-  { feature: 'Payroll', free: false, pro: true, max: true },
-  { feature: 'Collaborators', free: '0', pro: '3', max: 'Unlimited' },
-  { feature: 'Email Sends', free: false, pro: '50/mo', max: 'Unlimited' },
-  { feature: 'Chat History', free: '7 days', pro: '90 days', max: 'Unlimited' },
-  { feature: 'Custom Branding', free: false, pro: true, max: true },
-  { feature: 'Export PDF/Excel', free: false, pro: true, max: true },
+  { feature: 'Companies', pro: '3', max: '10' },
+  { feature: 'AI Messages/Session', pro: '100 (4h)', max: '400 (4h)' },
+  { feature: 'AI Messages/Week', pro: '750', max: '3,000' },
+  { feature: 'Customers', pro: 'Unlimited', max: 'Unlimited' },
+  { feature: 'Invoices', pro: 'Unlimited', max: 'Unlimited' },
+  { feature: 'Reports', pro: 'All reports', max: 'All reports' },
+  { feature: 'Payroll', pro: true, max: true },
+  { feature: 'Collaborators', pro: '3', max: 'Unlimited' },
+  { feature: 'Email Sends', pro: '50/mo', max: 'Unlimited' },
+  { feature: 'Chat History', pro: '90 days', max: 'Unlimited' },
+  { feature: 'Custom Branding', pro: true, max: true },
+  { feature: 'Export PDF/Excel', pro: true, max: true },
 ];
 
 const faqs = [
@@ -178,7 +159,7 @@ const faqs = [
   },
   {
     q: 'Is there a free trial?',
-    a: 'The Free plan is available forever with no credit card required. For Pro and Max plans, we offer a 14-day money-back guarantee so you can try all premium features risk-free.',
+    a: 'Yes! Every new account gets a 3-day free trial of the Pro plan with full access to all features. No credit card required to start. After the trial, choose a plan to continue.',
   },
   {
     q: 'Do you offer refunds?',
@@ -361,7 +342,7 @@ export default function PricingPage() {
             ) : (
               <>
                 <Link href="/login" className="block px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E]">Sign In</Link>
-                <Link href="/signup" className="block text-center mt-1 px-3 py-2.5 text-sm font-semibold text-white rounded-xl bg-gradient-to-r from-brand-500 to-brand-600">Get Started Free</Link>
+                <Link href="/signup" className="block text-center mt-1 px-3 py-2.5 text-sm font-semibold text-white rounded-xl bg-gradient-to-r from-brand-500 to-brand-600">Start Free Trial</Link>
               </>
             )}
           </div>
@@ -401,7 +382,7 @@ export default function PricingPage() {
 
           {/* Subtitle */}
           <p className="text-center text-base sm:text-lg text-slate-600 dark:text-[#A8A29E] max-w-xl mx-auto mb-4 leading-relaxed">
-            Start free. Upgrade when you need more.
+            Start with a 3-day free trial. No credit card required.
           </p>
 
           {/* Trust Markers */}
@@ -464,7 +445,7 @@ export default function PricingPage() {
       {/* ============ PRICING CARDS ============ */}
       <section className="relative z-10 py-8 pb-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="grid lg:grid-cols-3 gap-6 items-start max-w-5xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-6 items-start max-w-3xl mx-auto">
             {pricingPlans.map((plan, i) => {
               const price = getPrice(plan);
               const isFree = price === '0';
@@ -584,13 +565,10 @@ export default function PricingPage() {
                     <th className="text-left text-[13px] font-semibold text-slate-500 dark:text-[#78736D] uppercase tracking-wider py-4 px-6 w-[40%]">
                       Feature
                     </th>
-                    <th className="text-center text-[13px] font-semibold text-slate-500 dark:text-[#78736D] uppercase tracking-wider py-4 px-4 w-[20%]">
-                      Free
-                    </th>
-                    <th className="text-center text-[13px] font-semibold uppercase tracking-wider py-4 px-4 w-[20%]">
+                    <th className="text-center text-[13px] font-semibold uppercase tracking-wider py-4 px-4 w-[30%]">
                       <span className="text-brand-600 dark:text-brand-400">Pro</span>
                     </th>
-                    <th className="text-center text-[13px] font-semibold text-slate-500 dark:text-[#78736D] uppercase tracking-wider py-4 px-4 w-[20%]">
+                    <th className="text-center text-[13px] font-semibold text-slate-500 dark:text-[#78736D] uppercase tracking-wider py-4 px-4 w-[30%]">
                       Max
                     </th>
                   </tr>
@@ -606,7 +584,7 @@ export default function PricingPage() {
                       <td className="py-3.5 px-6 text-sm font-medium text-slate-700 dark:text-[#DBD8D0]">
                         {row.feature}
                       </td>
-                      {(['free', 'pro', 'max'] as const).map((planKey) => (
+                      {(['pro', 'max'] as const).map((planKey) => (
                         <td key={planKey} className="py-3.5 px-4 text-center">
                           {typeof row[planKey] === 'boolean' ? (
                             row[planKey] ? (
@@ -644,11 +622,11 @@ export default function PricingPage() {
                 <div className="text-sm font-semibold text-slate-900 dark:text-white mb-3">
                   {row.feature}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {(['free', 'pro', 'max'] as const).map((planKey) => (
+                <div className="grid grid-cols-2 gap-2">
+                  {(['pro', 'max'] as const).map((planKey) => (
                     <div key={planKey} className="text-center">
                       <div className="text-[10px] font-semibold uppercase text-slate-400 dark:text-[#78736D] mb-1">
-                        {planKey === 'free' ? 'Free' : planKey === 'pro' ? 'Pro' : 'Max'}
+                        {planKey === 'pro' ? 'Pro' : 'Max'}
                       </div>
                       {typeof row[planKey] === 'boolean' ? (
                         row[planKey] ? (
@@ -725,7 +703,7 @@ export default function PricingPage() {
                 href="/signup"
                 className="group w-full sm:w-auto bg-white text-slate-900 px-7 py-3.5 rounded-full font-bold text-sm hover:shadow-2xl hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-2 shadow-lg"
               >
-                Start Free <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                Start Free Trial <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
               </Link>
               <Link
                 href="/login"
@@ -736,7 +714,7 @@ export default function PricingPage() {
               </Link>
             </div>
             <p className="mt-6 text-xs text-white/50">
-              No credit card required &bull; Free plan available forever
+              No credit card required &bull; 3-day free trial of Pro plan
             </p>
           </div>
         </div>

@@ -47,6 +47,9 @@ export interface UserSubscription {
   currentPeriodStart: Timestamp | null;
   currentPeriodEnd: Timestamp | null;
   cancelAt: Timestamp | null;
+  // Trial fields
+  trialEndsAt: Timestamp | null;       // When the free trial expires
+  trialStartedAt: Timestamp | null;    // When the trial was started
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

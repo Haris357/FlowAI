@@ -1,28 +1,35 @@
 import type { PlanDefinition, PlanId } from '@/types/subscription';
 
 // ==========================================
+// TRIAL CONFIGURATION
+// ==========================================
+
+export const TRIAL_DURATION_DAYS = 3;
+export const TRIAL_PLAN: PlanId = 'pro'; // New users get a Pro trial
+
+// ==========================================
 // PLAN DEFINITIONS (Single Source of Truth)
 // ==========================================
 
 export const PLANS: Record<PlanId, PlanDefinition> = {
   free: {
     id: 'free',
-    name: 'Free',
+    name: 'Expired Trial',
     price: 0,
-    description: 'Perfect for trying out Flowbooks.',
-    sessionMessageLimit: 25,
-    sessionDurationHours: 5,
-    weeklyMessageLimit: 150,
-    allowedModels: ['gpt-4.1-mini'],
+    description: 'Your trial has ended. Subscribe to continue.',
+    sessionMessageLimit: 0,
+    sessionDurationHours: 0,
+    weeklyMessageLimit: 0,
+    allowedModels: [],
     maxCompanies: 1,
     maxCollaboratorsPerCompany: 0,
-    maxCustomers: 10,
-    maxVendors: 10,
-    maxInvoicesPerMonth: 5,
+    maxCustomers: 0,
+    maxVendors: 0,
+    maxInvoicesPerMonth: 0,
     maxRecurringTransactions: 0,
-    maxBankAccounts: 1,
+    maxBankAccounts: 0,
     maxEmailSendsPerMonth: 0,
-    chatHistoryDays: 7,
+    chatHistoryDays: 0,
     features: {
       allReports: false,
       exportPdfExcel: false,
@@ -132,23 +139,43 @@ export function getNextWeekStart(): string {
   return nextMonday.toISOString().slice(0, 10);
 }
 
-/** Format milliseconds as "Xh Ym" */
+/** Format milliseconds as "Xh Ym" or "Xd Yh" for longer durations */
 export function formatDuration(ms: number): string {
   if (ms <= 0) return '0m';
-  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const days = Math.floor(ms / (1000 * 60 * 60 * 24));
+  const hours = Math.floor((ms % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
   const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  if (days > 0 && hours > 0) return `${days}d ${hours}h`;
+  if (days > 0) return `${days}d`;
   if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
   if (hours > 0) return `${hours}h`;
   return `${minutes}m`;
 }
 
+/** Get trial end date (N days from now) */
+export function getTrialEndDate(daysFromNow: number = TRIAL_DURATION_DAYS): Date {
+  const end = new Date();
+  end.setDate(end.getDate() + daysFromNow);
+  end.setHours(23, 59, 59, 999);
+  return end;
+}
+
+/** Check if a trial has expired */
+export function isTrialExpired(trialEndsAt: any): boolean {
+  if (!trialEndsAt) return true;
+  const endMs = trialEndsAt.toMillis?.() || trialEndsAt._seconds * 1000 || trialEndsAt.seconds * 1000 || 0;
+  return Date.now() > endMs;
+}
+
 export const DEFAULT_SUBSCRIPTION = {
-  planId: 'free' as PlanId,
-  status: 'active' as const,
+  planId: 'pro' as PlanId,
+  status: 'trialing' as const,
   lemonSqueezyCustomerId: null,
   lemonSqueezySubscriptionId: null,
   lemonSqueezyVariantId: null,
   currentPeriodStart: null,
   currentPeriodEnd: null,
   cancelAt: null,
+  trialEndsAt: null,
+  trialStartedAt: null,
 };

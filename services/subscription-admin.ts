@@ -5,7 +5,7 @@
 
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
-import { getPlan, isUnlimited, DEFAULT_SUBSCRIPTION, getCurrentDay, getCurrentWeekStart, getNextWeekStart } from '@/lib/plans';
+import { getPlan, isUnlimited, DEFAULT_SUBSCRIPTION, getCurrentDay, getCurrentWeekStart, getNextWeekStart, TRIAL_DURATION_DAYS, TRIAL_PLAN, getTrialEndDate } from '@/lib/plans';
 import type { PlanId, UserSubscription } from '@/types/subscription';
 
 initAdmin();
@@ -23,9 +23,14 @@ export async function getSubscriptionAdmin(userId: string): Promise<UserSubscrip
     return data.subscription as UserSubscription;
   }
 
-  // Lazily initialize free subscription for existing users
+  // Lazily initialize trial subscription for users without one
+  const trialEnd = getTrialEndDate(TRIAL_DURATION_DAYS);
   const defaultSub = {
     ...DEFAULT_SUBSCRIPTION,
+    planId: TRIAL_PLAN,
+    status: 'trialing' as const,
+    trialStartedAt: Timestamp.now(),
+    trialEndsAt: Timestamp.fromDate(trialEnd),
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
   };
@@ -39,8 +44,21 @@ export async function getSubscriptionAdmin(userId: string): Promise<UserSubscrip
  * - past_due: retain plan for 3 days, then downgrade
  */
 export function getEffectivePlanId(subscription: UserSubscription): PlanId {
-  if (subscription.status === 'active' || subscription.status === 'trialing') {
+  if (subscription.status === 'active') {
     return subscription.planId;
+  }
+
+  // Trial: check if still within trial period
+  if (subscription.status === 'trialing') {
+    if (subscription.trialEndsAt) {
+      const endMs = (subscription.trialEndsAt as any).toMillis?.()
+        || (subscription.trialEndsAt as any)._seconds * 1000
+        || (subscription.trialEndsAt as any).seconds * 1000
+        || 0;
+      if (Date.now() <= endMs) return subscription.planId;
+    }
+    // Trial expired → downgrade to free (locked out)
+    return 'free';
   }
 
   if (subscription.status === 'cancelled' && subscription.currentPeriodEnd) {
@@ -67,7 +85,7 @@ export function getEffectivePlanId(subscription: UserSubscription): PlanId {
 
 export interface UsageBudgetResult {
   canSend: boolean;
-  blockedBy: 'none' | 'session' | 'weekly';
+  blockedBy: 'none' | 'session' | 'weekly' | 'trial_expired';
   session: { used: number; limit: number; remaining: number; resetsAt: number };
   weekly: { used: number; limit: number; remaining: number; resetsAt: string };
   planId: PlanId;
@@ -78,6 +96,19 @@ export async function checkUsageBudgetAdmin(userId: string): Promise<UsageBudget
   const subscription = await getSubscriptionAdmin(userId);
   const effectivePlanId = getEffectivePlanId(subscription);
   const plan = getPlan(effectivePlanId);
+
+  // Check if trial has expired (effective plan downgraded to free)
+  if (subscription.status === 'trialing' && effectivePlanId === 'free') {
+    const nextWeekStart = getNextWeekStart();
+    return {
+      canSend: false,
+      blockedBy: 'trial_expired',
+      session: { used: 0, limit: 0, remaining: 0, resetsAt: 0 },
+      weekly: { used: 0, limit: 0, remaining: 0, resetsAt: nextWeekStart },
+      planId: effectivePlanId,
+      allowedModels: [],
+    };
+  }
 
   const usageRef = adminDb.doc(`users/${userId}/usage/current`);
   const usageSnap = await usageRef.get();

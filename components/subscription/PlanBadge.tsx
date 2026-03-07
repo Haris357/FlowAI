@@ -2,29 +2,26 @@
 import { Chip } from '@mui/joy';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 
-const PLAN_COLORS: Record<string, 'neutral' | 'primary' | 'success'> = {
-  free: 'neutral',
-  pro: 'primary',
-  max: 'success',
-};
-
 interface PlanBadgeProps {
   size?: 'sm' | 'md' | 'lg';
 }
 
 export default function PlanBadge({ size = 'sm' }: PlanBadgeProps) {
-  const { plan, loading } = useSubscription();
+  const { plan, loading, isTrial, isTrialExpired: trialExpired } = useSubscription();
 
   if (loading) return null;
+
+  const color = trialExpired ? 'danger' : isTrial ? 'warning' : plan.id === 'max' ? 'success' : 'primary';
+  const label = trialExpired ? 'Expired' : isTrial ? `${plan.name} Trial` : plan.name;
 
   return (
     <Chip
       size={size}
       variant="soft"
-      color={PLAN_COLORS[plan.id] || 'neutral'}
+      color={color}
       sx={{ fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: size === 'sm' ? '10px' : undefined }}
     >
-      {plan.name}
+      {label}
     </Chip>
   );
 }

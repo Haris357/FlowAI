@@ -225,7 +225,9 @@ export async function POST(request: NextRequest) {
       if (!usageBudget.canSend) {
         trackServer(userId, 'message_limit_hit', { blocked_by: usageBudget.blockedBy, plan: usageBudget.planId });
         const timeLeft = formatDuration(Math.max(0, usageBudget.session.resetsAt - Date.now()));
-        const msg = usageBudget.blockedBy === 'session'
+        const msg = usageBudget.blockedBy === 'trial_expired'
+          ? 'Your free trial has ended. Subscribe to continue using Flowbooks.'
+          : usageBudget.blockedBy === 'session'
           ? `You've used all messages in this session. Resets in ${timeLeft}.`
           : `You've reached your weekly AI message limit. Resets Monday.`;
         return NextResponse.json({

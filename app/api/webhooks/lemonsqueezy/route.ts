@@ -75,6 +75,10 @@ export async function POST(request: NextRequest) {
           break;
         }
 
+        // Get existing subscription to preserve trial timestamps for audit
+        const existingUserDoc = await adminDb.doc(`users/${userId}`).get();
+        const existingSub = existingUserDoc.data()?.subscription || {};
+
         await adminDb.doc(`users/${userId}`).update({
           subscription: {
             planId: plan.id,
@@ -85,7 +89,10 @@ export async function POST(request: NextRequest) {
             currentPeriodStart: Timestamp.now(),
             currentPeriodEnd: attrs.renews_at ? Timestamp.fromDate(new Date(attrs.renews_at)) : null,
             cancelAt: null,
-            createdAt: Timestamp.now(),
+            // Preserve trial start for audit, clear trial end (no longer trialing)
+            trialStartedAt: existingSub.trialStartedAt || null,
+            trialEndsAt: null,
+            createdAt: existingSub.createdAt || Timestamp.now(),
             updatedAt: Timestamp.now(),
           },
         });
