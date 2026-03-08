@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Modal, ModalDialog, Typography, Stack, Button, Box, Chip, Card, CardContent,
+  Modal, ModalDialog, Typography, Stack, Button, Box, Chip,
 } from '@mui/joy';
-import { Crown, Check, ArrowRight, X, Clock } from 'lucide-react';
+import { Crown, Check, ArrowRight, X, Lock, Zap } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useSettingsModal } from '@/contexts/SettingsModalContext';
@@ -13,26 +13,20 @@ import { PLANS, formatMessages } from '@/lib/plans';
 
 export default function PremiumModal() {
   const { user } = useAuth();
-  const { plan, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
+  const { isTrial, isTrialExpired: trialExpired } = useSubscription();
   const { openSettings } = useSettingsModal();
   const { mode } = useColorScheme();
   const [open, setOpen] = useState(false);
 
-  // Show modal when trial expires
   useEffect(() => {
     if (!user?.uid) return;
     if (trialExpired) {
-      // Show once per session
       if (typeof window !== 'undefined' && !sessionStorage.getItem('trial_expired_modal_shown')) {
         setOpen(true);
         sessionStorage.setItem('trial_expired_modal_shown', 'true');
       }
     }
   }, [user?.uid, trialExpired]);
-
-  const handleDismiss = () => {
-    setOpen(false);
-  };
 
   const handleUpgrade = () => {
     setOpen(false);
@@ -45,140 +39,157 @@ export default function PremiumModal() {
   const pro = PLANS.pro;
   const max = PLANS.max;
 
+  const proFeatures = [
+    `${formatMessages(pro.sessionMessageLimit)} AI msgs/session`,
+    `Up to ${pro.maxCompanies} companies`,
+    'Unlimited clients & vendors',
+    'All reports & exports',
+  ];
+
+  const maxFeatures = [
+    `${formatMessages(max.sessionMessageLimit)} AI msgs/session`,
+    `Up to ${max.maxCompanies} companies`,
+    'Priority support',
+    'Unlimited everything',
+  ];
+
   return (
-    <Modal open={open} onClose={handleDismiss}>
+    <Modal open={open} onClose={() => setOpen(false)}>
       <ModalDialog
         sx={{
-          maxWidth: 520,
-          width: '100%',
+          maxWidth: 480,
+          width: '95%',
           p: 0,
           overflow: 'hidden',
-          borderRadius: 'xl',
-          bgcolor: isDark ? 'background.surface' : 'background.body',
+          borderRadius: '16px',
+          bgcolor: isDark ? 'neutral.900' : '#fff',
           border: '1px solid',
           borderColor: isDark ? 'neutral.700' : 'neutral.200',
+          boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
         }}
       >
-        {/* Close button */}
-        <Box sx={{ position: 'absolute', top: 12, right: 12, zIndex: 2 }}>
-          <Button size="sm" variant="plain" onClick={handleDismiss} sx={{ minWidth: 0, p: 0.5, color: 'white', '&:hover': { bgcolor: 'rgba(255,255,255,0.15)' } }}>
-            <X size={18} />
-          </Button>
-        </Box>
-
-        {/* Gradient Header */}
+        {/* Header */}
         <Box sx={{
-          p: 3,
-          pb: 2.5,
-          background: 'linear-gradient(135deg, #DC2626 0%, #D97757 50%, #E8956F 100%)',
+          position: 'relative',
+          px: 3, pt: 4, pb: 3,
+          background: 'linear-gradient(135deg, #B91C1C 0%, #D97757 100%)',
           textAlign: 'center',
         }}>
+          <Button
+            size="sm" variant="plain"
+            onClick={() => setOpen(false)}
+            sx={{
+              position: 'absolute', top: 10, right: 10,
+              minWidth: 0, p: 0.5, color: 'rgba(255,255,255,0.7)',
+              '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.15)' },
+            }}
+          >
+            <X size={18} />
+          </Button>
+
           <Box sx={{
-            width: 52, height: 52, borderRadius: '50%', mx: 'auto', mb: 1.5,
+            width: 56, height: 56, borderRadius: '50%', mx: 'auto', mb: 2,
             bgcolor: 'rgba(255,255,255,0.2)', display: 'flex',
             alignItems: 'center', justifyContent: 'center',
-            backdropFilter: 'blur(8px)',
+            boxShadow: '0 0 0 8px rgba(255,255,255,0.08)',
           }}>
-            <Clock size={26} color="white" />
+            <Lock size={26} color="white" />
           </Box>
-          <Typography level="h3" sx={{ color: 'white', fontWeight: 700 }}>
-            Your Free Trial Has Ended
+
+          <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: '1.35rem', lineHeight: 1.2 }}>
+            Your Trial Has Ended
           </Typography>
-          <Typography level="body-sm" sx={{ color: 'rgba(255,255,255,0.85)', mt: 0.5 }}>
-            Subscribe to continue using Flowbooks with all its features
+          <Typography sx={{ color: 'rgba(255,255,255,0.85)', mt: 0.75, fontSize: '0.875rem' }}>
+            Subscribe to continue using Flowbooks
           </Typography>
         </Box>
 
-        {/* Plan Cards */}
-        <Box sx={{ p: 2.5 }}>
+        <Box sx={{ px: 3, py: 2.5 }}>
+          {/* Plan Cards */}
           <Stack direction="row" spacing={1.5} sx={{ mb: 2.5 }}>
-            <Card
-              variant="outlined"
-              sx={{
-                flex: 1,
-                borderColor: 'primary.400',
-                borderWidth: 2,
-                position: 'relative',
-                overflow: 'visible',
-              }}
-            >
-              <Chip
-                size="sm"
-                variant="solid"
-                color="primary"
-                sx={{
-                  position: 'absolute',
-                  top: -10,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  fontSize: '0.65rem',
-                  fontWeight: 700,
-                }}
-              >
+            {/* Pro */}
+            <Box sx={{
+              flex: 1, p: 2, borderRadius: '12px',
+              border: '2px solid', borderColor: '#D97757',
+              bgcolor: isDark ? 'rgba(217,119,87,0.08)' : '#FFF8F5',
+              position: 'relative',
+            }}>
+              <Chip size="sm" sx={{
+                position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
+                bgcolor: '#D97757', color: '#fff',
+                fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.04em',
+              }}>
                 POPULAR
               </Chip>
-              <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
-                <Typography level="body-sm" fontWeight={700} sx={{ mb: 0.5 }}>Pro</Typography>
+              <Box sx={{ textAlign: 'center', mb: 1.5 }}>
+                <Typography level="body-sm" fontWeight={700}>Pro</Typography>
                 <Stack direction="row" alignItems="baseline" justifyContent="center" spacing={0.25}>
-                  <Typography level="title-lg" fontWeight={700}>${pro.price}</Typography>
+                  <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.3 }}>${pro.price}</Typography>
                   <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>/mo</Typography>
                 </Stack>
-                <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.5, mb: 1 }}>
-                  {formatMessages(pro.sessionMessageLimit)} msgs/session · {formatMessages(pro.weeklyMessageLimit)}/week
-                </Typography>
-                <Stack spacing={0.5} alignItems="flex-start">
-                  {['3 companies', 'Unlimited clients', 'All reports', 'Payroll'].map((f, i) => (
-                    <Stack key={i} direction="row" spacing={0.5} alignItems="center">
-                      <Check size={12} style={{ color: 'var(--joy-palette-success-500)', flexShrink: 0 }} />
-                      <Typography level="body-xs" sx={{ textAlign: 'left' }}>{f}</Typography>
-                    </Stack>
-                  ))}
-                </Stack>
-              </CardContent>
-            </Card>
+              </Box>
+              <Stack spacing={0.75}>
+                {proFeatures.map((f, i) => (
+                  <Stack key={i} direction="row" spacing={0.75} alignItems="center">
+                    <Check size={12} color="#D97757" style={{ flexShrink: 0 }} />
+                    <Typography level="body-xs">{f}</Typography>
+                  </Stack>
+                ))}
+              </Stack>
+            </Box>
 
-            <Card variant="outlined" sx={{ flex: 1 }}>
-              <CardContent sx={{ p: 1.5, textAlign: 'center' }}>
-                <Typography level="body-sm" fontWeight={700} sx={{ mb: 0.5 }}>Max</Typography>
+            {/* Max */}
+            <Box sx={{
+              flex: 1, p: 2, borderRadius: '12px',
+              border: '1px solid',
+              borderColor: isDark ? 'neutral.700' : 'neutral.200',
+            }}>
+              <Box sx={{ textAlign: 'center', mb: 1.5, mt: 0.5 }}>
+                <Typography level="body-sm" fontWeight={700}>Max</Typography>
                 <Stack direction="row" alignItems="baseline" justifyContent="center" spacing={0.25}>
-                  <Typography level="title-lg" fontWeight={700}>${max.price}</Typography>
+                  <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.3 }}>${max.price}</Typography>
                   <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>/mo</Typography>
                 </Stack>
-                <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.5, mb: 1 }}>
-                  {formatMessages(max.sessionMessageLimit)} msgs/session · {formatMessages(max.weeklyMessageLimit)}/week
-                </Typography>
-                <Stack spacing={0.5} alignItems="flex-start">
-                  {['10 companies', 'Advanced AI', 'Unlimited all', 'Priority support'].map((f, i) => (
-                    <Stack key={i} direction="row" spacing={0.5} alignItems="center">
-                      <Check size={12} style={{ color: 'var(--joy-palette-success-500)', flexShrink: 0 }} />
-                      <Typography level="body-xs" sx={{ textAlign: 'left' }}>{f}</Typography>
-                    </Stack>
-                  ))}
-                </Stack>
-              </CardContent>
-            </Card>
+              </Box>
+              <Stack spacing={0.75}>
+                {maxFeatures.map((f, i) => (
+                  <Stack key={i} direction="row" spacing={0.75} alignItems="center">
+                    <Check size={12} style={{ color: 'var(--joy-palette-success-500)', flexShrink: 0 }} />
+                    <Typography level="body-xs">{f}</Typography>
+                  </Stack>
+                ))}
+              </Stack>
+            </Box>
           </Stack>
 
           {/* Actions */}
-          <Stack direction="row" spacing={1.5}>
-            <Button
-              variant="plain"
-              color="neutral"
-              onClick={handleDismiss}
-              sx={{ flex: 1 }}
-            >
-              Maybe Later
-            </Button>
-            <Button
-              variant="solid"
-              color="primary"
-              endDecorator={<ArrowRight size={16} />}
-              onClick={handleUpgrade}
-              sx={{ flex: 2 }}
-            >
-              Subscribe Now
-            </Button>
-          </Stack>
+          <Button
+            fullWidth
+            size="lg"
+            endDecorator={<ArrowRight size={16} />}
+            onClick={handleUpgrade}
+            sx={{
+              borderRadius: '10px', fontWeight: 700, py: 1.25, mb: 1,
+              background: 'linear-gradient(135deg, #D97757 0%, #C4694D 100%)',
+              '&:hover': { background: 'linear-gradient(135deg, #C4694D 0%, #B85A3D 100%)' },
+            }}
+          >
+            Subscribe Now
+          </Button>
+          <Button
+            fullWidth
+            variant="plain"
+            color="neutral"
+            size="sm"
+            onClick={() => setOpen(false)}
+            sx={{ fontWeight: 500 }}
+          >
+            Maybe Later
+          </Button>
+
+          <Typography level="body-xs" sx={{ color: 'text.tertiary', textAlign: 'center', mt: 1.5 }}>
+            Your data is safe and waiting for you
+          </Typography>
         </Box>
       </ModalDialog>
     </Modal>

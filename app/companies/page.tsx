@@ -11,7 +11,7 @@ import {
   DollarSign, Shield, Mail, X, Moon, Sun, LogOut, Settings,
   Search, LayoutGrid, List as ListIcon, Check, FileText, ArrowRight,
   Table as TableIcon, Grid3x3, MoreVertical, Briefcase, Home, Bell,
-  Sparkles, Loader2, Clock, Crown, CreditCard,
+  Sparkles, Loader2, Clock,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -36,7 +36,7 @@ import NotificationBell from '@/components/notifications/NotificationBell';
 import NotificationPanel from '@/components/notifications/NotificationPanel';
 import SettingsModal from '@/components/settings/SettingsModal';
 import { useSettingsModal } from '@/contexts/SettingsModalContext';
-import { PLANS, formatMessages, TRIAL_DURATION_DAYS } from '@/lib/plans';
+import { PLANS, formatMessages } from '@/lib/plans';
 
 const BUSINESS_TYPES = ALL_SETTINGS.find(s => s.code === 'business_type')?.options.map(o => o.label) || [
   'Freelancer', 'Consulting', 'Retail', 'Services', 'Other',
@@ -429,78 +429,91 @@ export default function CompaniesPage() {
 
           {/* Trial Expired Block */}
           {isTrial && trialExpired && (
-            <Card variant="outlined" sx={{
-              borderColor: 'divider',
+            <Box sx={{
+              borderRadius: '16px',
               overflow: 'hidden',
+              border: '1px solid',
+              borderColor: 'divider',
               boxShadow: 'sm',
             }}>
-              <CardContent sx={{ p: { xs: 3, sm: 4 } }}>
-                <Stack spacing={3} alignItems="center" textAlign="center">
-                  <Box sx={{
-                    width: 56, height: 56, borderRadius: '50%',
-                    bgcolor: 'danger.softBg', display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <Clock size={26} style={{ color: 'var(--joy-palette-danger-500)' }} />
-                  </Box>
+              {/* Gradient banner */}
+              <Box sx={{
+                px: { xs: 3, sm: 4 }, py: 3,
+                background: 'linear-gradient(135deg, #B91C1C 0%, #D97757 100%)',
+                textAlign: 'center',
+              }}>
+                <Box sx={{
+                  width: 48, height: 48, borderRadius: '50%', mx: 'auto', mb: 1.5,
+                  bgcolor: 'rgba(255,255,255,0.2)', display: 'flex',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <Clock size={22} color="white" />
+                </Box>
+                <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: '1.15rem' }}>
+                  Your trial has ended
+                </Typography>
+                <Typography sx={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.85rem', mt: 0.5 }}>
+                  Subscribe to continue managing your companies
+                </Typography>
+              </Box>
 
-                  <Box>
-                    <Typography level="h4" fontWeight={800} sx={{ mb: 0.5 }}>
-                      Your trial has ended
-                    </Typography>
-                    <Typography level="body-sm" sx={{ color: 'text.secondary', maxWidth: 400, mx: 'auto' }}>
-                      Subscribe to a plan to continue managing your companies and using AI-powered accounting.
-                    </Typography>
-                  </Box>
-
-                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ width: '100%', maxWidth: 480 }}>
-                    {[PLANS.pro, PLANS.max].map(p => (
-                      <Card key={p.id} variant="outlined" sx={{
-                        flex: 1,
-                        borderColor: p.id === 'pro' ? 'primary.300' : 'divider',
-                        borderWidth: p.id === 'pro' ? 2 : 1,
-                        cursor: 'pointer',
+              {/* Plan cards + CTA */}
+              <Box sx={{ p: { xs: 2.5, sm: 3 }, bgcolor: 'background.surface' }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2.5 }}>
+                  {[PLANS.pro, PLANS.max].map(p => (
+                    <Box
+                      key={p.id}
+                      onClick={() => openSettings('subscription')}
+                      sx={{
+                        flex: 1, p: 2, borderRadius: '12px', cursor: 'pointer',
+                        border: p.id === 'pro' ? '2px solid #D97757' : '1px solid',
+                        borderColor: p.id === 'pro' ? '#D97757' : 'divider',
+                        bgcolor: p.id === 'pro' ? 'rgba(217,119,87,0.04)' : 'transparent',
+                        textAlign: 'center',
                         transition: 'all 0.2s',
-                        '&:hover': { borderColor: 'primary.400', boxShadow: 'md' },
+                        position: 'relative',
+                        '&:hover': { borderColor: '#D97757', boxShadow: 'md' },
                       }}
-                        onClick={() => openSettings('subscription')}
-                      >
-                        <CardContent sx={{ p: 2, textAlign: 'center' }}>
-                          {p.id === 'pro' && (
-                            <Chip size="sm" variant="soft" color="primary" sx={{ mb: 0.75, fontSize: '0.65rem', fontWeight: 700 }}>
-                              RECOMMENDED
-                            </Chip>
-                          )}
-                          <Typography level="title-sm" fontWeight={700}>{p.name}</Typography>
-                          <Stack direction="row" alignItems="baseline" justifyContent="center" spacing={0.25} sx={{ my: 0.5 }}>
-                            <Typography level="h4" fontWeight={800}>${p.price}</Typography>
-                            <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>/mo</Typography>
-                          </Stack>
-                          <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                            {formatMessages(p.sessionMessageLimit)} msgs/session
-                          </Typography>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </Stack>
-
-                  <Button
-                    variant="solid"
-                    color="primary"
-                    size="lg"
-                    endDecorator={<ArrowRight size={16} />}
-                    onClick={() => openSettings('subscription')}
-                    sx={{ borderRadius: 'lg', fontWeight: 700, px: 4 }}
-                  >
-                    Choose a Plan
-                  </Button>
-
-                  <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                    Your data is safe and waiting for you.
-                  </Typography>
+                    >
+                      {p.id === 'pro' && (
+                        <Chip size="sm" sx={{
+                          position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
+                          bgcolor: '#D97757', color: '#fff',
+                          fontSize: '0.6rem', fontWeight: 700,
+                        }}>
+                          RECOMMENDED
+                        </Chip>
+                      )}
+                      <Typography level="body-sm" fontWeight={700}>{p.name}</Typography>
+                      <Stack direction="row" alignItems="baseline" justifyContent="center" spacing={0.25} sx={{ my: 0.5 }}>
+                        <Typography sx={{ fontSize: '1.5rem', fontWeight: 800 }}>${p.price}</Typography>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>/mo</Typography>
+                      </Stack>
+                      <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                        {formatMessages(p.sessionMessageLimit)} msgs/session
+                      </Typography>
+                    </Box>
+                  ))}
                 </Stack>
-              </CardContent>
-            </Card>
+
+                <Button
+                  fullWidth
+                  size="lg"
+                  endDecorator={<ArrowRight size={16} />}
+                  onClick={() => openSettings('subscription')}
+                  sx={{
+                    borderRadius: '10px', fontWeight: 700, py: 1.25,
+                    background: 'linear-gradient(135deg, #D97757 0%, #C4694D 100%)',
+                    '&:hover': { background: 'linear-gradient(135deg, #C4694D 0%, #B85A3D 100%)' },
+                  }}
+                >
+                  Choose a Plan
+                </Button>
+                <Typography level="body-xs" sx={{ color: 'text.tertiary', textAlign: 'center', mt: 1.5 }}>
+                  Your data is safe and waiting for you
+                </Typography>
+              </Box>
+            </Box>
           )}
 
           {/* Welcome + New Company */}

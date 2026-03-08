@@ -60,14 +60,27 @@ export default function WelcomeTutorialModal() {
   const isCompanyRoute = pathname?.startsWith('/companies/') && pathname.split('/').length > 2;
 
   // Check if tutorial completed — only when inside a company route
+  // Delay slightly so trial welcome modal can show first for new users
   useEffect(() => {
     if (!user?.uid || !isCompanyRoute) return;
-    const ref = doc(db, 'users', user.uid, 'settings', 'tutorial');
-    getDoc(ref).then(snap => {
-      if (!snap.exists() || !snap.data()?.completed) {
-        setActive(true);
-      }
-    }).catch(() => {});
+    const timeout = setTimeout(() => {
+      const ref = doc(db, 'users', user.uid, 'settings', 'tutorial');
+      getDoc(ref).then(snap => {
+        if (!snap.exists() || !snap.data()?.completed) {
+          // Only show if no other modal overlay is open
+          const trialRef = doc(db, 'users', user.uid, 'settings', 'trialWelcome');
+          getDoc(trialRef).then(trialSnap => {
+            if (trialSnap.exists() && trialSnap.data()?.shown) {
+              setActive(true);
+            } else {
+              // Trial welcome hasn't been shown yet, wait longer
+              setTimeout(() => setActive(true), 3000);
+            }
+          }).catch(() => setActive(true));
+        }
+      }).catch(() => {});
+    }, 500);
+    return () => clearTimeout(timeout);
   }, [user?.uid, isCompanyRoute]);
 
   // Find and highlight the target element

@@ -6,6 +6,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 import { db } from '@/lib/firebase';
 import { collection, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { getDefaultChartOfAccounts, type ChartAccount } from '@/lib/chart-of-accounts';
+import { initializeCompanySettings } from '@/services/settings';
 import { countries } from '@/lib/countries';
 import toast from 'react-hot-toast';
 import {
@@ -248,6 +249,9 @@ export default function OnboardingPage() {
           })
         )
       );
+
+      // Initialize company settings
+      await initializeCompanySettings(companyId);
 
       // Clean up draft
       try {

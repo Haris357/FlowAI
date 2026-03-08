@@ -209,7 +209,6 @@ export async function POST(request: NextRequest) {
           'subscription.updatedAt': Timestamp.now(),
         });
 
-        // Send resumption notification
         notifyUser(userId, 'custom', {
           customSubject: 'Your Flowbooks subscription has been resumed',
           customMessage: 'Great news! Your subscription is active again. All premium features have been restored. Thank you for continuing with Flowbooks!',
@@ -217,6 +216,42 @@ export async function POST(request: NextRequest) {
           type: 'success',
           title: 'Subscription Resumed',
           message: 'Your subscription is active again. All features have been restored.',
+          category: 'subscription',
+        });
+        break;
+      }
+
+      case 'subscription_paused': {
+        await adminDb.doc(`users/${userId}`).update({
+          'subscription.status': 'paused',
+          'subscription.updatedAt': Timestamp.now(),
+        });
+
+        notifyUser(userId, 'custom', {
+          customSubject: 'Your Flowbooks subscription has been paused',
+          customMessage: 'Your subscription is now paused. You won\'t be charged during this time. You can resume your subscription anytime from your billing settings.',
+        }, {
+          type: 'warning',
+          title: 'Subscription Paused',
+          message: 'Your subscription has been paused. Resume anytime from billing settings.',
+          category: 'subscription',
+        });
+        break;
+      }
+
+      case 'subscription_unpaused': {
+        await adminDb.doc(`users/${userId}`).update({
+          'subscription.status': 'active',
+          'subscription.updatedAt': Timestamp.now(),
+        });
+
+        notifyUser(userId, 'custom', {
+          customSubject: 'Your Flowbooks subscription has been unpaused',
+          customMessage: 'Your subscription is active again! All premium features have been restored.',
+        }, {
+          type: 'success',
+          title: 'Subscription Unpaused',
+          message: 'Your subscription is active again. All features restored.',
           category: 'subscription',
         });
         break;
