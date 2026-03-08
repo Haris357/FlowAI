@@ -1,19 +1,11 @@
 /**
- * Email Service — Nodemailer SMTP Transport
+ * Email Service — Resend
  * Server-side only (used in API routes)
  */
 
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: Number(process.env.SMTP_PORT) === 465,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 interface EmailAttachment {
   filename: string;
@@ -27,19 +19,26 @@ export async function sendEmail(
   html: string,
   attachments?: EmailAttachment[]
 ): Promise<void> {
-  if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-    throw new Error('SMTP credentials not configured. Set SMTP_USER and SMTP_PASS environment variables.');
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY not configured.');
   }
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM || process.env.SMTP_USER,
+  const from = process.env.RESEND_FROM || 'Flowbooks <hello@flowbooksai.com>';
+
+  const { error } = await resend.emails.send({
+    from,
     to,
     subject,
     html,
     attachments: attachments?.map(a => ({
       filename: a.filename,
       content: a.content,
-      contentType: a.contentType || 'application/pdf',
+      content_type: a.contentType || 'application/pdf',
     })),
   });
+
+  if (error) {
+    console.error('Resend send failed:', error);
+    throw new Error(error.message);
+  }
 }
