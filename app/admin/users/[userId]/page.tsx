@@ -200,13 +200,13 @@ export default function AdminUserDetailPage() {
   const authInfo = data?.authInfo;
 
   const planConfig = getPlan(plan as any);
-  const sessionLimit = planConfig.sessionMessageLimit;
-  const weeklyLimit = planConfig.weeklyMessageLimit;
-  const sessionUsed = usage?.sessionMessagesUsed || 0;
-  const weeklyUsed = usage?.weeklyMessagesUsed || 0;
-  const bonusMessages = usage?.bonusMessages || 0;
+  const sessionLimit = planConfig.sessionTokenLimit;
+  const weeklyLimit = planConfig.weeklyTokenLimit;
+  const sessionUsed = usage?.sessionTokensUsed || 0;
+  const weeklyUsed = usage?.weeklyTokensUsed || 0;
+  const bonusTokens = usage?.bonusTokens || 0;
   const sessionRemaining = Math.max(0, sessionLimit - sessionUsed);
-  const weeklyRemaining = Math.max(0, weeklyLimit - weeklyUsed) + bonusMessages;
+  const weeklyRemaining = Math.max(0, weeklyLimit - weeklyUsed) + bonusTokens;
   const sessionPercent = sessionLimit > 0 ? Math.min(100, (sessionUsed / sessionLimit) * 100) : 0;
   const weeklyPercent = weeklyLimit > 0 ? Math.min(100, (weeklyUsed / weeklyLimit) * 100) : 0;
 
@@ -356,7 +356,7 @@ export default function AdminUserDetailPage() {
             {/* AI USAGE */}
             <Card sx={{ ...adminCard as Record<string, unknown> }}>
               <CardContent sx={{ p: 3 }}>
-                <SectionHeader icon={<Zap size={16} style={{ color: '#D97757' }} />} title="AI Message Usage" />
+                <SectionHeader icon={<Zap size={16} style={{ color: '#D97757' }} />} title="AI Token Usage" />
                 <Divider sx={{ my: 2 }} />
 
                 {/* Session Bar */}
@@ -409,7 +409,7 @@ export default function AdminUserDetailPage() {
                   {[
                     { label: 'Session Remaining', value: sessionRemaining.toLocaleString(), color: '#D97757' },
                     { label: 'Weekly Remaining', value: weeklyRemaining.toLocaleString(), color: '#6366f1' },
-                    { label: 'Bonus Messages', value: bonusMessages.toLocaleString(), color: 'success.500' },
+                    { label: 'Bonus Tokens', value: bonusTokens.toLocaleString(), color: 'success.500' },
                     { label: 'Requests', value: String(usage?.requestCount || 0), color: 'text.secondary' },
                   ].map((item, i) => (
                     <Box key={i} sx={{ minWidth: 100 }}>
@@ -579,14 +579,14 @@ export default function AdminUserDetailPage() {
               </CardContent>
             </Card>
 
-            {/* GRANT MESSAGES */}
+            {/* GRANT BONUS TOKENS */}
             <Card sx={{ ...adminCard as Record<string, unknown> }}>
               <CardContent sx={{ p: 3 }}>
-                <SectionHeader icon={<Coins size={16} style={{ color: 'var(--joy-palette-warning-500)' }} />} title="Grant Messages" />
+                <SectionHeader icon={<Coins size={16} style={{ color: 'var(--joy-palette-warning-500)' }} />} title="Grant Bonus Tokens" />
                 <Divider sx={{ my: 2 }} />
                 <Stack spacing={1.5}>
                   <FormControl size="sm">
-                    <FormLabel>Message Amount</FormLabel>
+                    <FormLabel>Token Amount</FormLabel>
                     <Input type="number" size="sm" value={grantMessages}
                       onChange={(e) => setGrantMessages(e.target.value)} placeholder="e.g., 25" />
                   </FormControl>

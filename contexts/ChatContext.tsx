@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompany } from '@/contexts/CompanyContext';
-import { Chat, ChatMessage, ChatMessageRichData, ChatSettings, ToolCall, ThinkingStep } from '@/types';
+import { Chat, ChatMessage, ChatAttachment, ChatMessageRichData, ChatSettings, ToolCall, ThinkingStep } from '@/types';
 import {
   getChats,
   createChat,
@@ -134,8 +134,10 @@ interface ChatContextType {
   selectChat: (sessionId: string) => Promise<void>;
   renameChat: (sessionId: string, newTitle: string) => Promise<void>;
   deleteChat: (sessionId: string) => Promise<void>;
-  sendMessage: (content: string, onChatCreated?: (chatId: string) => void) => Promise<void>;
+  sendMessage: (content: string, onChatCreated?: (chatId: string) => void, files?: File[]) => Promise<void>;
   executeToolAction: (toolName: string, args: Record<string, any>, sourceMessageId?: string, actionKey?: string) => Promise<void>;
+  processAllDocumentEntries: () => Promise<void>;
+  pendingDocumentEntries: any[];
   clearAllChats: () => Promise<void>;
   refreshSessions: () => Promise<void>;
   sidebarCollapsed: boolean;
@@ -214,6 +216,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const [messageLimitReached, setMessageLimitReached] = useState(false);
   const dismissMessageLimit = useCallback(() => setMessageLimitReached(false), []);
+
+  // Document context persistence — tracks unprocessed entries from uploaded documents
+  const [pendingDocumentEntries, setPendingDocumentEntries] = useState<any[]>([]);
+  const [processedEntryTypes, setProcessedEntryTypes] = useState<Set<string>>(new Set());
 
   const filteredSessions = searchTerm
     ? sessions.filter(s => s.title.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -335,8 +341,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [company?.id, user?.uid]);
 
   const sendMessage = useCallback(
-    async (content: string, onChatCreated?: (chatId: string) => void) => {
-      if (!company?.id || !user?.uid || !content.trim()) return;
+    async (content: string, onChatCreated?: (chatId: string) => void, files?: File[]) => {
+      if (!company?.id || !user?.uid || (!content.trim() && (!files || files.length === 0))) return;
       if (isSendingMessage) return; // Prevent concurrent sends
 
       let sessionId = currentSessionId;
@@ -347,32 +353,124 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
       setIsSendingMessage(true);
 
+      // Upload files if any
+      let attachments: ChatAttachment[] | undefined;
+      if (files && files.length > 0) {
+        setIsAITyping(true);
+        setThinkingSteps([{ id: 'upload', label: `Uploading ${files.length} file${files.length > 1 ? 's' : ''}`, status: 'in_progress' }]);
+        try {
+          const { uploadChatFile } = await import('@/lib/chat-upload');
+          attachments = [];
+          for (const file of files) {
+            const att = await uploadChatFile(file, company.id, sessionId);
+            attachments.push(att);
+          }
+          setThinkingSteps(prev => prev.map(s => s.id === 'upload' ? { ...s, status: 'completed' as const } : s));
+        } catch (uploadErr) {
+          console.error('File upload error:', uploadErr);
+          setIsAITyping(false);
+          setThinkingSteps([]);
+          setIsSendingMessage(false);
+          const { default: toast } = await import('react-hot-toast');
+          toast.error(uploadErr instanceof Error ? uploadErr.message : 'Failed to upload file');
+          return;
+        }
+      }
+
+      const displayContent = content.trim() || (attachments ? `Attached ${attachments.map(a => a.name).join(', ')}` : '');
+
       const userMessage: ChatMessage = {
         id: `temp-${Date.now()}`,
         role: 'user',
-        content: content.trim(),
+        content: displayContent,
+        attachments,
         createdAt: { toDate: () => new Date() } as any,
       };
       setCurrentMessages(prev => [...prev, userMessage]);
 
       // Start typing indicator (no accordion — only shown when tool calls are detected)
       setIsAITyping(true);
-      setThinkingSteps([]);
+      setThinkingSteps(prev => prev.length > 0 ? prev : []);
 
       try {
-        await addMessage(company.id, sessionId, { role: 'user', content: content.trim() });
+        await addMessage(company.id, sessionId, { role: 'user', content: displayContent, attachments });
 
         const currentChat = sessions.find(s => s.id === sessionId);
         if (currentChat?.title.startsWith('New Chat -')) {
-          await updateChatTitleFromMessage(company.id, sessionId, content.trim());
+          await updateChatTitleFromMessage(company.id, sessionId, displayContent);
           await loadSessions();
         }
+
+        // Analyze attachments if present
+        let documentContext = '';
+        let documentAnalyses: any[] = [];
+        if (attachments && attachments.length > 0) {
+          setThinkingSteps(prev => [
+            ...prev.filter(s => s.status === 'completed'),
+            { id: 'analyze', label: `Analyzing ${attachments!.length > 1 ? 'documents' : attachments![0].name}`, status: 'in_progress' as const },
+          ]);
+
+          try {
+            for (const att of attachments) {
+              const res = await fetch('/api/chat/analyze-document', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  fileUrl: att.url,
+                  fileName: att.name,
+                  mimeType: att.mimeType,
+                  companyId: company.id,
+                  userId: user.uid,
+                }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                console.log('[ChatContext] Document analysis response:', JSON.stringify(data.analysis).substring(0, 500));
+                if (data.analysis) {
+                  documentAnalyses.push(data.analysis);
+                  att.extractedData = data.analysis;
+                }
+              } else {
+                const errText = await res.text().catch(() => 'unknown');
+                console.error('[ChatContext] Document analysis failed:', res.status, errText.substring(0, 300));
+              }
+            }
+
+            if (documentAnalyses.length > 0) {
+              documentContext = '\n\n[ATTACHED DOCUMENT ANALYSIS]\n' +
+                'IMPORTANT: Present a BRIEF summary of the document (2-3 sentences max). ' +
+                'Do NOT list individual entries — the data is shown in a table below your message. ' +
+                'Simply say what the document contains and ask the user what they want to do. ' +
+                'If multiple entry types exist (invoices + journal entries + bills etc.), offer a "Process all entries" option. ' +
+                'Do NOT auto-execute tool calls yet. Wait for the user to confirm.\n\n' +
+                documentAnalyses.map((a, i) => {
+                  let docInfo = `Document ${i + 1}: ${attachments![i].name}\nType: ${a.documentType}\nSummary: ${a.summary}\nSuggested action: ${a.suggestedAction}`;
+                  if (a.entries && a.entries.length > 0) {
+                    docInfo += `\nEntries count: ${a.entries.length}`;
+                    docInfo += `\nEntries: ${JSON.stringify(a.entries, null, 2)}`;
+                  }
+                  if (a.rawText) {
+                    docInfo += `\n\nRaw document content:\n${a.rawText}`;
+                  }
+                  return docInfo;
+                }).join('\n\n');
+            }
+
+            setThinkingSteps(prev => prev.map(s => s.id === 'analyze' ? { ...s, status: 'completed' as const } : s));
+          } catch (analyzeErr) {
+            console.warn('Document analysis failed:', analyzeErr);
+            setThinkingSteps(prev => prev.map(s => s.id === 'analyze' ? { ...s, status: 'error' as const, label: 'Analysis failed — sending without context' } : s));
+          }
+        }
+
+        // Build the message to send to AI (include document context if any)
+        const aiMessage = (content.trim() || (attachments ? `I've attached ${attachments.map(a => a.name).join(', ')}. Please analyze and process this document.` : '')) + documentContext;
 
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            message: content.trim(),
+            message: aiMessage,
             companyId: company.id,
             userId: user.uid,
             chatId: sessionId,
@@ -383,7 +481,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
 
-          // Handle message limit (session or weekly)
+          // Handle usage limit (session or weekly)
           if (response.status === 403 && errorData.error === 'message_limit_reached') {
             refreshSubscription();
             refreshUsage();
@@ -393,7 +491,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             const limitMsg: ChatMessage = {
               id: `temp-limit-${Date.now()}`,
               role: 'assistant',
-              content: errorData.message || "You've reached your AI message limit. Please wait for it to reset or upgrade your plan.",
+              content: errorData.message || "You've reached your usage limit. Please wait for it to reset or upgrade your plan.",
               createdAt: { toDate: () => new Date() } as any,
             };
             setCurrentMessages(prev => [...prev, limitMsg]);
@@ -419,6 +517,99 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         let richDataList: ChatMessage['richDataList'] | undefined;
         let actions: ChatMessage['actions'] | undefined;
         let followUp: string | undefined;
+
+        // Build rich data grid from document analysis results
+        if (documentAnalyses.length > 0 && (!data.toolCalls || data.toolCalls.length === 0)) {
+          const allEntries = documentAnalyses.flatMap(a => a.entries || []);
+          if (allEntries.length > 0) {
+            // Build grid items from extracted entries
+            const gridItems = allEntries.map((entry: any, idx: number) => {
+              const d = entry.data || {};
+              const type = entry.type || 'unknown';
+              // Normalize different entry types into table rows
+              if (type === 'invoice' || type === 'bill') {
+                return {
+                  '#': idx + 1,
+                  type: type.charAt(0).toUpperCase() + type.slice(1),
+                  name: d.customerName || d.vendorName || '-',
+                  description: d.items?.[0]?.description || d.description || '-',
+                  amount: d.total || d.subtotal || 0,
+                  date: d.dueDate || d.date || '-',
+                  reference: d.invoiceNumber || d.billNumber || '-',
+                };
+              } else if (type === 'expense' || type === 'payment') {
+                return {
+                  '#': idx + 1,
+                  type: type.charAt(0).toUpperCase() + type.slice(1),
+                  name: d.vendor || d.from || d.to || '-',
+                  description: d.description || d.category || '-',
+                  amount: d.amount || 0,
+                  date: d.date || '-',
+                  reference: d.reference || '-',
+                };
+              } else if (type === 'journal_entry') {
+                const totalDebits = (d.debits || []).reduce((sum: number, db: any) => sum + (db.amount || 0), 0);
+                return {
+                  '#': idx + 1,
+                  type: 'Journal Entry',
+                  name: (d.debits?.[0]?.account || '') + ' / ' + (d.credits?.[0]?.account || ''),
+                  description: d.description || '-',
+                  amount: totalDebits,
+                  date: d.date || '-',
+                  reference: '-',
+                };
+              } else if (type === 'customer' || type === 'vendor') {
+                return {
+                  '#': idx + 1,
+                  type: type.charAt(0).toUpperCase() + type.slice(1),
+                  name: d.name || '-',
+                  description: d.email || d.phone || '-',
+                  amount: 0,
+                  date: '-',
+                  reference: d.address || '-',
+                };
+              }
+              return {
+                '#': idx + 1,
+                type: type,
+                name: d.name || d.customerName || d.vendorName || '-',
+                description: d.description || '-',
+                amount: d.total || d.amount || 0,
+                date: d.date || '-',
+                reference: '-',
+              };
+            });
+
+            const docType = documentAnalyses[0].documentType || 'document';
+            richData = {
+              type: 'list' as const,
+              entityType: docType,
+              items: gridItems,
+              columns: [
+                { key: '#', label: '#', type: 'text' as const },
+                { key: 'type', label: 'Type', type: 'text' as const },
+                { key: 'name', label: 'Name', type: 'text' as const },
+                { key: 'description', label: 'Description', type: 'text' as const },
+                { key: 'amount', label: 'Amount', type: 'currency' as const },
+                { key: 'date', label: 'Date', type: 'text' as const },
+                { key: 'reference', label: 'Reference', type: 'text' as const },
+              ],
+              summary: {
+                total: gridItems.reduce((sum: number, item: any) => sum + (item.amount || 0), 0),
+                count: gridItems.length,
+                documentType: docType,
+                suggestedAction: documentAnalyses[0].suggestedAction,
+              },
+            };
+
+            // Store all entries for document context persistence
+            setPendingDocumentEntries(allEntries);
+            setProcessedEntryTypes(new Set());
+
+            // Add suggestion buttons for processing the entries
+            followUp = `Would you like me to process all ${allEntries.length} entries?`;
+          }
+        }
 
         // Retry once if AI narrated actions without calling tools
         if ((!data.toolCalls || data.toolCalls.length === 0) && finalMessage &&
@@ -464,22 +655,35 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           }));
           setThinkingSteps(toolSteps);
 
+          // Execute tool calls in parallel for speed (batch operations like "create all invoices")
           const results: ToolResult[] = [];
-          for (let i = 0; i < data.toolCalls.length; i++) {
-            const toolCall = data.toolCalls[i];
+          const PARALLEL_BATCH_SIZE = 5; // Process up to 5 tools concurrently
+          for (let batchStart = 0; batchStart < data.toolCalls.length; batchStart += PARALLEL_BATCH_SIZE) {
+            const batch = data.toolCalls.slice(batchStart, batchStart + PARALLEL_BATCH_SIZE);
+            const batchIndices = batch.map((_: any, i: number) => batchStart + i);
 
-            // Mark current tool as in_progress
-            setThinkingSteps(prev => prev.map(s => s.id === `tool-${i}` ? { ...s, status: 'in_progress' as const } : s));
+            // Mark batch as in_progress
+            setThinkingSteps(prev => prev.map(s => {
+              const idx = parseInt(s.id.replace('tool-', ''));
+              return batchIndices.includes(idx) ? { ...s, status: 'in_progress' as const } : s;
+            }));
 
-            const result = await executeAITool(
-              toolCall.name,
-              toolCall.args || toolCall.input,
-              { companyId: company.id, userId: user.uid }
+            const batchResults = await Promise.all(
+              batch.map((toolCall: any) =>
+                executeAITool(
+                  toolCall.name,
+                  toolCall.args || toolCall.input,
+                  { companyId: company.id, userId: user.uid }
+                )
+              )
             );
-            results.push(result);
+            results.push(...batchResults);
 
-            // Mark current tool as completed
-            setThinkingSteps(prev => prev.map(s => s.id === `tool-${i}` ? { ...s, status: 'completed' as const } : s));
+            // Mark batch as completed
+            setThinkingSteps(prev => prev.map(s => {
+              const idx = parseInt(s.id.replace('tool-', ''));
+              return batchIndices.includes(idx) ? { ...s, status: 'completed' as const } : s;
+            }));
           }
 
           // === FOLLOW-UP ROUND ===
@@ -745,7 +949,46 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         const finalMessage = stripActionPatterns(result.message || '');
         const richData = result.data;
         const actions = result.actions as ChatMessage['actions'];
-        const followUp = result.followUp;
+        let followUp = result.followUp;
+
+        // Check for remaining unprocessed document entries after this action
+        if (pendingDocumentEntries.length > 0) {
+          // Determine what type was just processed from the tool name
+          const typeMap: Record<string, string> = {
+            create_invoice: 'invoice', create_bill: 'bill', record_transaction: 'expense',
+            record_expense: 'expense', create_journal_entry: 'journal_entry',
+            add_customer: 'customer', add_vendor: 'vendor',
+          };
+          const processedType = typeMap[toolName] || '';
+          if (processedType) {
+            const newProcessed = new Set(processedEntryTypes);
+            newProcessed.add(processedType);
+            setProcessedEntryTypes(newProcessed);
+
+            // Find remaining unprocessed entry types
+            const entryTypes = new Set(pendingDocumentEntries.map((e: any) => e.type));
+            const remainingTypes = Array.from(entryTypes).filter(t => !newProcessed.has(t));
+
+            if (remainingTypes.length > 0) {
+              const typeLabels: Record<string, string> = {
+                invoice: 'invoices', bill: 'bills', expense: 'expenses',
+                journal_entry: 'journal entries', customer: 'customers', vendor: 'vendors',
+                payment: 'payments',
+              };
+              const remainingLabels = remainingTypes.map(t => typeLabels[t] || t);
+              const remainingCounts = remainingTypes.map(t => {
+                const count = pendingDocumentEntries.filter((e: any) => e.type === t).length;
+                return `${count} ${typeLabels[t] || t}`;
+              });
+              followUp = `The document also contains ${remainingCounts.join(', ')}. Would you like me to process those too?`;
+            } else {
+              // All entry types processed — clear pending
+              setPendingDocumentEntries([]);
+              setProcessedEntryTypes(new Set());
+              followUp = 'All entries from the document have been processed!';
+            }
+          }
+        }
 
         const assistantMessage: ChatMessage = {
           id: `temp-${Date.now() + 1}`,
@@ -785,7 +1028,205 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setIsSendingMessage(false);
       }
     },
-    [company?.id, user?.uid, currentSessionId, currentMessages, isSendingMessage, refreshData]
+    [company?.id, user?.uid, currentSessionId, currentMessages, isSendingMessage, refreshData, pendingDocumentEntries, processedEntryTypes]
+  );
+
+  // Process ALL document entries at once (invoices + bills + journal entries + expenses etc.)
+  const processAllDocumentEntries = useCallback(
+    async () => {
+      if (!company?.id || !user?.uid || pendingDocumentEntries.length === 0) return;
+      if (isSendingMessage) return;
+
+      const sessionId = currentSessionId;
+      if (!sessionId) return;
+
+      setIsSendingMessage(true);
+      setIsAITyping(true);
+
+      try {
+        // Group entries by type
+        const entriesByType: Record<string, any[]> = {};
+        for (const entry of pendingDocumentEntries) {
+          const type = entry.type || 'unknown';
+          if (!entriesByType[type]) entriesByType[type] = [];
+          entriesByType[type].push(entry);
+        }
+
+        // Map entry types to tool names
+        const typeToTool: Record<string, string> = {
+          invoice: 'create_invoice',
+          bill: 'create_bill',
+          expense: 'record_transaction',
+          payment: 'record_transaction',
+          journal_entry: 'record_transaction',
+          customer: 'add_customer',
+          vendor: 'add_vendor',
+        };
+
+        // Build all tool calls
+        const allToolCalls: { name: string; args: any; label: string }[] = [];
+        for (const [type, entries] of Object.entries(entriesByType)) {
+          const toolName = typeToTool[type];
+          if (!toolName) continue;
+
+          for (const entry of entries) {
+            const d = entry.data || {};
+            let args: any = {};
+
+            if (type === 'invoice') {
+              args = {
+                customerName: d.customerName || d.name || 'Unknown',
+                items: d.items || [{ description: d.description || 'Item', quantity: 1, rate: d.total || d.amount || 0 }],
+                dueDate: d.dueDate || d.date,
+                status: 'draft',
+              };
+            } else if (type === 'bill') {
+              args = {
+                vendorName: d.vendorName || d.name || 'Unknown',
+                items: d.items || [{ description: d.description || 'Item', quantity: 1, rate: d.total || d.amount || 0 }],
+                dueDate: d.dueDate || d.date,
+                status: 'draft',
+              };
+            } else if (type === 'journal_entry') {
+              args = {
+                type: 'journal_entry',
+                date: d.date,
+                description: d.description || 'Journal entry from document',
+                debits: d.debits || [],
+                credits: d.credits || [],
+              };
+            } else if (type === 'expense' || type === 'payment') {
+              args = {
+                type: 'expense',
+                amount: d.amount || d.total || 0,
+                description: d.description || d.category || 'Expense from document',
+                date: d.date,
+                category: d.category,
+              };
+            } else if (type === 'customer') {
+              args = { name: d.name || 'Unknown', email: d.email, phone: d.phone, address: d.address };
+            } else if (type === 'vendor') {
+              args = { name: d.name || 'Unknown', email: d.email, phone: d.phone, address: d.address };
+            }
+
+            const typeLabels: Record<string, string> = {
+              invoice: 'Invoice', bill: 'Bill', expense: 'Expense',
+              journal_entry: 'Journal Entry', customer: 'Customer', vendor: 'Vendor', payment: 'Payment',
+            };
+            allToolCalls.push({
+              name: toolName,
+              args,
+              label: `Creating ${typeLabels[type] || type}: ${d.customerName || d.vendorName || d.name || d.description || ''}`,
+            });
+          }
+        }
+
+        if (allToolCalls.length === 0) {
+          setIsAITyping(false);
+          setIsSendingMessage(false);
+          return;
+        }
+
+        // Set thinking steps
+        const toolSteps: ThinkingStep[] = allToolCalls.map((tc, i) => ({
+          id: `tool-${i}`,
+          label: tc.label,
+          status: 'pending' as const,
+        }));
+        setThinkingSteps(toolSteps);
+
+        // Execute in parallel batches
+        const BATCH_SIZE = 5;
+        const results: ToolResult[] = [];
+        for (let batchStart = 0; batchStart < allToolCalls.length; batchStart += BATCH_SIZE) {
+          const batch = allToolCalls.slice(batchStart, batchStart + BATCH_SIZE);
+          const batchIndices = batch.map((_, i) => batchStart + i);
+
+          setThinkingSteps(prev => prev.map(s => {
+            const idx = parseInt(s.id.replace('tool-', ''));
+            return batchIndices.includes(idx) ? { ...s, status: 'in_progress' as const } : s;
+          }));
+
+          const batchResults = await Promise.all(
+            batch.map(tc => executeAITool(tc.name, tc.args, { companyId: company.id, userId: user.uid }))
+          );
+          results.push(...batchResults);
+
+          setThinkingSteps(prev => prev.map(s => {
+            const idx = parseInt(s.id.replace('tool-', ''));
+            return batchIndices.includes(idx) ? { ...s, status: 'completed' as const } : s;
+          }));
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 150));
+        setIsAITyping(false);
+        setThinkingSteps([]);
+
+        // Build summary message
+        const successCount = results.filter(r => r.success).length;
+        const failCount = results.filter(r => !r.success).length;
+        const typeLabels: Record<string, string> = {
+          invoice: 'invoices', bill: 'bills', expense: 'expenses',
+          journal_entry: 'journal entries', customer: 'customers', vendor: 'vendors', payment: 'payments',
+        };
+        const typeSummaries = Object.entries(entriesByType).map(([type, entries]) => {
+          const count = entries.length;
+          return `${count} ${typeLabels[type] || type}`;
+        });
+
+        let summaryMessage = `✓ Successfully processed ${successCount} of ${allToolCalls.length} entries (${typeSummaries.join(', ')}).`;
+        if (failCount > 0) {
+          summaryMessage += `\n⚠️ ${failCount} entries failed to process.`;
+        }
+
+        // Collect rich data from results
+        const successResults = results.filter(r => r.success);
+        let richData: ChatMessageRichData | undefined;
+        const entityResults = successResults.filter(r => r.data?.type === 'entity' && r.data?.entity);
+        if (entityResults.length > 0) {
+          richData = {
+            type: 'entity',
+            entities: entityResults.map(r => ({
+              entityType: r.data!.entityType || 'unknown',
+              entity: r.data!.entity!,
+              actions: r.actions || [],
+            })),
+          };
+        }
+
+        // Clear pending entries
+        setPendingDocumentEntries([]);
+        setProcessedEntryTypes(new Set());
+
+        const assistantMessage: ChatMessage = {
+          id: `temp-${Date.now() + 1}`,
+          role: 'assistant',
+          content: summaryMessage,
+          richData,
+          followUp: 'All entries from the document have been processed!',
+          createdAt: { toDate: () => new Date() } as any,
+        };
+        setCurrentMessages(prev => [...prev, assistantMessage]);
+
+        await addMessage(company.id, sessionId, {
+          role: 'assistant',
+          content: summaryMessage,
+          richData: sanitizeForFirestore(richData),
+          followUp: 'All entries from the document have been processed!',
+        });
+
+        refreshData();
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error ? error.message : 'Batch processing failed';
+        console.error('Error in processAllDocumentEntries:', error);
+        toast.error(errorMessage);
+        setIsAITyping(false);
+        setThinkingSteps([]);
+      } finally {
+        setIsSendingMessage(false);
+      }
+    },
+    [company?.id, user?.uid, currentSessionId, isSendingMessage, pendingDocumentEntries, refreshData]
   );
 
   const toggleSidebar = useCallback(() => { setSidebarCollapsed(prev => !prev); }, []);
@@ -809,6 +1250,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     deleteChat,
     sendMessage,
     executeToolAction,
+    processAllDocumentEntries,
+    pendingDocumentEntries,
     clearAllChats,
     refreshSessions,
     sidebarCollapsed,

@@ -958,9 +958,9 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto px-4 sm:px-6">
           <div className="grid md:grid-cols-3 gap-5">
             {[
-              { name: 'Free', price: '$0', desc: 'Perfect for trying out Flowbooks', features: ['1 company', '~100 AI messages/mo', 'Basic reports'], href: '/signup', cta: 'Start Free' },
-              { name: 'Pro', price: '$29', desc: 'For growing businesses', features: ['3 companies', '~1,000 AI messages/mo', 'All reports & payroll'], href: '/signup?plan=pro', cta: 'Start Free Trial', popular: true },
-              { name: 'Max', price: '$99', desc: 'For established teams', features: ['10 companies', '~4,000 AI messages/mo', 'Unlimited everything'], href: '/signup?plan=max', cta: 'Start Free Trial' },
+              { name: 'Free Trial', price: '$0', desc: 'Perfect for trying out Flowbooks', features: ['1 company', '3-day Pro trial', 'Full AI access'], href: '/signup', cta: 'Start Free' },
+              { name: 'Pro', price: '$29', desc: 'For freelancers & small businesses', features: ['3 companies', 'Extended AI assistant', 'All reports & payroll'], href: '/signup?plan=pro', cta: 'Start Free Trial', popular: true },
+              { name: 'Max', price: '$99', desc: 'For teams & organizations', features: ['10 companies', '3x AI + advanced models', 'Unlimited everything'], href: '/signup?plan=max', cta: 'Start Free Trial' },
             ].map((plan, i) => (
               <div key={i} className={`relative rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 ${plan.popular ? 'liquid-glass-strong shadow-xl shadow-brand-500/10 ring-2 ring-brand-500/20' : 'liquid-glass hover:shadow-lg'}`}>
                 {plan.popular && (

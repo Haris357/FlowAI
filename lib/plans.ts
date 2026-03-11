@@ -14,12 +14,12 @@ export const TRIAL_PLAN: PlanId = 'pro'; // New users get a Pro trial
 export const PLANS: Record<PlanId, PlanDefinition> = {
   free: {
     id: 'free',
-    name: 'Expired Trial',
+    name: 'Trial Expired',
     price: 0,
     description: 'Your trial has ended. Subscribe to continue.',
-    sessionMessageLimit: 0,
+    sessionTokenLimit: 0,
     sessionDurationHours: 0,
-    weeklyMessageLimit: 0,
+    weeklyTokenLimit: 0,
     allowedModels: [],
     maxCompanies: 1,
     maxCollaboratorsPerCompany: 0,
@@ -42,10 +42,10 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     id: 'pro',
     name: 'Pro',
     price: 29.99,
-    description: 'For growing businesses needing more power.',
-    sessionMessageLimit: 100,
+    description: 'For freelancers & small businesses.',
+    sessionTokenLimit: 250_000,
     sessionDurationHours: 4,
-    weeklyMessageLimit: 750,
+    weeklyTokenLimit: 2_000_000,
     allowedModels: ['gpt-4.1-mini', 'gpt-4o-mini'],
     maxCompanies: 3,
     maxCollaboratorsPerCompany: 3,
@@ -68,10 +68,10 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     id: 'max',
     name: 'Max',
     price: 99.99,
-    description: 'Advanced features for established teams.',
-    sessionMessageLimit: 400,
+    description: 'For teams & growing organizations.',
+    sessionTokenLimit: 750_000,
     sessionDurationHours: 4,
-    weeklyMessageLimit: 3000,
+    weeklyTokenLimit: 7_000_000,
     allowedModels: ['gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4.1-nano', 'gpt-4o'],
     maxCompanies: 10,
     maxCollaboratorsPerCompany: -1,
@@ -163,7 +163,24 @@ export function getTrialEndDate(daysFromNow: number = TRIAL_DURATION_DAYS): Date
 /** Check if a trial has expired */
 export function isTrialExpired(trialEndsAt: any): boolean {
   if (!trialEndsAt) return true;
-  const endMs = trialEndsAt.toMillis?.() || trialEndsAt._seconds * 1000 || trialEndsAt.seconds * 1000 || 0;
+
+  let endMs = 0;
+  if (typeof trialEndsAt.toMillis === 'function') {
+    endMs = trialEndsAt.toMillis();
+  } else if (typeof trialEndsAt.toDate === 'function') {
+    endMs = trialEndsAt.toDate().getTime();
+  } else if (trialEndsAt.seconds != null) {
+    endMs = trialEndsAt.seconds * 1000;
+  } else if (trialEndsAt._seconds != null) {
+    endMs = trialEndsAt._seconds * 1000;
+  } else if (trialEndsAt instanceof Date) {
+    endMs = trialEndsAt.getTime();
+  } else if (typeof trialEndsAt === 'number') {
+    endMs = trialEndsAt;
+  }
+
+  // If we couldn't parse the timestamp, assume NOT expired (safe default for new users)
+  if (!endMs) return false;
   return Date.now() > endMs;
 }
 

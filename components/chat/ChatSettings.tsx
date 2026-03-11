@@ -84,7 +84,7 @@ export default function ChatSettings({
     if (open && usage) {
       setLastUpdated(new Date());
     }
-  }, [usage?.sessionMessagesUsed, usage?.weeklyMessagesUsed]);
+  }, [usage?.sessionTokensUsed, usage?.weeklyTokensUsed]);
 
   const handleClearAllChats = async () => {
     setIsClearing(true);
@@ -128,11 +128,11 @@ export default function ChatSettings({
     return 'primary';
   };
 
-  const sessionUsed = usage?.sessionMessagesUsed || 0;
-  const sessionLimit = plan.sessionMessageLimit;
+  const sessionUsed = usage?.sessionTokensUsed || 0;
+  const sessionLimit = plan.sessionTokenLimit;
   const sessionPct = sessionLimit > 0 ? Math.min(100, (sessionUsed / sessionLimit) * 100) : 0;
-  const weeklyUsed = usage?.weeklyMessagesUsed || 0;
-  const weeklyLimit = plan.weeklyMessageLimit;
+  const weeklyUsed = usage?.weeklyTokensUsed || 0;
+  const weeklyLimit = plan.weeklyTokenLimit;
   const weeklyPct = weeklyLimit > 0 ? Math.min(100, (weeklyUsed / weeklyLimit) * 100) : 0;
 
   return (
@@ -231,7 +231,7 @@ export default function ChatSettings({
                     />
                     <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
                       <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                        {weeklyUsed} / {weeklyLimit} messages
+                        {Math.round(weeklyPct)}% used
                       </Typography>
                       <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
                         Resets Monday
@@ -248,7 +248,7 @@ export default function ChatSettings({
                         {isPaidSubscriber ? `${plan.name} Plan` : trialExpired ? 'Trial Expired' : isTrial ? `${plan.name} Trial` : `${plan.name} Plan`}
                       </Chip>
                       <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                        {isPaidSubscriber ? `${sessionLimit} msgs/session · ${weeklyLimit}/week` : trialExpired ? 'Subscribe to continue' : isTrial && trialTimeLeft ? `${trialTimeLeft} left` : `${sessionLimit} msgs/session · ${weeklyLimit}/week`}
+                        {isPaidSubscriber ? 'Active subscription' : trialExpired ? 'Subscribe to continue' : isTrial && trialTimeLeft ? `${trialTimeLeft} left` : 'Active subscription'}
                       </Typography>
                     </Stack>
                     <Stack direction="row" spacing={0.5} alignItems="center">

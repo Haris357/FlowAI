@@ -254,11 +254,9 @@ export default function ChatSidebar({
         <Divider />
 
         {/* Usage Meter */}
-        {!collapsed && (
-          <Box sx={{ px: 2, pt: 1.5, pb: 1 }}>
-            <UsageMeter compact />
-          </Box>
-        )}
+        <Box sx={{ px: collapsed ? 0.75 : 2, pt: 1.5, pb: 1 }}>
+          <UsageMeter compact collapsed={collapsed} />
+        </Box>
 
         {/* Settings Button */}
         <Box sx={{ p: collapsed ? 1 : 1.5 }}>

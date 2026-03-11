@@ -15,7 +15,7 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider, db } from '@/lib/firebase';
 import { doc, setDoc, getDoc, serverTimestamp, Timestamp, collection, query, where, getDocs } from 'firebase/firestore';
-import { isAdminEmail } from '@/lib/admin';
+
 import { analytics } from '@/lib/analytics';
 import { TRIAL_PLAN, getTrialEndDate, TRIAL_DURATION_DAYS } from '@/lib/plans';
 import toast from 'react-hot-toast';
@@ -47,51 +47,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Skip user doc creation and welcome email for admin users
-        if (!isAdminEmail(firebaseUser.email)) {
-          try {
-            const userRef = doc(db, 'users', firebaseUser.uid);
-            const userSnap = await getDoc(userRef);
+        try {
+          const userRef = doc(db, 'users', firebaseUser.uid);
+          const userSnap = await getDoc(userRef);
+          if (!userSnap.exists()) {
+            const trialEnd = getTrialEndDate(TRIAL_DURATION_DAYS);
+            const now = Timestamp.now();
+            await setDoc(userRef, {
+              email: firebaseUser.email,
+              name: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+              photoURL: firebaseUser.photoURL,
+              subscription: {
+                planId: TRIAL_PLAN,
+                status: 'trialing',
+                lemonSqueezyCustomerId: null,
+                lemonSqueezySubscriptionId: null,
+                lemonSqueezyVariantId: null,
+                currentPeriodStart: null,
+                currentPeriodEnd: null,
+                cancelAt: null,
+                trialStartedAt: now,
+                trialEndsAt: Timestamp.fromDate(trialEnd),
+                createdAt: now,
+                updatedAt: now,
+              },
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
+            });
 
-            if (!userSnap.exists()) {
-              const trialEnd = getTrialEndDate(TRIAL_DURATION_DAYS);
-              const now = Timestamp.now();
-              await setDoc(userRef, {
-                email: firebaseUser.email,
-                name: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
-                photoURL: firebaseUser.photoURL,
-                subscription: {
-                  planId: TRIAL_PLAN,
-                  status: 'trialing',
-                  lemonSqueezyCustomerId: null,
-                  lemonSqueezySubscriptionId: null,
-                  lemonSqueezyVariantId: null,
-                  currentPeriodStart: null,
-                  currentPeriodEnd: null,
-                  cancelAt: null,
-                  trialStartedAt: now,
-                  trialEndsAt: Timestamp.fromDate(trialEnd),
-                  createdAt: now,
-                  updatedAt: now,
-                },
-                createdAt: serverTimestamp(),
-                updatedAt: serverTimestamp(),
-              });
-
-              // Send welcome email (fire-and-forget)
-              fetch('/api/emails/welcome', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  userId: firebaseUser.uid,
-                  userName: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
-                  userEmail: firebaseUser.email,
-                }),
-              }).catch(() => {});
-            }
-          } catch (error) {
-            console.error('Error creating user document:', error);
+            // Send welcome email
+            fetch('/api/emails/welcome', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: firebaseUser.uid,
+                userName: firebaseUser.displayName || firebaseUser.email?.split('@')[0],
+                userEmail: firebaseUser.email,
+              }),
+            }).catch(() => {});
           }
+        } catch (error) {
+          console.error('Error creating user document:', error);
         }
       }
 

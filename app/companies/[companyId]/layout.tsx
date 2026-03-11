@@ -47,9 +47,18 @@ export default function CompanyLayout({ children }: { children: React.ReactNode 
         }
 
         const data = companyDoc.data();
-        const hasAccess =
-          data.ownerId === user.uid ||
-          data.collaboratorEmails?.includes(user.email);
+
+        // Check access: owner, member (subcollection), or legacy collaborator
+        let hasAccess = data.ownerId === user.uid;
+        if (!hasAccess) {
+          try {
+            const memberSnap = await getDoc(doc(db, 'companies', companyId, 'members', user.uid));
+            hasAccess = memberSnap.exists();
+          } catch { /* ignore */ }
+        }
+        if (!hasAccess) {
+          hasAccess = data.collaboratorEmails?.includes(user.email) || false;
+        }
 
         if (!hasAccess) {
           router.replace('/companies');

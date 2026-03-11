@@ -79,19 +79,29 @@ function buildContextReminder(
 
   if (!wasAsking) return [];
 
+  // Detect "try again" / "check again" / correction patterns
+  const isRetryRequest = /check again|try again|exists?|it'?s there|he'?s there|she'?s there|look again|search again|find (him|her|it|them)|bro .* exist/i.test(currentMessage);
+
   // Short user messages are very likely direct answers to the question
   const isShortReply = currentMessage.trim().split(/\s+/).length <= 10;
+
+  if (isRetryRequest) {
+    return [{
+      role: 'system' as const,
+      content: `[CONTEXT REMINDER: The user is telling you to retry or that the entity exists. Look at the ORIGINAL task from earlier in the conversation (e.g., "create invoice", "create bill"). Do NOT just look up the entity — COMPLETE THE ORIGINAL TASK. For example, if the user originally asked "create invoice for X for $100" and you couldn't find customer X, and now the user says "X exists check again", you must call create_invoice with customerName=X and amount=100. Resume and finish the pending task.]`,
+    }];
+  }
 
   if (isShortReply) {
     return [{
       role: 'system' as const,
-      content: `[CONTEXT REMINDER: The assistant just asked the user a question. The user's current message "${currentMessage}" is their answer to that question. Connect this answer to the pending task and proceed. Do NOT treat it as a new unrelated request. If you now have enough information, execute the action immediately.]`,
+      content: `[CONTEXT REMINDER: The assistant just asked the user a question. The user's current message "${currentMessage}" is their answer to that question. Connect this answer to the pending task and proceed. Do NOT treat it as a new unrelated request. If you now have enough information, execute the action immediately — call the tool, don't just describe what you'll do.]`,
     }];
   }
 
   return [{
     role: 'system' as const,
-    content: `[CONTEXT REMINDER: The assistant previously asked the user for information. The user's response likely contains answers to those questions. Extract the relevant details and combine them with previously gathered information to complete the pending task.]`,
+    content: `[CONTEXT REMINDER: The assistant previously asked the user for information. The user's response likely contains answers to those questions. Extract the relevant details and combine them with previously gathered information to complete the pending task. Execute tool calls immediately.]`,
   }];
 }
 
@@ -223,13 +233,13 @@ export async function POST(request: NextRequest) {
     try {
       usageBudget = await checkUsageBudgetAdmin(userId);
       if (!usageBudget.canSend) {
-        trackServer(userId, 'message_limit_hit', { blocked_by: usageBudget.blockedBy, plan: usageBudget.planId });
+        trackServer(userId, 'usage_limit_hit', { blocked_by: usageBudget.blockedBy, plan: usageBudget.planId });
         const timeLeft = formatDuration(Math.max(0, usageBudget.session.resetsAt - Date.now()));
         const msg = usageBudget.blockedBy === 'trial_expired'
           ? 'Your free trial has ended. Subscribe to continue using Flowbooks.'
           : usageBudget.blockedBy === 'session'
-          ? `You've used all messages in this session. Resets in ${timeLeft}.`
-          : `You've reached your weekly AI message limit. Resets Monday.`;
+          ? `You've reached your session usage limit. Resets in ${timeLeft}.`
+          : `You've reached your weekly usage limit. Resets Monday.`;
         return NextResponse.json({
           error: 'message_limit_reached',
           blockedBy: usageBudget.blockedBy,
@@ -378,7 +388,7 @@ export async function POST(request: NextRequest) {
       tools: FLOW_AI_TOOLS as any,
       tool_choice: 'auto',
       temperature: 0.2,
-      max_tokens: 2048,
+      max_tokens: 1536,
     });
 
     const choice = response.choices[0];
@@ -439,8 +449,8 @@ export async function POST(request: NextRequest) {
 
     const cost = calculateCost(promptTokens, completionTokens, MODEL);
 
-    // Track usage for subscription billing (session + weekly)
-    let trackResult: { sessionRemaining: number; weeklyRemaining: number } | undefined;
+    // Track usage for subscription billing (session + weekly, token-weighted)
+    let trackResult: { sessionRemaining: number; weeklyRemaining: number; tokensUsed: number } | undefined;
     try {
       trackResult = await trackUsageAdmin(userId, totalTokens, MODEL, cost);
     } catch (err) {

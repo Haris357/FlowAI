@@ -13,7 +13,7 @@ function getUpgradeFeatures(currentPlanId: string, isTrial: boolean): string[] {
   if (currentPlanId === 'free' || isTrial) {
     const pro = PLANS.pro;
     return [
-      `${pro.sessionMessageLimit} msgs/session · ${pro.weeklyMessageLimit}/week`,
+      'Extended AI usage per session & week',
       'Unlimited customers & invoices',
       'All financial reports & exports',
       'Payroll & salary slips',
@@ -21,13 +21,13 @@ function getUpgradeFeatures(currentPlanId: string, isTrial: boolean): string[] {
     ];
   }
   if (currentPlanId === 'pro') {
-    const max = PLANS.max;
     return [
-      `${max.sessionMessageLimit} msgs/session · ${max.weeklyMessageLimit}/week`,
-      'Advanced AI models (GPT-4o)',
+      '3x more AI usage per session',
+      '3.5x weekly AI allowance',
+      'Advanced AI models',
       'Up to 10 companies',
-      'Unlimited collaborators',
-      'Priority support',
+      'Unlimited team members & email sends',
+      'Priority support (24h)',
     ];
   }
   return [];
@@ -61,8 +61,8 @@ export default function TokenLimitModal() {
   const headerSubtitle = isTrialBlock
     ? 'Your 3-day free trial has expired. Subscribe to continue using Flowbooks.'
     : blockedBy === 'weekly'
-    ? 'You\'ve reached your weekly AI message limit'
-    : 'You\'ve used all messages in this session';
+    ? 'You\'ve reached your weekly usage limit'
+    : 'You\'ve reached your session usage limit';
 
   return (
     <Modal open={messageLimitReached} onClose={dismissMessageLimit}>
@@ -107,32 +107,25 @@ export default function TokenLimitModal() {
             {/* Usage Stats - hide for trial expired */}
             {!isTrialBlock && (
               <Box sx={{ p: 2, borderRadius: 'md', bgcolor: 'background.level1', border: '1px solid', borderColor: 'divider' }}>
-                <Stack spacing={1.5}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Box>
-                      <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Session</Typography>
-                      <Typography level="title-md" fontWeight={700}>
-                        {usage?.sessionMessagesUsed || 0} / {plan.sessionMessageLimit}
-                      </Typography>
+                <Stack spacing={2}>
+                  <Box>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
+                      <Typography level="body-sm" fontWeight={600}>Session</Typography>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>{sessionTimeLeft ? `Resets in ${sessionTimeLeft}` : 'New session'}</Typography>
+                    </Stack>
+                    <Box sx={{ height: 6, borderRadius: 3, bgcolor: 'neutral.200', overflow: 'hidden' }}>
+                      <Box sx={{ height: '100%', width: '100%', borderRadius: 3, bgcolor: blockedBy === 'session' ? '#ef4444' : '#D97757', transition: 'width 0.3s ease' }} />
                     </Box>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Resets in</Typography>
-                      <Typography level="body-sm" fontWeight={600}>{sessionTimeLeft || 'New session'}</Typography>
+                  </Box>
+                  <Box>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
+                      <Typography level="body-sm" fontWeight={600}>This Week</Typography>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>Resets Monday</Typography>
+                    </Stack>
+                    <Box sx={{ height: 6, borderRadius: 3, bgcolor: 'neutral.200', overflow: 'hidden' }}>
+                      <Box sx={{ height: '100%', width: blockedBy === 'weekly' ? '100%' : `${Math.min(100, Math.round((usage?.weeklyTokensUsed || 0) / (plan.weeklyTokenLimit || 1) * 100))}%`, borderRadius: 3, bgcolor: blockedBy === 'weekly' ? '#ef4444' : '#D97757', transition: 'width 0.3s ease' }} />
                     </Box>
-                  </Stack>
-                  <Divider />
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Box>
-                      <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>This Week</Typography>
-                      <Typography level="title-md" fontWeight={700}>
-                        {usage?.weeklyMessagesUsed || 0} / {plan.weeklyMessageLimit}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ textAlign: 'right' }}>
-                      <Typography level="body-xs" sx={{ color: 'text.tertiary', mb: 0.25 }}>Resets</Typography>
-                      <Typography level="body-sm" fontWeight={600}>Monday</Typography>
-                    </Box>
-                  </Stack>
+                  </Box>
                 </Stack>
               </Box>
             )}
@@ -175,7 +168,7 @@ export default function TokenLimitModal() {
             {!canUpgrade && (
               <Typography level="body-sm" sx={{ color: 'text.secondary', textAlign: 'center' }}>
                 {blockedBy === 'weekly'
-                  ? 'Your weekly messages will reset on Monday.'
+                  ? 'Your weekly usage will reset on Monday.'
                   : `Your session will reset in ${sessionTimeLeft || 'a few hours'}.`}
               </Typography>
             )}

@@ -521,14 +521,33 @@ async function getCustomer(args: Record<string, any>, companyId: string): Promis
   let customerId = args.id;
 
   if (args.name) {
-    // Search by name
+    // Search by name — exact match first, then partial/contains match
     const snapshot = await getDocs(customersRef);
-    const found = snapshot.docs.find(doc =>
-      doc.data().name?.toLowerCase().includes(args.name.toLowerCase())
+    const searchName = args.name.toLowerCase().trim();
+
+    // Try exact match first
+    const exactMatch = snapshot.docs.find(doc =>
+      doc.data().name?.toLowerCase().trim() === searchName
     );
-    if (found) {
-      customer = { id: found.id, ...found.data() } as any;
-      customerId = found.id;
+    if (exactMatch) {
+      customer = { id: exactMatch.id, ...exactMatch.data() } as any;
+      customerId = exactMatch.id;
+    } else {
+      // Try partial match: name contains search OR search contains name
+      const partialMatches = snapshot.docs.filter(doc => {
+        const name = doc.data().name?.toLowerCase().trim() || '';
+        return name.includes(searchName) || searchName.includes(name);
+      });
+      if (partialMatches.length === 1) {
+        customer = { id: partialMatches[0].id, ...partialMatches[0].data() } as any;
+        customerId = partialMatches[0].id;
+      } else if (partialMatches.length > 1) {
+        const names = partialMatches.map(d => d.data().name).join(', ');
+        return {
+          success: false,
+          message: `I found multiple customers matching "${args.name}": ${names}. Which one did you mean?`,
+        };
+      }
     }
   } else if (args.id) {
     const docSnap = await getDoc(doc(db, `companies/${companyId}/customers`, args.id));

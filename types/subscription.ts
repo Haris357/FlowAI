@@ -12,9 +12,9 @@ export interface PlanDefinition {
   name: string;
   price: number;
   description: string;
-  sessionMessageLimit: number;       // Messages per session
+  sessionTokenLimit: number;          // Tokens per session
   sessionDurationHours: number;      // Session window in hours
-  weeklyMessageLimit: number;        // Messages per week
+  weeklyTokenLimit: number;          // Tokens per week
   allowedModels: string[];
   maxCompanies: number;
   maxCollaboratorsPerCompany: number; // -1 = unlimited
@@ -70,15 +70,15 @@ export interface UsageState {
   planId: PlanId;
   // Session tracking
   sessionStart: Timestamp;            // When current session began
-  sessionMessagesUsed: number;        // Messages used in current session
-  sessionLimit: number;               // Snapshot of plan's session limit
+  sessionTokensUsed: number;          // Tokens used in current session
+  sessionLimit: number;               // Snapshot of plan's session token limit
   sessionDurationMs: number;          // Snapshot of plan's session duration in ms
   // Weekly tracking
   weekStart: string;                  // "2026-03-02" (Monday of current week)
-  weeklyMessagesUsed: number;         // Messages used this week
-  weeklyLimit: number;                // Snapshot of plan's weekly limit
-  // Admin-granted bonus (applies to weekly)
-  bonusMessages: number;
+  weeklyTokensUsed: number;           // Tokens used this week
+  weeklyLimit: number;                // Snapshot of plan's weekly token limit
+  // Admin-granted bonus (applies to weekly pool)
+  bonusTokens: number;
   // Internal cost tracking (admin only)
   totalTokensConsumed: number;
   costAccumulated: number;

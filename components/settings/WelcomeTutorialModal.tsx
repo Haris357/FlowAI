@@ -1,15 +1,16 @@
 'use client';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
-  Box, Typography, Button, Stack, IconButton, Chip,
+  Modal, ModalDialog, Box, Typography, Button, Stack, LinearProgress,
 } from '@mui/joy';
 import {
   Rocket, LayoutDashboard, MessageCircle, ShoppingCart, Receipt,
   Landmark, Briefcase, Calculator, BarChart3, PartyPopper,
-  ChevronRight, ChevronLeft, X, Check, Lightbulb, Sparkles,
+  ArrowRight, ArrowLeft, X, Check, Lightbulb,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePathname } from 'next/navigation';
+import { useColorScheme } from '@mui/joy/styles';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { TUTORIAL_STEPS, type TutorialStep } from '@/lib/docs';
@@ -27,19 +28,6 @@ const STEP_ICONS: Record<string, React.ElementType> = {
   completion: PartyPopper,
 };
 
-const STEP_COLORS: Record<string, string> = {
-  welcome: '#D97757',
-  dashboard: '#3b82f6',
-  'flow-ai': '#D97757',
-  sales: '#10b981',
-  purchases: '#f59e0b',
-  banking: '#6366f1',
-  people: '#ec4899',
-  accounting: '#8b5cf6',
-  reports: '#06b6d4',
-  completion: '#10b981',
-};
-
 interface SpotlightRect {
   top: number;
   left: number;
@@ -49,60 +37,51 @@ interface SpotlightRect {
 
 export default function WelcomeTutorialModal() {
   const { user } = useAuth();
+  const { mode } = useColorScheme();
   const pathname = usePathname();
   const [active, setActive] = useState(false);
   const [step, setStep] = useState(0);
   const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null);
-  const [animating, setAnimating] = useState(false);
   const tooltipRef = useRef<HTMLDivElement>(null);
 
-  // Only show on company routes (after user has created a company)
+  const isDark = mode === 'dark';
   const isCompanyRoute = pathname?.startsWith('/companies/') && pathname.split('/').length > 2;
+  const currentStep = TUTORIAL_STEPS[step];
+  const isLastStep = step === TUTORIAL_STEPS.length - 1;
+  const progress = ((step + 1) / TUTORIAL_STEPS.length) * 100;
+  const Icon = STEP_ICONS[currentStep?.id] || Rocket;
 
-  // Check if tutorial completed — only when inside a company route
-  // Delay slightly so trial welcome modal can show first for new users
   useEffect(() => {
     if (!user?.uid || !isCompanyRoute) return;
     const timeout = setTimeout(() => {
       const ref = doc(db, 'users', user.uid, 'settings', 'tutorial');
       getDoc(ref).then(snap => {
         if (!snap.exists() || !snap.data()?.completed) {
-          // Only show if no other modal overlay is open
-          const trialRef = doc(db, 'users', user.uid, 'settings', 'trialWelcome');
-          getDoc(trialRef).then(trialSnap => {
-            if (trialSnap.exists() && trialSnap.data()?.shown) {
-              setActive(true);
-            } else {
-              // Trial welcome hasn't been shown yet, wait longer
-              setTimeout(() => setActive(true), 3000);
-            }
-          }).catch(() => setActive(true));
+          setActive(true);
         }
       }).catch(() => {});
-    }, 500);
+    }, 300);
     return () => clearTimeout(timeout);
   }, [user?.uid, isCompanyRoute]);
 
-  // Find and highlight the target element
   const updateSpotlight = useCallback(() => {
-    const current = TUTORIAL_STEPS[step];
-    if (!current?.target) {
+    if (!currentStep?.target) {
       setSpotlight(null);
       return;
     }
-    const el = document.querySelector(`[data-tour="${current.target}"]`);
+    const el = document.querySelector(`[data-tour="${currentStep.target}"]`);
     if (el) {
       const rect = el.getBoundingClientRect();
       setSpotlight({
-        top: rect.top - 4,
-        left: rect.left - 4,
-        width: rect.width + 8,
-        height: rect.height + 8,
+        top: rect.top - 6,
+        left: rect.left - 6,
+        width: rect.width + 12,
+        height: rect.height + 12,
       });
     } else {
       setSpotlight(null);
     }
-  }, [step]);
+  }, [currentStep]);
 
   useEffect(() => {
     if (!active) return;
@@ -117,6 +96,8 @@ export default function WelcomeTutorialModal() {
 
   const handleClose = async () => {
     setActive(false);
+    setStep(0);
+    setSpotlight(null);
     if (!user?.uid) return;
     try {
       await setDoc(doc(db, 'users', user.uid, 'settings', 'tutorial'), {
@@ -126,402 +107,171 @@ export default function WelcomeTutorialModal() {
     } catch {}
   };
 
-  const goNext = () => {
-    if (step < TUTORIAL_STEPS.length - 1) {
-      setAnimating(true);
-      setTimeout(() => {
-        setStep(s => s + 1);
-        setAnimating(false);
-      }, 150);
-    } else {
-      handleClose();
-    }
+  const handleNext = () => {
+    if (isLastStep) handleClose();
+    else setStep(s => s + 1);
   };
 
-  const goPrev = () => {
-    if (step > 0) {
-      setAnimating(true);
-      setTimeout(() => {
-        setStep(s => s - 1);
-        setAnimating(false);
-      }, 150);
-    }
+  const handlePrev = () => {
+    if (step > 0) setStep(s => s - 1);
   };
 
-  if (!active) return null;
+  if (!active || !currentStep) return null;
 
-  const current = TUTORIAL_STEPS[step];
-  const Icon = STEP_ICONS[current.id] || Rocket;
-  const accentColor = STEP_COLORS[current.id] || '#D97757';
-  const isOverlayStep = !current.target;
-  const isWelcome = current.id === 'welcome';
-  const isCompletion = current.id === 'completion';
-  const totalSteps = TUTORIAL_STEPS.length;
-
-  // Calculate tooltip position (to the right of spotlight, or centered if no spotlight)
   const getTooltipStyle = (): React.CSSProperties => {
-    if (!spotlight) return {};
-    const tooltipWidth = 380;
-    const gap = 16;
-    const spaceRight = window.innerWidth - (spotlight.left + spotlight.width + gap + tooltipWidth);
-    if (spaceRight > 0) {
-      // Position to the right
-      return {
-        position: 'fixed',
-        top: Math.max(16, Math.min(spotlight.top, window.innerHeight - 400)),
-        left: spotlight.left + spotlight.width + gap,
-      };
+    if (!spotlight || !currentStep.target) return {};
+    const gap = 12;
+    const tooltipW = 320;
+    const style: React.CSSProperties = { position: 'fixed', zIndex: 10002, width: tooltipW };
+
+    const spaceRight = window.innerWidth - (spotlight.left + spotlight.width + gap + tooltipW);
+    const spaceBottom = window.innerHeight - (spotlight.top + spotlight.height + gap + 200);
+
+    if (spaceRight > 12) {
+      style.top = Math.max(12, Math.min(spotlight.top, window.innerHeight - 300));
+      style.left = spotlight.left + spotlight.width + gap;
+    } else if (spaceBottom > 12) {
+      const centerX = spotlight.left + spotlight.width / 2 - tooltipW / 2;
+      style.top = spotlight.top + spotlight.height + gap;
+      style.left = Math.max(12, Math.min(centerX, window.innerWidth - tooltipW - 12));
+    } else {
+      const centerX = spotlight.left + spotlight.width / 2 - tooltipW / 2;
+      style.bottom = window.innerHeight - spotlight.top + gap;
+      style.left = Math.max(12, Math.min(centerX, window.innerWidth - tooltipW - 12));
     }
-    // Position below
-    return {
-      position: 'fixed',
-      top: spotlight.top + spotlight.height + gap,
-      left: Math.max(16, spotlight.left - 100),
-    };
+
+    return style;
   };
 
-  const tooltipStyle = getTooltipStyle();
-  const isRightPositioned = spotlight && tooltipStyle.left && (tooltipStyle.left as number) > spotlight.left + spotlight.width;
+  const progressBar = (
+    <LinearProgress determinate value={progress} sx={{
+      '--LinearProgress-thickness': '3px',
+      '--LinearProgress-progressColor': '#D97757',
+      '--LinearProgress-bgcolor': isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)',
+    }} />
+  );
 
-  // ─── Welcome Screen ───
-  if (isWelcome) {
-    return (
-      <Box sx={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        bgcolor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-      }}>
+  const renderTooltipContent = (inModal?: boolean) => (
+    <Box sx={{ p: inModal ? 3 : 2 }}>
+      <Stack direction="row" spacing={1.25} alignItems="flex-start" sx={{ mb: 1.5 }}>
         <Box sx={{
-          width: '100%', maxWidth: 560, mx: 2, borderRadius: '16px',
-          overflow: 'hidden', bgcolor: 'background.surface',
-          boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
-          opacity: animating ? 0 : 1,
-          transform: animating ? 'scale(0.95)' : 'scale(1)',
-          transition: 'opacity 0.15s ease, transform 0.15s ease',
+          width: 34, height: 34, borderRadius: '9px', flexShrink: 0,
+          bgcolor: isDark ? 'rgba(217,119,87,0.15)' : '#FFF0E8',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          {/* Gradient Header */}
-          <Box sx={{
-            background: `linear-gradient(135deg, ${accentColor} 0%, #C4694D 100%)`,
-            px: 4, pt: 5, pb: 4, textAlign: 'center', position: 'relative',
-          }}>
-            <IconButton
-              size="sm" variant="plain"
-              onClick={handleClose}
-              sx={{
-                position: 'absolute', top: 12, right: 12, color: 'rgba(255,255,255,0.7)',
-                '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.15)' },
-              }}
-            >
-              <X size={18} />
-            </IconButton>
-            <Box sx={{
-              width: 72, height: 72, borderRadius: '50%', mx: 'auto', mb: 2,
-              bgcolor: 'rgba(255,255,255,0.2)', display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 0 0 8px rgba(255,255,255,0.1)',
-            }}>
-              <Sparkles size={32} color="#fff" />
-            </Box>
-            <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: '1.6rem', lineHeight: 1.2 }}>
-              {current.title}
-            </Typography>
-            <Typography sx={{ color: 'rgba(255,255,255,0.85)', mt: 1, fontSize: '0.95rem' }}>
-              {current.description}
-            </Typography>
-          </Box>
-
-          {/* Feature Grid */}
-          <Box sx={{ px: 4, py: 3 }}>
-            <Box sx={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5,
-            }}>
-              {current.features?.map((feat, i) => (
-                <Stack key={i} direction="row" spacing={1} alignItems="center" sx={{
-                  p: 1.5, borderRadius: '10px', bgcolor: 'background.level1',
-                  border: '1px solid', borderColor: 'divider',
-                }}>
-                  <Box sx={{
-                    width: 28, height: 28, borderRadius: '8px', flexShrink: 0,
-                    bgcolor: `${accentColor}18`, display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <Check size={14} style={{ color: accentColor }} />
-                  </Box>
-                  <Typography level="body-xs" fontWeight={500} sx={{ lineHeight: 1.3 }}>
-                    {feat}
-                  </Typography>
-                </Stack>
-              ))}
-            </Box>
-          </Box>
-
-          {/* Footer */}
-          <Box sx={{
-            px: 4, pb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-            <Button
-              variant="plain" color="neutral" size="sm"
-              onClick={handleClose}
-              sx={{ fontSize: '0.85rem' }}
-            >
-              Skip Tour
-            </Button>
-            <Button
-              endDecorator={<ChevronRight size={16} />}
-              onClick={goNext}
-              sx={{
-                px: 3, fontWeight: 600, borderRadius: '10px',
-                background: `linear-gradient(135deg, ${accentColor} 0%, #C4694D 100%)`,
-                '&:hover': { background: `linear-gradient(135deg, #C4694D 0%, ${accentColor} 100%)` },
-              }}
-            >
-              Start Tour
-            </Button>
-          </Box>
+          <Icon size={17} color="#D97757" />
         </Box>
-      </Box>
-    );
-  }
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', lineHeight: 1.2, color: isDark ? '#EEECE8' : '#1A1915' }}>
+            {currentStep.title}
+          </Typography>
+          <Typography sx={{ fontSize: '0.78rem', color: isDark ? '#A8A29E' : '#78736D', mt: 0.4, lineHeight: 1.45 }}>
+            {currentStep.description}
+          </Typography>
+        </Box>
+        {!inModal && (
+          <Button size="sm" variant="plain" onClick={handleClose}
+            sx={{ minWidth: 0, p: 0.25, borderRadius: '50%', color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.25)', '&:hover': { bgcolor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)' } }}>
+            <X size={14} />
+          </Button>
+        )}
+      </Stack>
 
-  // ─── Completion Screen ───
-  if (isCompletion) {
-    return (
-      <Box sx={{
-        position: 'fixed', inset: 0, zIndex: 9999,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        bgcolor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
-      }}>
-        <Box sx={{
-          width: '100%', maxWidth: 480, mx: 2, borderRadius: '16px',
-          overflow: 'hidden', bgcolor: 'background.surface',
-          boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
-          opacity: animating ? 0 : 1,
-          transform: animating ? 'scale(0.95)' : 'scale(1)',
-          transition: 'opacity 0.15s ease, transform 0.15s ease',
-        }}>
-          {/* Header */}
-          <Box sx={{
-            background: `linear-gradient(135deg, ${accentColor} 0%, #059669 100%)`,
-            px: 4, pt: 5, pb: 4, textAlign: 'center',
-          }}>
-            <Box sx={{
-              width: 72, height: 72, borderRadius: '50%', mx: 'auto', mb: 2,
-              bgcolor: 'rgba(255,255,255,0.2)', display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 0 0 8px rgba(255,255,255,0.1)',
-              animation: 'pulse 2s infinite',
-              '@keyframes pulse': {
-                '0%, 100%': { boxShadow: '0 0 0 8px rgba(255,255,255,0.1)' },
-                '50%': { boxShadow: '0 0 0 16px rgba(255,255,255,0.05)' },
-              },
-            }}>
-              <PartyPopper size={32} color="#fff" />
-            </Box>
-            <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: '1.6rem', lineHeight: 1.2 }}>
-              {current.title}
-            </Typography>
-            <Typography sx={{ color: 'rgba(255,255,255,0.85)', mt: 1, fontSize: '0.95rem' }}>
-              {current.description}
-            </Typography>
-          </Box>
-
-          {/* Quick Actions */}
-          <Box sx={{ px: 4, py: 3 }}>
-            <Typography level="body-sm" fontWeight={600} sx={{ mb: 1.5, color: 'text.secondary' }}>
-              Quick Start
-            </Typography>
-            <Stack spacing={1}>
-              {[
-                { icon: LayoutDashboard, label: 'Explore your Dashboard', color: '#3b82f6' },
-                { icon: MessageCircle, label: 'Chat with Flow AI', color: '#D97757' },
-                { icon: ShoppingCart, label: 'Create your first Invoice', color: '#10b981' },
-              ].map((action, i) => (
-                <Stack key={i} direction="row" spacing={1.5} alignItems="center" sx={{
-                  p: 1.5, borderRadius: '10px', bgcolor: 'background.level1',
-                  border: '1px solid', borderColor: 'divider',
-                  cursor: 'pointer', transition: 'all 0.15s ease',
-                  '&:hover': { borderColor: action.color, bgcolor: `${action.color}08` },
-                }}>
-                  <Box sx={{
-                    width: 32, height: 32, borderRadius: '8px', flexShrink: 0,
-                    bgcolor: `${action.color}15`, display: 'flex',
-                    alignItems: 'center', justifyContent: 'center',
-                  }}>
-                    <action.icon size={16} style={{ color: action.color }} />
-                  </Box>
-                  <Typography level="body-sm" fontWeight={500}>{action.label}</Typography>
-                  <ChevronRight size={14} style={{ marginLeft: 'auto', color: 'var(--joy-palette-text-tertiary)' }} />
-                </Stack>
-              ))}
+      {/* Feature bullets */}
+      {currentStep.features && currentStep.features.length > 0 && (
+        <Stack spacing={0.5} sx={{ mb: 1.5 }}>
+          {currentStep.features.map((feat, i) => (
+            <Stack key={i} direction="row" spacing={0.75} alignItems="center" sx={{ py: 0.2 }}>
+              <Box sx={{
+                width: 18, height: 18, borderRadius: '5px', flexShrink: 0,
+                bgcolor: isDark ? 'rgba(217,119,87,0.1)' : '#FFF0E8',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Check size={10} color="#D97757" />
+              </Box>
+              <Typography sx={{ fontSize: '0.75rem', fontWeight: 500, color: isDark ? '#EEECE8' : '#44403C', lineHeight: 1.3 }}>
+                {feat}
+              </Typography>
             </Stack>
-          </Box>
-
-          {/* Done Button */}
-          <Box sx={{ px: 4, pb: 3, textAlign: 'center' }}>
-            <Button
-              onClick={handleClose}
-              fullWidth
-              sx={{
-                py: 1.2, fontWeight: 600, borderRadius: '10px', fontSize: '0.95rem',
-                background: `linear-gradient(135deg, ${accentColor} 0%, #059669 100%)`,
-                '&:hover': { background: `linear-gradient(135deg, #059669 0%, ${accentColor} 100%)` },
-              }}
-            >
-              Let&apos;s Go!
-            </Button>
-          </Box>
-        </Box>
-      </Box>
-    );
-  }
-
-  // ─── Spotlight Tour Step ───
-  return (
-    <>
-      {/* Overlay with spotlight cutout */}
-      <Box
-        onClick={goNext}
-        sx={{
-          position: 'fixed', inset: 0, zIndex: 9998,
-          cursor: 'pointer',
-          // Dark overlay with cutout via box-shadow
-          ...(spotlight ? {
-            '&::before': {
-              content: '""',
-              position: 'fixed',
-              top: spotlight.top,
-              left: spotlight.left,
-              width: spotlight.width,
-              height: spotlight.height,
-              borderRadius: '8px',
-              boxShadow: '0 0 0 9999px rgba(0,0,0,0.55)',
-              zIndex: 9998,
-              pointerEvents: 'none',
-              transition: 'all 0.3s ease',
-            },
-          } : {
-            bgcolor: 'rgba(0,0,0,0.55)',
-          }),
-        }}
-      />
-
-      {/* Spotlight ring glow */}
-      {spotlight && (
-        <Box sx={{
-          position: 'fixed',
-          top: spotlight.top - 2,
-          left: spotlight.left - 2,
-          width: spotlight.width + 4,
-          height: spotlight.height + 4,
-          borderRadius: '10px',
-          border: `2px solid ${accentColor}`,
-          boxShadow: `0 0 20px ${accentColor}40, inset 0 0 20px ${accentColor}10`,
-          zIndex: 9999,
-          pointerEvents: 'none',
-          transition: 'all 0.3s ease',
-          animation: 'spotlightPulse 2s ease-in-out infinite',
-          '@keyframes spotlightPulse': {
-            '0%, 100%': { boxShadow: `0 0 20px ${accentColor}40, inset 0 0 20px ${accentColor}10` },
-            '50%': { boxShadow: `0 0 30px ${accentColor}60, inset 0 0 30px ${accentColor}20` },
-          },
-        }} />
+          ))}
+        </Stack>
       )}
 
-      {/* Tooltip Card */}
-      <Box
-        ref={tooltipRef}
-        onClick={(e) => e.stopPropagation()}
-        sx={{
-          ...(spotlight ? tooltipStyle : {
-            position: 'fixed',
-            top: '50%', left: '50%',
-            transform: 'translate(-50%, -50%)',
-          }),
-          width: 380, maxWidth: 'calc(100vw - 32px)',
-          zIndex: 10000,
-          opacity: animating ? 0 : 1,
-          transition: 'opacity 0.15s ease, top 0.3s ease, left 0.3s ease',
-        }}
-      >
-        {/* Arrow */}
-        {spotlight && isRightPositioned && (
-          <Box sx={{
-            position: 'absolute',
-            left: -8,
-            top: 24,
-            width: 0, height: 0,
-            borderTop: '8px solid transparent',
-            borderBottom: '8px solid transparent',
-            borderRight: '8px solid',
-            borderRightColor: accentColor,
-            zIndex: 1,
-          }} />
-        )}
-
+      {/* Tip */}
+      {currentStep.tip && (
         <Box sx={{
-          borderRadius: '14px',
-          overflow: 'hidden',
-          bgcolor: 'background.surface',
-          boxShadow: `0 20px 50px rgba(0,0,0,0.25), 0 0 0 1px ${accentColor}30`,
+          display: 'flex', alignItems: 'flex-start', gap: 0.75, px: 1.25, py: 1, mb: 1.5, borderRadius: '8px',
+          bgcolor: isDark ? 'rgba(217,119,87,0.08)' : '#FFF8F5',
+          border: '1px solid', borderColor: isDark ? 'rgba(217,119,87,0.15)' : '#FFEEE6',
         }}>
-          {/* Colored top bar */}
-          <Box sx={{
-            height: 4,
-            background: `linear-gradient(90deg, ${accentColor} ${((step + 1) / totalSteps) * 100}%, var(--joy-palette-neutral-200) ${((step + 1) / totalSteps) * 100}%)`,
-          }} />
+          <Lightbulb size={12} color="#D97757" style={{ flexShrink: 0, marginTop: 2 }} />
+          <Typography sx={{ fontSize: '0.72rem', color: isDark ? '#A8A29E' : '#78736D', lineHeight: 1.4 }}>
+            {currentStep.tip}
+          </Typography>
+        </Box>
+      )}
 
-          {/* Header */}
-          <Box sx={{ px: 3, pt: 2.5, pb: 0 }}>
-            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-              <Stack direction="row" spacing={1.5} alignItems="center">
-                <Box sx={{
-                  width: 40, height: 40, borderRadius: '10px', flexShrink: 0,
-                  bgcolor: `${accentColor}15`, display: 'flex',
-                  alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Icon size={20} style={{ color: accentColor }} />
-                </Box>
-                <Box>
-                  <Typography fontWeight={700} sx={{ fontSize: '1.05rem', lineHeight: 1.2 }}>
-                    {current.title}
-                  </Typography>
-                  <Chip size="sm" variant="soft" sx={{
-                    mt: 0.5, fontSize: '0.7rem', height: 20,
-                    bgcolor: `${accentColor}15`, color: accentColor,
-                  }}>
-                    {step} of {totalSteps - 2}
-                  </Chip>
-                </Box>
-              </Stack>
-              <IconButton
-                size="sm" variant="plain" color="neutral"
-                onClick={handleClose}
-                sx={{ mt: -0.5, mr: -0.5 }}
-              >
-                <X size={16} />
-              </IconButton>
-            </Stack>
-          </Box>
+      <Stack direction="row" spacing={1} alignItems="center">
+        <Typography sx={{ fontSize: '0.68rem', color: isDark ? '#5C5752' : '#A8A29E', flex: 1 }}>
+          {step + 1} / {TUTORIAL_STEPS.length}
+        </Typography>
+        {step > 0 && (
+          <Button size="sm" variant="plain" startDecorator={<ArrowLeft size={13} />} onClick={handlePrev}
+            sx={{ fontSize: '0.76rem', fontWeight: 600, px: 1.25, py: 0.4, borderRadius: '8px', color: isDark ? '#A8A29E' : '#78736D' }}>
+            Back
+          </Button>
+        )}
+        <Button size="sm" endDecorator={isLastStep ? undefined : <ArrowRight size={13} />} onClick={handleNext}
+          sx={{ fontSize: '0.76rem', fontWeight: 600, px: 1.5, py: 0.4, borderRadius: '8px', bgcolor: isDark ? '#D97757' : '#1A1915', color: '#fff', '&:hover': { bgcolor: isDark ? '#C4694D' : '#2C2A27' } }}>
+          {isLastStep ? 'Done' : 'Next'}
+        </Button>
+      </Stack>
+    </Box>
+  );
 
-          {/* Body */}
-          <Box sx={{ px: 3, pt: 1.5, pb: 2 }}>
-            <Typography level="body-sm" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
-              {current.description}
-            </Typography>
+  // Welcome step (step 0) — centered modal with features
+  if (step === 0 && !currentStep.target) {
+    return (
+      <Modal open={active} onClose={handleClose}>
+        <ModalDialog sx={{
+          maxWidth: 380, width: '92%', p: 0, overflow: 'hidden', borderRadius: '20px',
+          bgcolor: isDark ? '#1C1B19' : '#fff',
+          border: '1px solid', borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+          boxShadow: isDark ? '0 32px 64px rgba(0,0,0,0.5)' : '0 32px 64px rgba(0,0,0,0.12)',
+        }}>
+          {progressBar}
+          <Box sx={{ px: 3, pt: 3, pb: 2.5 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2 }}>
+              <Box sx={{
+                width: 44, height: 44, borderRadius: '12px', flexShrink: 0,
+                background: 'linear-gradient(135deg, #D97757 0%, #C4694D 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(217,119,87,0.3)',
+              }}>
+                <Rocket size={22} color="white" />
+              </Box>
+              <Box>
+                <Typography sx={{ fontWeight: 700, fontSize: '1.1rem', lineHeight: 1.2, color: isDark ? '#EEECE8' : '#1A1915' }}>
+                  {currentStep.title}
+                </Typography>
+                <Typography sx={{ fontSize: '0.8rem', color: isDark ? '#A8A29E' : '#78736D', mt: 0.25 }}>
+                  {currentStep.description}
+                </Typography>
+              </Box>
+            </Box>
 
-            {/* Feature bullets */}
-            {current.features && current.features.length > 0 && (
-              <Stack spacing={0.75} sx={{ mt: 1.5 }}>
-                {current.features.map((feat, i) => (
-                  <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
+            {currentStep.features && (
+              <Stack spacing={0.5} sx={{ mb: 2.5 }}>
+                {currentStep.features.map((feat, i) => (
+                  <Stack key={i} direction="row" spacing={1} alignItems="center" sx={{ py: 0.4 }}>
                     <Box sx={{
-                      width: 18, height: 18, borderRadius: '50%', flexShrink: 0, mt: '1px',
-                      bgcolor: `${accentColor}15`, display: 'flex',
-                      alignItems: 'center', justifyContent: 'center',
+                      width: 26, height: 26, borderRadius: '7px', flexShrink: 0,
+                      bgcolor: isDark ? 'rgba(217,119,87,0.1)' : '#FFF0E8',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <Check size={10} style={{ color: accentColor }} />
+                      <Check size={13} color="#D97757" />
                     </Box>
-                    <Typography level="body-xs" sx={{ color: 'text.secondary', lineHeight: 1.4 }}>
+                    <Typography sx={{ fontSize: '0.8rem', fontWeight: 500, color: isDark ? '#EEECE8' : '#44403C' }}>
                       {feat}
                     </Typography>
                   </Stack>
@@ -529,64 +279,69 @@ export default function WelcomeTutorialModal() {
               </Stack>
             )}
 
-            {/* Tip */}
-            {current.tip && (
-              <Stack direction="row" spacing={1} alignItems="flex-start" sx={{
-                mt: 1.5, p: 1.5, borderRadius: '8px',
-                bgcolor: `${accentColor}08`, border: '1px solid', borderColor: `${accentColor}20`,
-              }}>
-                <Lightbulb size={14} style={{ color: accentColor, flexShrink: 0, marginTop: 1 }} />
-                <Typography level="body-xs" sx={{ color: 'text.secondary', lineHeight: 1.4 }}>
-                  {current.tip}
-                </Typography>
-              </Stack>
-            )}
-          </Box>
-
-          {/* Footer Navigation */}
-          <Box sx={{
-            px: 3, py: 2, borderTop: '1px solid', borderColor: 'divider',
-            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-          }}>
-            {/* Progress dots */}
-            <Stack direction="row" spacing={0.5}>
-              {TUTORIAL_STEPS.filter(s => s.target !== null).map((s, i) => (
-                <Box key={s.id} sx={{
-                  width: step - 1 === i ? 20 : 6,
-                  height: 6,
-                  borderRadius: 3,
-                  bgcolor: step - 1 === i ? accentColor : 'neutral.300',
-                  transition: 'all 0.2s ease',
-                }} />
-              ))}
-            </Stack>
-
-            {/* Buttons */}
             <Stack direction="row" spacing={1}>
-              {step > 1 && (
-                <IconButton
-                  size="sm" variant="outlined" color="neutral"
-                  onClick={goPrev}
-                  sx={{ borderRadius: '8px', width: 32, height: 32 }}
-                >
-                  <ChevronLeft size={16} />
-                </IconButton>
-              )}
-              <Button
-                size="sm"
-                endDecorator={step < totalSteps - 2 ? <ChevronRight size={14} /> : undefined}
-                onClick={goNext}
-                sx={{
-                  px: 2, borderRadius: '8px', fontWeight: 600,
-                  bgcolor: accentColor,
-                  '&:hover': { bgcolor: accentColor, filter: 'brightness(0.9)' },
-                }}
-              >
-                {step < totalSteps - 2 ? 'Next' : 'Finish'}
+              <Button variant="plain" onClick={handleClose}
+                sx={{ flex: 1, borderRadius: '10px', fontWeight: 600, fontSize: '0.82rem', color: isDark ? '#A8A29E' : '#78736D' }}>
+                Skip Tour
+              </Button>
+              <Button endDecorator={<ArrowRight size={15} />} onClick={handleNext}
+                sx={{ flex: 1, borderRadius: '10px', fontWeight: 600, fontSize: '0.82rem', bgcolor: isDark ? '#D97757' : '#1A1915', color: '#fff', '&:hover': { bgcolor: isDark ? '#C4694D' : '#2C2A27' } }}>
+                Start Tour
               </Button>
             </Stack>
+            <Typography sx={{ fontSize: '0.68rem', color: isDark ? '#3D3A37' : '#D6D3D1', textAlign: 'center', mt: 1.25 }}>
+              Step {step + 1} of {TUTORIAL_STEPS.length}
+            </Typography>
           </Box>
-        </Box>
+        </ModalDialog>
+      </Modal>
+    );
+  }
+
+  // Completion step (last) or any modal step without target — centered modal
+  if (!currentStep.target) {
+    return (
+      <Modal open={active} onClose={handleClose}>
+        <ModalDialog sx={{
+          maxWidth: 340, width: '90%', p: 0, overflow: 'hidden', borderRadius: '16px',
+          bgcolor: isDark ? '#1C1B19' : '#fff',
+          border: '1px solid', borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
+          boxShadow: isDark ? '0 24px 48px rgba(0,0,0,0.5)' : '0 24px 48px rgba(0,0,0,0.12)',
+        }}>
+          {progressBar}
+          {renderTooltipContent(true)}
+        </ModalDialog>
+      </Modal>
+    );
+  }
+
+  // Spotlight steps
+  return (
+    <>
+      <Box onClick={handleClose} sx={{ position: 'fixed', inset: 0, zIndex: 10000, bgcolor: 'rgba(0,0,0,0.5)' }} />
+
+      {spotlight && (
+        <Box sx={{
+          position: 'fixed', top: spotlight.top, left: spotlight.left,
+          width: spotlight.width, height: spotlight.height, zIndex: 10001,
+          borderRadius: '10px',
+          boxShadow: '0 0 0 9999px rgba(0,0,0,0.5)',
+          pointerEvents: 'none',
+          transition: 'all 0.25s ease',
+          border: '2px solid rgba(217,119,87,0.5)',
+        }} />
+      )}
+
+      <Box ref={tooltipRef} onClick={e => e.stopPropagation()}
+        sx={{
+          ...getTooltipStyle(),
+          borderRadius: '14px', overflow: 'hidden',
+          bgcolor: isDark ? '#1C1B19' : '#fff',
+          border: '1px solid', borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.08)',
+          boxShadow: isDark ? '0 16px 48px rgba(0,0,0,0.5)' : '0 16px 48px rgba(0,0,0,0.15)',
+        }}>
+        {progressBar}
+        {renderTooltipContent()}
       </Box>
     </>
   );

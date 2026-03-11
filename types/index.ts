@@ -101,6 +101,41 @@ export interface AccountPreferences {
   defaultEquityAccountName?: string;
 }
 
+// ==========================================
+// COLLABORATOR / TEAM TYPES
+// ==========================================
+
+export type CompanyRole = 'owner' | 'admin' | 'editor' | 'viewer';
+
+export interface CompanyMember {
+  id: string;           // doc ID in companies/{companyId}/members
+  userId: string;       // Firebase Auth UID
+  email: string;
+  name: string;
+  photoURL?: string;
+  role: CompanyRole;
+  joinedAt: Timestamp;
+  invitedBy: string;    // UID of the user who invited this member
+}
+
+export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired';
+
+export interface Invitation {
+  id: string;           // doc ID in top-level invitations collection
+  companyId: string;
+  companyName: string;
+  role: CompanyRole;
+  invitedEmail: string; // email of the person being invited
+  invitedByUid: string;
+  invitedByName: string;
+  invitedByEmail: string;
+  status: InvitationStatus;
+  respondedAt?: Timestamp;
+  createdAt: Timestamp;
+  expiresAt: Timestamp; // auto-expire after 7 days
+}
+
+/** @deprecated Use CompanyMember instead */
 export interface CompanyUser {
   id: string;
   userId: string;
@@ -413,6 +448,18 @@ export interface ChatMessageAction {
   data?: Record<string, any>;
 }
 
+export interface ChatAttachment {
+  id: string;
+  name: string;
+  type: 'spreadsheet' | 'document' | 'image' | 'pdf';
+  mimeType: string;
+  size: number;
+  url: string;
+  storagePath: string;
+  /** Extracted text/data from document analysis */
+  extractedData?: Record<string, any>;
+}
+
 export interface ChatMessage {
   id: string;
   role: ChatRole;
@@ -424,6 +471,8 @@ export interface ChatMessage {
   followUp?: string;
   hidden?: boolean;
   completedActions?: string[];
+  selectedSuggestion?: string;
+  attachments?: ChatAttachment[];
   createdAt: Timestamp;
 }
 

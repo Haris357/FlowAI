@@ -77,7 +77,7 @@ const SECTION_META: Record<SettingsSection, { label: string; description: string
   notifications: { label: 'Notifications', description: 'Control which email notifications you receive.' },
   security: { label: 'Security', description: 'Manage your password and account security.' },
   subscription: { label: 'Subscription', description: 'Manage your plan, billing, and payment history.' },
-  usage: { label: 'Usage & AI', description: 'Monitor your AI message usage and daily limits.' },
+  usage: { label: 'Usage & AI', description: 'Monitor your AI usage and session limits.' },
   docs: { label: 'Documentation', description: 'Learn how to use every feature of Flowbooks.' },
   tutorials: { label: 'Tutorials', description: 'Step-by-step guides to help you get started.' },
   support: { label: 'Support', description: 'Submit a ticket and get help from our team.' },

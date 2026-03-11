@@ -174,9 +174,9 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error('[Send Invoice] Error:', error);
 
-    if (error.message?.includes('SMTP') || error.message?.includes('credentials')) {
+    if (error.message?.includes('RESEND') || error.message?.includes('not configured')) {
       return NextResponse.json(
-        { error: 'Email service not configured. Please set SMTP_HOST, SMTP_USER, and SMTP_PASS in environment variables.' },
+        { error: 'Email service not configured. Please set RESEND_API_KEY in environment variables.' },
         { status: 500 }
       );
     }

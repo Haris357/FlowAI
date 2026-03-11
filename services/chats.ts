@@ -16,7 +16,7 @@ import {
   increment,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
-import { Chat, ChatMessage, ChatMessageRichData, ChatMessageAction, ToolCall } from '@/types';
+import { Chat, ChatMessage, ChatMessageRichData, ChatMessageAction, ChatAttachment, ToolCall } from '@/types';
 
 // ==========================================
 // CHAT SESSION OPERATIONS
@@ -157,6 +157,7 @@ export async function addMessage(
     actions?: ChatMessageAction[];
     followUp?: string;
     hidden?: boolean;
+    attachments?: ChatAttachment[];
   }
 ): Promise<string> {
   const messagesRef = collection(db, `companies/${companyId}/chats/${chatId}/messages`);
@@ -172,6 +173,7 @@ export async function addMessage(
     actions: message.actions || null,
     followUp: message.followUp || null,
     hidden: message.hidden || null,
+    attachments: message.attachments || null,
     createdAt: serverTimestamp(),
   });
 
@@ -196,6 +198,19 @@ export async function updateMessageCompletedActions(
 ): Promise<void> {
   const messageRef = doc(db, `companies/${companyId}/chats/${chatId}/messages`, messageId);
   await updateDoc(messageRef, { completedActions });
+}
+
+/**
+ * Mark which suggestion button was selected on a message (persists across reloads)
+ */
+export async function updateMessageSelectedSuggestion(
+  companyId: string,
+  chatId: string,
+  messageId: string,
+  selectedSuggestion: string
+): Promise<void> {
+  const messageRef = doc(db, `companies/${companyId}/chats/${chatId}/messages`, messageId);
+  await updateDoc(messageRef, { selectedSuggestion });
 }
 
 /**

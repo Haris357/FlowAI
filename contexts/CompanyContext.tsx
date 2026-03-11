@@ -12,6 +12,7 @@ import {
   orderBy,
   limit
 } from 'firebase/firestore';
+import type { CompanyRole } from '@/types';
 
 interface Company {
   id: string;
@@ -70,6 +71,10 @@ interface CompanyContextType {
   transactions: Transaction[];
   loading: boolean;
   refreshData: () => Promise<void>;
+  userRole: CompanyRole;
+  isOwner: boolean;
+  canEdit: boolean;
+  canManageTeam: boolean;
 }
 
 const CompanyContext = createContext<CompanyContextType>({} as CompanyContextType);
@@ -87,6 +92,7 @@ export function CompanyProvider({
   const [company, setCompany] = useState<Company | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState<CompanyRole>('viewer');
 
   // Sync URL-based company ID to localStorage
   useEffect(() => {
@@ -113,6 +119,18 @@ export function CompanyProvider({
         if (companyDocSnap.exists()) {
           const companyData = { id: companyDocSnap.id, ...companyDocSnap.data() } as Company;
           setCompany(companyData);
+
+          // Determine user's role
+          if (companyData.ownerId === user.uid) {
+            setUserRole('owner');
+          } else {
+            try {
+              const memberDoc = await getDoc(doc(db, `companies/${selectedCompanyId}/members`, user.uid));
+              setUserRole(memberDoc.exists() ? (memberDoc.data().role as CompanyRole) : 'viewer');
+            } catch {
+              setUserRole('viewer');
+            }
+          }
 
           // Fetch recent transactions
           const transactionsRef = collection(db, `companies/${selectedCompanyId}/transactions`);
@@ -150,12 +168,20 @@ export function CompanyProvider({
     fetchCompanyData();
   }, [user]);
 
+  const isOwner = userRole === 'owner';
+  const canEdit = userRole === 'owner' || userRole === 'admin' || userRole === 'editor';
+  const canManageTeam = userRole === 'owner' || userRole === 'admin';
+
   return (
-    <CompanyContext.Provider value={{ 
-      company, 
-      transactions, 
-      loading, 
-      refreshData 
+    <CompanyContext.Provider value={{
+      company,
+      transactions,
+      loading,
+      refreshData,
+      userRole,
+      isOwner,
+      canEdit,
+      canManageTeam,
     }}>
       {children}
     </CompanyContext.Provider>

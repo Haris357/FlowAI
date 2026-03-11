@@ -20,6 +20,20 @@ import {
   Shield,
   CreditCard,
   Sparkles,
+  Crown,
+  Users,
+  Building2,
+  BarChart3,
+  Clock,
+  Send,
+  History,
+  Repeat,
+  Landmark,
+  Palette,
+  Download,
+  Briefcase,
+  Headphones,
+  Bot,
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -73,14 +87,38 @@ const AccordionItem = ({
   </div>
 );
 
+// --- Feature Row ---
+const FeatureRow = ({ icon: Icon, text, badge }: { icon: any; text: string; badge?: string }) => (
+  <div className="flex items-start gap-2.5">
+    <div className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 bg-brand-50 dark:bg-brand-500/10">
+      <Icon className="w-3 h-3 text-brand-500" />
+    </div>
+    <span className="text-[13.5px] text-slate-700 dark:text-[#DBD8D0] leading-snug">
+      {text}
+      {badge && (
+        <span className="ml-1.5 inline-flex px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200/60 dark:border-amber-700/30 align-middle">
+          {badge}
+        </span>
+      )}
+    </span>
+  </div>
+);
+
+// --- Section Label ---
+const SectionLabel = ({ text }: { text: string }) => (
+  <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-slate-400 dark:text-[#5C5752] mt-4 mb-2 first:mt-0">
+    {text}
+  </div>
+);
+
 // --- Data ---
 
 interface PricingPlan {
   name: string;
   monthlyPrice: string;
   annualPrice: string;
+  tagline: string;
   description: string;
-  features: string[];
   cta: string;
   popular: boolean;
   href: string;
@@ -91,18 +129,8 @@ const pricingPlans: PricingPlan[] = [
     name: 'Pro',
     monthlyPrice: '29.99',
     annualPrice: '23.99',
-    description: 'For growing businesses needing more power.',
-    features: [
-      '3 companies',
-      '100 AI messages/session (4h)',
-      '750 AI messages/week',
-      'Unlimited clients',
-      'All financial reports',
-      'Payroll & salary slips',
-      'Custom branding',
-      '3 collaborators',
-      'Email support',
-    ],
+    tagline: 'For freelancers & small businesses',
+    description: 'Everything you need to manage your books with AI. Perfect for solopreneurs and small teams getting started.',
     cta: 'Start 3-Day Free Trial',
     popular: true,
     href: '/signup',
@@ -111,16 +139,8 @@ const pricingPlans: PricingPlan[] = [
     name: 'Max',
     monthlyPrice: '99.99',
     annualPrice: '79.99',
-    description: 'Advanced features for established teams.',
-    features: [
-      '10 companies',
-      '400 AI messages/session (4h)',
-      '3,000 AI messages/week',
-      'Advanced AI capabilities',
-      'Unlimited everything',
-      'Unlimited collaborators',
-      'Priority support',
-    ],
+    tagline: 'For teams & growing organizations',
+    description: 'Everything in Pro, plus advanced AI, unlimited team access, and no caps on anything.',
     cta: 'Start 3-Day Free Trial',
     popular: false,
     href: '/signup?plan=max',
@@ -131,21 +151,26 @@ interface ComparisonRow {
   feature: string;
   pro: string | boolean;
   max: string | boolean;
+  category?: string;
 }
 
 const comparisonData: ComparisonRow[] = [
-  { feature: 'Companies', pro: '3', max: '10' },
-  { feature: 'AI Messages/Session', pro: '100 (4h)', max: '400 (4h)' },
-  { feature: 'AI Messages/Week', pro: '750', max: '3,000' },
-  { feature: 'Customers', pro: 'Unlimited', max: 'Unlimited' },
-  { feature: 'Invoices', pro: 'Unlimited', max: 'Unlimited' },
-  { feature: 'Reports', pro: 'All reports', max: 'All reports' },
-  { feature: 'Payroll', pro: true, max: true },
-  { feature: 'Collaborators', pro: '3', max: 'Unlimited' },
-  { feature: 'Email Sends', pro: '50/mo', max: 'Unlimited' },
+  { feature: 'AI Usage per Session', pro: 'Extended (4h)', max: '3x More (4h)', category: 'AI & Intelligence' },
+  { feature: 'Weekly AI Allowance', pro: 'Standard', max: '3.5x More' },
+  { feature: 'AI Models', pro: 'Fast AI', max: 'Fast + Advanced AI' },
+  { feature: 'Companies', pro: '3', max: '10', category: 'Business' },
+  { feature: 'Customers & Vendors', pro: 'Unlimited', max: 'Unlimited' },
+  { feature: 'Invoices & Bills', pro: 'Unlimited', max: 'Unlimited' },
+  { feature: 'Bank Accounts', pro: '5', max: 'Unlimited' },
+  { feature: 'Recurring Transactions', pro: '5', max: 'Unlimited' },
+  { feature: 'Team Members', pro: '3 per company', max: 'Unlimited', category: 'Team & Collaboration' },
+  { feature: 'Email Sends', pro: '50/month', max: 'Unlimited' },
   { feature: 'Chat History', pro: '90 days', max: 'Unlimited' },
+  { feature: 'Financial Reports', pro: 'All reports', max: 'All reports', category: 'Features' },
+  { feature: 'Payroll & Salary Slips', pro: true, max: true },
   { feature: 'Custom Branding', pro: true, max: true },
-  { feature: 'Export PDF/Excel', pro: true, max: true },
+  { feature: 'PDF & Excel Exports', pro: true, max: true },
+  { feature: 'Priority Support', pro: false, max: true, category: 'Support' },
 ];
 
 const faqs = [
@@ -154,16 +179,24 @@ const faqs = [
     a: 'Yes, you can upgrade or downgrade your plan at any time. When upgrading, you\'ll get immediate access to the new features. When downgrading, the change takes effect at the end of your current billing period.',
   },
   {
-    q: 'What happens when I hit my message limit?',
-    a: 'Each session has a message cap and a time window (4-5 hours depending on your plan). If you use all session messages before the timer expires, you\'ll need to wait for the session to reset. There\'s also a weekly limit that resets every Monday. Upgrade your plan for higher session and weekly limits.',
+    q: 'What happens when I hit my usage limit?',
+    a: 'Each session has an AI usage allowance and a 4-hour time window. If you use your session allowance before the timer expires, you\'ll need to wait for it to reset. There\'s also a weekly limit that resets every Monday. Upgrade to Max for significantly more AI capacity.',
   },
   {
     q: 'Is there a free trial?',
-    a: 'Yes! Every new account gets a 3-day free trial of the Pro plan with full access to all features. No credit card required to start. After the trial, choose a plan to continue.',
+    a: 'Yes! Every new account gets a 3-day free trial of the Pro plan with full access to all features. No credit card required. After the trial, choose a plan to continue.',
+  },
+  {
+    q: 'What\'s the difference between Pro and Max?',
+    a: 'Pro is designed for freelancers and small businesses — you get everything you need with sensible limits. Max is built for growing teams and organizations: 3.5x more AI usage, advanced AI models, unlimited team members, unlimited email sends, unlimited chat history, and priority support.',
   },
   {
     q: 'Do you offer refunds?',
     a: 'Yes, we offer a full refund within 14 days of purchase, no questions asked. Simply reach out to our support team, and we\'ll process your refund promptly.',
+  },
+  {
+    q: 'What AI models are included?',
+    a: 'Pro includes our fast AI optimized for speed and efficiency. Max adds access to advanced AI capable of deeper financial analysis, more nuanced conversations, and better understanding of complex accounting scenarios.',
   },
 ];
 
@@ -445,101 +478,144 @@ export default function PricingPage() {
       {/* ============ PRICING CARDS ============ */}
       <section className="relative z-10 py-8 pb-20">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="grid lg:grid-cols-2 gap-6 items-start max-w-3xl mx-auto">
-            {pricingPlans.map((plan, i) => {
-              const price = getPrice(plan);
-              const isFree = price === '0';
+          <div className="grid lg:grid-cols-2 gap-6 items-start max-w-4xl mx-auto">
+            {/* ---- PRO CARD ---- */}
+            <div className="relative rounded-2xl p-6 sm:p-7 border-2 border-brand-500/40 bg-white dark:bg-[#1A1915] shadow-lg shadow-brand-500/5 transition-all duration-300 lg:-mt-4 lg:mb-[-16px]">
+                {/* Popular badge */}
+                <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-brand-500 to-brand-600 text-white px-4 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide shadow-lg shadow-brand-500/25">
+                  Most Popular
+                </div>
 
-              return (
-                <div
-                  key={i}
-                  className={`relative rounded-2xl transition-all duration-300 ${
-                    plan.popular
-                      ? 'lg:-mt-4 lg:mb-[-16px]'
-                      : ''
-                  }`}
+                {/* Header */}
+                <div className="flex items-center gap-2 mb-1">
+                  <div className="w-8 h-8 rounded-lg bg-brand-50 dark:bg-brand-500/15 flex items-center justify-center">
+                    <Zap className="w-4 h-4 text-brand-500" />
+                  </div>
+                  <h3 className="text-xl font-bold text-brand-600 dark:text-brand-400">Pro</h3>
+                </div>
+                <p className="text-[13px] text-slate-500 dark:text-[#A8A29E] mb-3">{pricingPlans[0].tagline}</p>
+
+                {/* Price */}
+                <div className="flex items-baseline gap-1 mb-1">
+                  <span className="text-4xl font-bold text-slate-900 dark:text-white">${getPrice(pricingPlans[0])}</span>
+                  <span className="text-slate-500 dark:text-[#78736D] text-sm">{getBillingLabel()}</span>
+                </div>
+                {isAnnual && (
+                  <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-4">
+                    Save ${((parseFloat(pricingPlans[0].monthlyPrice) - parseFloat(pricingPlans[0].annualPrice)) * 12).toFixed(0)}/year
+                  </p>
+                )}
+                {!isAnnual && <div className="mb-4" />}
+
+                <p className="text-[13px] text-slate-600 dark:text-[#A8A29E] mb-5 leading-relaxed">{pricingPlans[0].description}</p>
+
+                {/* CTA */}
+                <Link
+                  href={pricingPlans[0].href}
+                  className="w-full py-2.5 rounded-full font-semibold text-sm text-center transition-all duration-200 block mb-6 bg-gradient-to-r from-brand-500 to-brand-600 text-white hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 hover:-translate-y-0.5"
                 >
-                  {/* Popular gradient border wrapper */}
-                  {plan.popular && (
-                    <div className="absolute -inset-[1.5px] rounded-2xl bg-gradient-to-br from-brand-500 to-brand-600 opacity-100" />
-                  )}
+                  {pricingPlans[0].cta}
+                </Link>
 
-                  <div
-                    className={`relative rounded-2xl p-6 sm:p-7 h-full flex flex-col ${
-                      plan.popular
-                        ? 'liquid-glass-strong ring-2 ring-brand-500/20 shadow-2xl shadow-brand-500/10'
-                        : 'liquid-glass hover:shadow-lg'
-                    } transition-all duration-300`}
-                  >
-                    {/* Most Popular badge */}
-                    {plan.popular && (
-                      <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-brand-500 to-brand-600 text-white px-4 py-1 rounded-full text-[11px] font-bold uppercase tracking-wide shadow-lg shadow-brand-500/25">
-                        Most Popular
-                      </div>
-                    )}
+                {/* Features */}
+                <div className="space-y-0">
+                  <SectionLabel text="AI Assistant" />
+                  <div className="space-y-2.5 mb-1">
+                    <FeatureRow icon={Bot} text="Extended AI usage per session (4h)" />
+                    <FeatureRow icon={Zap} text="Standard weekly AI allowance" />
+                    <FeatureRow icon={Sparkles} text="Fast AI model" />
+                  </div>
 
-                    {/* Plan name */}
-                    <h3
-                      className={`text-lg font-bold mb-1.5 ${
-                        plan.popular ? 'text-brand-600 dark:text-brand-400' : 'text-slate-900 dark:text-white'
-                      }`}
-                    >
-                      {plan.name}
-                    </h3>
+                  <SectionLabel text="Business" />
+                  <div className="space-y-2.5 mb-1">
+                    <FeatureRow icon={Building2} text="Up to 3 companies" />
+                    <FeatureRow icon={Users} text="Unlimited customers & vendors" />
+                    <FeatureRow icon={FileText} text="Unlimited invoices & bills" />
+                    <FeatureRow icon={Landmark} text="5 bank accounts" />
+                    <FeatureRow icon={Repeat} text="5 recurring transactions" />
+                  </div>
 
-                    {/* Price */}
-                    <div className="flex items-baseline gap-1 mb-2">
-                      <span className="text-4xl font-bold text-slate-900 dark:text-white">
-                        ${price}
-                      </span>
-                      {!isFree && (
-                        <span className="text-slate-500 dark:text-[#78736D] text-sm">
-                          {getBillingLabel()}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Annual savings note */}
-                    {!isFree && isAnnual && (
-                      <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-3">
-                        Save ${((parseFloat(plan.monthlyPrice) - parseFloat(plan.annualPrice)) * 12).toFixed(0)}/year
-                      </p>
-                    )}
-                    {(isFree || !isAnnual) && <div className="mb-3" />}
-
-                    {/* Description */}
-                    <p className="text-slate-500 dark:text-[#A8A29E] text-[13px] mb-6">
-                      {plan.description}
-                    </p>
-
-                    {/* CTA Button */}
-                    <Link
-                      href={plan.href}
-                      className={`w-full py-2.5 rounded-full font-semibold text-sm text-center transition-all duration-200 block mb-6 ${
-                        plan.popular
-                          ? 'bg-gradient-to-r from-brand-500 to-brand-600 text-white hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 hover:-translate-y-0.5'
-                          : 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 hover:-translate-y-0.5'
-                      }`}
-                    >
-                      {plan.cta}
-                    </Link>
-
-                    {/* Feature list */}
-                    <ul className="space-y-3 flex-1">
-                      {plan.features.map((f, idx) => (
-                        <li
-                          key={idx}
-                          className="flex items-start gap-2.5 text-sm text-slate-700 dark:text-[#DBD8D0]"
-                        >
-                          <Check className="w-4 h-4 text-brand-500 flex-shrink-0 mt-0.5" />
-                          <span>{f}</span>
-                        </li>
-                      ))}
-                    </ul>
+                  <SectionLabel text="Team & Features" />
+                  <div className="space-y-2.5 mb-1">
+                    <FeatureRow icon={Users} text="3 team members per company" />
+                    <FeatureRow icon={Send} text="50 email sends/month" />
+                    <FeatureRow icon={History} text="90-day chat history" />
+                    <FeatureRow icon={BarChart3} text="All financial reports" />
+                    <FeatureRow icon={Briefcase} text="Payroll & salary slips" />
+                    <FeatureRow icon={Palette} text="Custom branding" />
+                    <FeatureRow icon={Download} text="PDF & Excel exports" />
                   </div>
                 </div>
-              );
-            })}
+            </div>
+
+            {/* ---- MAX CARD ---- */}
+            <div className="relative rounded-2xl p-6 sm:p-7 border border-slate-200 dark:border-[#2D2B28] bg-white dark:bg-[#1A1915] hover:shadow-lg transition-all duration-300">
+              {/* Header */}
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-500/15 flex items-center justify-center">
+                  <Crown className="w-4 h-4 text-amber-500" />
+                </div>
+                <h3 className="text-xl font-bold text-slate-900 dark:text-white">Max</h3>
+              </div>
+              <p className="text-[13px] text-slate-500 dark:text-[#A8A29E] mb-3">{pricingPlans[1].tagline}</p>
+
+              {/* Price */}
+              <div className="flex items-baseline gap-1 mb-1">
+                <span className="text-4xl font-bold text-slate-900 dark:text-white">${getPrice(pricingPlans[1])}</span>
+                <span className="text-slate-500 dark:text-[#78736D] text-sm">{getBillingLabel()}</span>
+              </div>
+              {isAnnual && (
+                <p className="text-xs text-emerald-600 dark:text-emerald-400 font-medium mb-4">
+                  Save ${((parseFloat(pricingPlans[1].monthlyPrice) - parseFloat(pricingPlans[1].annualPrice)) * 12).toFixed(0)}/year
+                </p>
+              )}
+              {!isAnnual && <div className="mb-4" />}
+
+              <p className="text-[13px] text-slate-600 dark:text-[#A8A29E] mb-5 leading-relaxed">{pricingPlans[1].description}</p>
+
+              {/* CTA */}
+              <Link
+                href={pricingPlans[1].href}
+                className="w-full py-2.5 rounded-full font-semibold text-sm text-center transition-all duration-200 block mb-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-slate-100 hover:-translate-y-0.5"
+              >
+                {pricingPlans[1].cta}
+              </Link>
+
+              {/* "Everything in Pro" callout */}
+              <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl bg-brand-50/60 dark:bg-brand-500/[0.06] border border-brand-200/40 dark:border-brand-500/15">
+                <Check className="w-4 h-4 text-brand-500 flex-shrink-0" />
+                <span className="text-[13px] font-semibold text-brand-700 dark:text-brand-400">Everything in Pro, plus:</span>
+              </div>
+
+              {/* Max-exclusive features */}
+              <div className="space-y-0">
+                <SectionLabel text="More AI Power" />
+                <div className="space-y-2.5 mb-1">
+                  <FeatureRow icon={Bot} text="3x more AI usage per session" badge="3x" />
+                  <FeatureRow icon={Zap} text="3.5x weekly AI allowance" badge="3.5x" />
+                  <FeatureRow icon={Sparkles} text="Advanced AI models" badge="NEW" />
+                </div>
+
+                <SectionLabel text="Scale Your Business" />
+                <div className="space-y-2.5 mb-1">
+                  <FeatureRow icon={Building2} text="Up to 10 companies" />
+                  <FeatureRow icon={Landmark} text="Unlimited bank accounts" />
+                  <FeatureRow icon={Repeat} text="Unlimited recurring transactions" />
+                </div>
+
+                <SectionLabel text="Unlimited Team" />
+                <div className="space-y-2.5 mb-1">
+                  <FeatureRow icon={Users} text="Unlimited team members" />
+                  <FeatureRow icon={Send} text="Unlimited email sends" />
+                  <FeatureRow icon={History} text="Unlimited chat history" />
+                </div>
+
+                <SectionLabel text="Premium Support" />
+                <div className="space-y-2.5">
+                  <FeatureRow icon={Headphones} text="Priority support (24h response)" badge="VIP" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -567,45 +643,55 @@ export default function PricingPage() {
                     </th>
                     <th className="text-center text-[13px] font-semibold uppercase tracking-wider py-4 px-4 w-[30%]">
                       <span className="text-brand-600 dark:text-brand-400">Pro</span>
+                      <span className="block text-[10px] font-normal text-slate-400 dark:text-[#78736D] mt-0.5 normal-case tracking-normal">$29.99/mo</span>
                     </th>
-                    <th className="text-center text-[13px] font-semibold text-slate-500 dark:text-[#78736D] uppercase tracking-wider py-4 px-4 w-[30%]">
-                      Max
+                    <th className="text-center text-[13px] font-semibold uppercase tracking-wider py-4 px-4 w-[30%]">
+                      <span className="text-amber-600 dark:text-amber-400">Max</span>
+                      <span className="block text-[10px] font-normal text-slate-400 dark:text-[#78736D] mt-0.5 normal-case tracking-normal">$99.99/mo</span>
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {comparisonData.map((row, idx) => (
-                    <tr
-                      key={idx}
-                      className={`border-b border-slate-100/60 dark:border-white/[0.03] last:border-0 ${
-                        idx % 2 === 0 ? '' : 'bg-white/20 dark:bg-white/[0.01]'
-                      }`}
-                    >
-                      <td className="py-3.5 px-6 text-sm font-medium text-slate-700 dark:text-[#DBD8D0]">
-                        {row.feature}
-                      </td>
-                      {(['pro', 'max'] as const).map((planKey) => (
-                        <td key={planKey} className="py-3.5 px-4 text-center">
-                          {typeof row[planKey] === 'boolean' ? (
-                            row[planKey] ? (
-                              <Check className="w-4.5 h-4.5 text-brand-500 mx-auto" />
-                            ) : (
-                              <X className="w-4.5 h-4.5 text-slate-300 dark:text-[#454240] mx-auto" />
-                            )
-                          ) : (
-                            <span
-                              className={`text-sm ${
-                                row[planKey] === 'Unlimited'
-                                  ? 'font-semibold text-brand-600 dark:text-brand-400'
-                                  : 'text-slate-600 dark:text-[#A8A29E]'
-                              }`}
-                            >
-                              {row[planKey]}
+                    <React.Fragment key={idx}>
+                      {row.category && (
+                        <tr>
+                          <td colSpan={3} className="px-6 pt-5 pb-2">
+                            <span className="text-[11px] font-bold uppercase tracking-[0.06em] text-slate-400 dark:text-[#5C5752]">
+                              {row.category}
                             </span>
-                          )}
+                          </td>
+                        </tr>
+                      )}
+                      <tr
+                        className="border-b border-slate-100/60 dark:border-white/[0.03] last:border-0"
+                      >
+                        <td className="py-3 px-6 text-sm font-medium text-slate-700 dark:text-[#DBD8D0]">
+                          {row.feature}
                         </td>
-                      ))}
-                    </tr>
+                        {(['pro', 'max'] as const).map((planKey) => (
+                          <td key={planKey} className="py-3 px-4 text-center">
+                            {typeof row[planKey] === 'boolean' ? (
+                              row[planKey] ? (
+                                <Check className="w-4.5 h-4.5 text-brand-500 mx-auto" />
+                              ) : (
+                                <X className="w-4.5 h-4.5 text-slate-300 dark:text-[#454240] mx-auto" />
+                              )
+                            ) : (
+                              <span
+                                className={`text-sm ${
+                                  row[planKey] === 'Unlimited'
+                                    ? 'font-semibold text-brand-600 dark:text-brand-400'
+                                    : 'text-slate-600 dark:text-[#A8A29E]'
+                                }`}
+                              >
+                                {row[planKey]}
+                              </span>
+                            )}
+                          </td>
+                        ))}
+                      </tr>
+                    </React.Fragment>
                   ))}
                 </tbody>
               </table>
@@ -615,40 +701,44 @@ export default function PricingPage() {
           {/* Mobile Comparison */}
           <div className="md:hidden space-y-3">
             {comparisonData.map((row, idx) => (
-              <div
-                key={idx}
-                className="liquid-glass rounded-xl p-4"
-              >
-                <div className="text-sm font-semibold text-slate-900 dark:text-white mb-3">
-                  {row.feature}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['pro', 'max'] as const).map((planKey) => (
-                    <div key={planKey} className="text-center">
-                      <div className="text-[10px] font-semibold uppercase text-slate-400 dark:text-[#78736D] mb-1">
-                        {planKey === 'pro' ? 'Pro' : 'Max'}
-                      </div>
-                      {typeof row[planKey] === 'boolean' ? (
-                        row[planKey] ? (
-                          <Check className="w-4 h-4 text-brand-500 mx-auto" />
+              <React.Fragment key={idx}>
+                {row.category && (
+                  <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-slate-400 dark:text-[#5C5752] mt-4 first:mt-0 px-1">
+                    {row.category}
+                  </div>
+                )}
+                <div className="liquid-glass rounded-xl p-4">
+                  <div className="text-sm font-semibold text-slate-900 dark:text-white mb-3">
+                    {row.feature}
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['pro', 'max'] as const).map((planKey) => (
+                      <div key={planKey} className="text-center">
+                        <div className={`text-[10px] font-semibold uppercase mb-1 ${planKey === 'pro' ? 'text-brand-500' : 'text-amber-500'}`}>
+                          {planKey === 'pro' ? 'Pro' : 'Max'}
+                        </div>
+                        {typeof row[planKey] === 'boolean' ? (
+                          row[planKey] ? (
+                            <Check className="w-4 h-4 text-brand-500 mx-auto" />
+                          ) : (
+                            <X className="w-4 h-4 text-slate-300 dark:text-[#454240] mx-auto" />
+                          )
                         ) : (
-                          <X className="w-4 h-4 text-slate-300 dark:text-[#454240] mx-auto" />
-                        )
-                      ) : (
-                        <span
-                          className={`text-xs ${
-                            row[planKey] === 'Unlimited'
-                              ? 'font-semibold text-brand-600 dark:text-brand-400'
-                              : 'text-slate-600 dark:text-[#A8A29E]'
-                          }`}
-                        >
-                          {row[planKey]}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                          <span
+                            className={`text-xs ${
+                              row[planKey] === 'Unlimited'
+                                ? 'font-semibold text-brand-600 dark:text-brand-400'
+                                : 'text-slate-600 dark:text-[#A8A29E]'
+                            }`}
+                          >
+                            {row[planKey]}
+                          </span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              </React.Fragment>
             ))}
           </div>
         </div>

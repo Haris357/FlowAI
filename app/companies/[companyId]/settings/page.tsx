@@ -1341,49 +1341,80 @@ export default function SettingsPage() {
             {/* ═══════════════════════════════════════ */}
             {activeSection === 'danger' && (
               <Stack spacing={3}>
-                <Box sx={{ border: '2px solid', borderColor: 'danger.300', borderRadius: 'lg', p: 3, bgcolor: 'danger.50' }}>
-                  <Stack spacing={3}>
-                    <Stack direction="row" spacing={2} alignItems="flex-start">
-                      <Box sx={{ p: 1.5, borderRadius: 'md', bgcolor: 'danger.100', color: 'danger.600' }}>
-                        <AlertTriangle size={24} />
+                {/* Danger zone card — matches SectionCard style with danger accent */}
+                <Card variant="outlined" sx={{ borderRadius: 'lg', borderColor: 'neutral.outlinedBorder' }}>
+                  <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
+                      <Box sx={{
+                        width: 36, height: 36, borderRadius: 'md', display: 'flex', alignItems: 'center',
+                        justifyContent: 'center', bgcolor: 'danger.softBg', color: 'danger.500', flexShrink: 0,
+                      }}>
+                        <AlertTriangle size={18} />
                       </Box>
                       <Box>
-                        <Typography level="title-lg" sx={{ color: 'danger.700' }}>Danger Zone</Typography>
-                        <Typography level="body-sm" sx={{ color: 'danger.600' }}>
-                          Actions in this section are destructive and cannot be undone.
+                        <Typography level="title-md" fontWeight={600}>Danger Zone</Typography>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                          Irreversible actions that affect all company data
                         </Typography>
                       </Box>
                     </Stack>
 
-                    <Divider />
+                    {/* Delete all data action */}
+                    <Box sx={(theme) => ({
+                      border: '1px solid',
+                      borderColor: theme.palette.mode === 'dark' ? 'neutral.700' : 'neutral.200',
+                      borderRadius: 'lg',
+                      p: 2.5,
+                      transition: 'border-color 0.2s',
+                      '&:hover': {
+                        borderColor: theme.palette.mode === 'dark' ? 'danger.700' : 'danger.200',
+                      },
+                    })}>
+                      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography level="title-sm" fontWeight={600}>Delete all company data</Typography>
+                          <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.5 }}>
+                            Permanently removes all invoices, bills, customers, vendors, employees, transactions,
+                            journal entries, and salary slips. Chart of Accounts resets to defaults.
+                          </Typography>
+                        </Box>
+                        <Button
+                          color="danger"
+                          variant="outlined"
+                          size="sm"
+                          startDecorator={<Trash2 size={14} />}
+                          onClick={handleOpenDeleteDataConfirm}
+                          loading={loadingCounts}
+                          sx={{
+                            flexShrink: 0,
+                            fontWeight: 600,
+                            fontSize: '13px',
+                            borderRadius: '8px',
+                            px: 2,
+                          }}
+                        >
+                          Delete All Data
+                        </Button>
+                      </Stack>
+                    </Box>
 
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }}>
-                      <Box>
-                        <Typography level="title-md" sx={{ color: 'danger.700' }}>Delete All Company Data</Typography>
-                        <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-                          Permanently delete all invoices, bills, customers, vendors, employees, transactions,
-                          and journal entries. The Chart of Accounts will be reset to defaults.
-                        </Typography>
-                      </Box>
-                      <Button
-                        color="danger" variant="solid"
-                        startDecorator={<Trash2 size={16} />}
-                        onClick={handleOpenDeleteDataConfirm}
-                        loading={loadingCounts}
-                        sx={{ flexShrink: 0 }}
-                      >
-                        Delete All Data
-                      </Button>
-                    </Stack>
-                  </Stack>
-                </Box>
-
-                <Box sx={{ bgcolor: 'warning.50', border: '1px solid', borderColor: 'warning.200', borderRadius: 'md', p: 2 }}>
-                  <Typography level="body-sm" sx={{ color: 'warning.700' }}>
-                    <strong>Important:</strong> Before deleting data, consider exporting first. Once deleted, the data
-                    cannot be recovered. This action requires a two-step confirmation to prevent accidental deletion.
-                  </Typography>
-                </Box>
+                    {/* Safety notice */}
+                    <Box sx={(theme) => ({
+                      mt: 2,
+                      px: 2,
+                      py: 1.5,
+                      borderRadius: 'md',
+                      bgcolor: theme.palette.mode === 'dark' ? 'neutral.800' : 'neutral.50',
+                      display: 'flex',
+                      alignItems: 'flex-start',
+                      gap: 1,
+                    })}>
+                      <Typography level="body-xs" sx={{ color: 'text.tertiary', lineHeight: 1.6 }}>
+                        Deletion requires two-step confirmation and cannot be undone. Consider exporting your data before proceeding.
+                      </Typography>
+                    </Box>
+                  </CardContent>
+                </Card>
               </Stack>
             )}
         </Box>

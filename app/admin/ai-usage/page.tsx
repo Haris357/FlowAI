@@ -15,7 +15,7 @@ export default function AdminAIUsagePage() {
         <Box>
           <Typography level="h3" fontWeight={700}>AI Usage</Typography>
           <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-            AI message allocation and model information.
+            AI token allocation and model information.
           </Typography>
         </Box>
 
@@ -29,7 +29,7 @@ export default function AdminAIUsagePage() {
               }}>
                 <Zap size={16} style={{ color: 'var(--joy-palette-warning-500)' }} />
               </Box>
-              <Typography level="title-md" fontWeight={700}>Message Allocations by Plan</Typography>
+              <Typography level="title-md" fontWeight={700}>Token Allocations by Plan</Typography>
             </Stack>
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               {Object.values(PLANS).map(plan => (
@@ -48,10 +48,10 @@ export default function AdminAIUsagePage() {
                     </Box>
                     <Typography level="title-sm" fontWeight={700}>{plan.name}</Typography>
                   </Stack>
-                  <Typography level="h4" fontWeight={700}>{formatMessages(plan.sessionMessageLimit)}</Typography>
-                  <Typography level="body-xs" sx={{ color: 'text.secondary', mb: 0.5 }}>msgs/session ({plan.sessionDurationHours}h)</Typography>
+                  <Typography level="h4" fontWeight={700}>{formatMessages(plan.sessionTokenLimit)}</Typography>
+                  <Typography level="body-xs" sx={{ color: 'text.secondary', mb: 0.5 }}>tokens/session ({plan.sessionDurationHours}h)</Typography>
                   <Typography level="body-sm" fontWeight={600} sx={{ color: 'text.secondary', mb: 1.5 }}>
-                    {formatMessages(plan.weeklyMessageLimit)}/week
+                    {formatMessages(plan.weeklyTokenLimit)}/week
                   </Typography>
                   <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
                     {plan.allowedModels.map(model => (

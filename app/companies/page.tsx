@@ -24,8 +24,8 @@ import { initializeCompanySettings } from '@/services/settings';
 import { ALL_SETTINGS } from '@/lib/settings-seed-data';
 import { isAdminEmail } from '@/lib/admin';
 import {
-  collection, query, where, getDocs, addDoc, deleteDoc, doc, updateDoc, setDoc,
-  Timestamp, arrayUnion, arrayRemove, serverTimestamp,
+  collection, query, where, getDocs, getDoc, addDoc, deleteDoc, doc, updateDoc, setDoc,
+  Timestamp, serverTimestamp,
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
@@ -35,8 +35,13 @@ import CompanyCard, { type CompanyData } from '@/components/companies/CompanyCar
 import NotificationBell from '@/components/notifications/NotificationBell';
 import NotificationPanel from '@/components/notifications/NotificationPanel';
 import SettingsModal from '@/components/settings/SettingsModal';
+import TeamManagementModal from '@/components/team/TeamManagementModal';
+import PendingInvitationsBanner from '@/components/team/PendingInvitationsBanner';
 import { useSettingsModal } from '@/contexts/SettingsModalContext';
 import { PLANS, formatMessages } from '@/lib/plans';
+import { getUserMemberships, addOwnerAsMember } from '@/services/members';
+import { ROLE_LABELS, ROLE_COLORS } from '@/lib/permissions';
+import type { CompanyRole } from '@/types';
 
 const BUSINESS_TYPES = ALL_SETTINGS.find(s => s.code === 'business_type')?.options.map(o => o.label) || [
   'Freelancer', 'Consulting', 'Retail', 'Services', 'Other',
@@ -57,7 +62,6 @@ export default function CompaniesPage() {
   const { isOpen: settingsModalOpen, section: settingsSection, openSettings, closeSettings } = useSettingsModal();
 
   const [deleteConfirm, setDeleteConfirm] = useState<{ open: boolean; companyId: string; companyName: string } | null>(null);
-  const [removeUserConfirm, setRemoveUserConfirm] = useState<{ open: boolean; email: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [dataCounts, setDataCounts] = useState<Record<string, number> | null>(null);
 
@@ -68,9 +72,8 @@ export default function CompaniesPage() {
   const [newPasscode, setNewPasscode] = useState('');
   const [confirmPasscode, setConfirmPasscode] = useState('');
 
-  const [usersModalOpen, setUsersModalOpen] = useState(false);
-  const [newUserEmail, setNewUserEmail] = useState('');
-  const [addingUser, setAddingUser] = useState(false);
+  const [teamModalOpen, setTeamModalOpen] = useState(false);
+  const [memberCompanies, setMemberCompanies] = useState<Array<{ id: string; data: CompanyData; role: CompanyRole }>>([]);
 
   const [newCompany, setNewCompany] = useState({
     companyName: '', businessType: '', country: 'US', currency: 'USD', description: '',
@@ -86,9 +89,38 @@ export default function CompaniesPage() {
   const fetchCompanies = async () => {
     if (!user) return;
     try {
+      // Fetch owned companies
       const q = query(collection(db, 'companies'), where('ownerId', '==', user.uid));
       const snap = await getDocs(q);
+
+      // New user with no companies — check memberships first
+      if (snap.empty) {
+        const memberships = await getUserMemberships(user.uid);
+        if (memberships.length === 0) {
+          router.replace('/onboarding');
+          return;
+        }
+      }
+
       setCompanies(snap.docs.map(d => ({ id: d.id, ...d.data() })) as CompanyData[]);
+
+      // Fetch companies user is a member of (not owner)
+      try {
+        const memberships = await getUserMemberships(user.uid);
+        const memberCompanyPromises = memberships
+          .filter(m => !snap.docs.some(d => d.id === m.companyId)) // exclude owned
+          .map(async m => {
+            try {
+              const companySnap = await getDoc(doc(db, 'companies', m.companyId));
+              if (companySnap.exists()) {
+                return { id: m.companyId, data: { id: m.companyId, ...companySnap.data() } as CompanyData, role: m.role };
+              }
+            } catch { /* company may have been deleted */ }
+            return null;
+          });
+        const results = (await Promise.all(memberCompanyPromises)).filter(Boolean) as Array<{ id: string; data: CompanyData; role: CompanyRole }>;
+        setMemberCompanies(results);
+      } catch { /* ignore membership fetch errors */ }
     } catch { toast.error('Failed to load companies'); }
     finally { setLoading(false); }
   };
@@ -179,6 +211,14 @@ export default function CompaniesPage() {
           })
         )
       );
+
+      // Add owner as first member
+      await addOwnerAsMember(companyId, newCompany.companyName.trim(), {
+        userId: user.uid,
+        email: user.email || '',
+        name: user.displayName || user.email?.split('@')[0] || 'Owner',
+        photoURL: user.photoURL || undefined,
+      });
 
       await initializeCompanySettings(companyId);
       toast.success('Company created successfully!');
@@ -304,30 +344,8 @@ export default function CompaniesPage() {
 
   const handleOpenUsers = (company: CompanyData, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedCompany(company); setNewUserEmail(''); setUsersModalOpen(true);
-  };
-
-  const handleAddCollaborator = async () => {
-    if (!selectedCompany || !newUserEmail.trim()) { toast.error('Please enter an email'); return; }
-    const email = newUserEmail.trim().toLowerCase();
-    if (email === user?.email?.toLowerCase()) { toast.error('Cannot add yourself'); return; }
-    if (selectedCompany.collaboratorEmails?.includes(email)) { toast.error('Already a collaborator'); return; }
-    setAddingUser(true);
-    try {
-      await updateDoc(doc(db, 'companies', selectedCompany.id), { collaboratorEmails: arrayUnion(email), updatedAt: Timestamp.now() });
-      toast.success('Collaborator added'); setNewUserEmail(''); fetchCompanies();
-      setSelectedCompany({ ...selectedCompany, collaboratorEmails: [...(selectedCompany.collaboratorEmails || []), email] });
-    } catch { toast.error('Failed to add collaborator'); }
-    finally { setAddingUser(false); }
-  };
-
-  const handleRemoveCollaborator = async () => {
-    if (!selectedCompany || !removeUserConfirm) return;
-    try {
-      await updateDoc(doc(db, 'companies', selectedCompany.id), { collaboratorEmails: arrayRemove(removeUserConfirm.email), updatedAt: Timestamp.now() });
-      toast.success('Collaborator removed'); setRemoveUserConfirm(null); fetchCompanies();
-      setSelectedCompany({ ...selectedCompany, collaboratorEmails: selectedCompany.collaboratorEmails?.filter(e => e !== removeUserConfirm.email) || [] });
-    } catch { toast.error('Failed to remove collaborator'); }
+    setSelectedCompany(company);
+    setTeamModalOpen(true);
   };
 
   if (loading) {
@@ -387,9 +405,11 @@ export default function CompaniesPage() {
 
             {/* Right: Notifications + General + Theme + Avatar */}
             <Stack direction="row" spacing={0.5} alignItems="center">
-              <NotificationBell onClick={() => setNotificationPanelOpen(true)} />
+              <Box data-tour="notifications" sx={{ display: 'inline-flex' }}>
+                <NotificationBell onClick={() => setNotificationPanelOpen(true)} />
+              </Box>
               <Tooltip title="Settings">
-                <IconButton variant="plain" size="sm" onClick={() => openSettings()}>
+                <IconButton data-tour="settings" variant="plain" size="sm" onClick={() => openSettings()}>
                   <Settings size={18} />
                 </IconButton>
               </Tooltip>
@@ -490,7 +510,7 @@ export default function CompaniesPage() {
                         <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>/mo</Typography>
                       </Stack>
                       <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                        {formatMessages(p.sessionMessageLimit)} msgs/session
+                        {p.id === 'max' ? '3x AI + advanced models' : p.id === 'pro' ? 'Extended AI (4h sessions)' : 'Limited AI usage'}
                       </Typography>
                     </Box>
                   ))}
@@ -516,6 +536,9 @@ export default function CompaniesPage() {
             </Box>
           )}
 
+          {/* Pending Invitations */}
+          <PendingInvitationsBanner onAccepted={fetchCompanies} />
+
           {/* Welcome + New Company */}
           <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={2}>
             <Box>
@@ -526,7 +549,7 @@ export default function CompaniesPage() {
                 {companies.length} {companies.length === 1 ? 'company' : 'companies'} in your portfolio
               </Typography>
             </Box>
-            <Button size="sm" startDecorator={<Plus size={16} />}
+            <Button data-tour="new-company" size="sm" startDecorator={<Plus size={16} />}
               disabled={isTrial && trialExpired}
               onClick={() => setCreateModalOpen(true)}
               sx={{
@@ -571,6 +594,7 @@ export default function CompaniesPage() {
           )}
 
           {/* Companies */}
+          <Box data-tour="company-list">
           {filteredCompanies.length === 0 ? (
             <Card variant="outlined" sx={{ textAlign: 'center', py: 10, px: 4, border: '2px dashed', borderColor: 'divider' }}>
               <Box sx={{
@@ -625,7 +649,7 @@ export default function CompaniesPage() {
                             <Menu placement="bottom-end" sx={{ zIndex: 1100 }}>
                               <MenuItem onClick={e => { e.stopPropagation(); handleSelectCompany(company); }}><ArrowRight size={14} /> Open</MenuItem>
                               <MenuItem onClick={e => handleOpenSecurity(company, e)}><Shield size={14} /> Security</MenuItem>
-                              <MenuItem onClick={e => handleOpenUsers(company, e)}><UsersIcon size={14} /> Collaborators</MenuItem>
+                              <MenuItem onClick={e => handleOpenUsers(company, e)}><UsersIcon size={14} /> Team</MenuItem>
                               <MenuItem onClick={e => { e.stopPropagation(); handleBackupCompany(company.id, company.name); }}><Download size={14} /> Backup</MenuItem>
                               <Divider />
                               <MenuItem color="danger" onClick={e => { e.stopPropagation(); handleOpenDeleteConfirm(company.id, company.name); }}><Trash2 size={14} /> Delete</MenuItem>
@@ -660,6 +684,55 @@ export default function CompaniesPage() {
                 </Grid>
               ))}
             </Grid>
+          )}
+          </Box>
+
+          {/* Member Companies (companies user was invited to) */}
+          {memberCompanies.length > 0 && (
+            <Box sx={{ mt: 4 }}>
+              <Typography level="title-sm" fontWeight={700} sx={{ mb: 2, color: 'text.secondary' }}>
+                <UsersIcon size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
+                Shared with you ({memberCompanies.length})
+              </Typography>
+              <Grid container spacing={2}>
+                {memberCompanies.map(({ data: c, role }) => (
+                  <Grid key={c.id} xs={12} sm={6} md={4}>
+                    <Card
+                      variant="outlined"
+                      sx={{
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        '&:hover': { borderColor: 'primary.300', boxShadow: 'sm', transform: 'translateY(-2px)' },
+                      }}
+                      onClick={() => handleSelectCompany(c)}
+                    >
+                      <CardContent sx={{ p: 2 }}>
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                          <Avatar size="sm" sx={{
+                            width: 36, height: 36,
+                            background: 'linear-gradient(135deg, var(--joy-palette-primary-400), var(--joy-palette-primary-600))',
+                          }}>
+                            {c.name.charAt(0)}
+                          </Avatar>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography level="body-sm" fontWeight={700} noWrap>{c.name}</Typography>
+                            <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>{c.businessType}</Typography>
+                          </Box>
+                          <Chip
+                            size="sm"
+                            variant="soft"
+                            color={ROLE_COLORS[role]}
+                            sx={{ fontSize: '10px', fontWeight: 600 }}
+                          >
+                            {ROLE_LABELS[role]}
+                          </Chip>
+                        </Stack>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
           )}
         </Stack>
 
@@ -832,52 +905,17 @@ export default function CompaniesPage() {
         </ModalDialog>
       </Modal>
 
-      {/* Collaborators Modal */}
-      <Modal open={usersModalOpen} onClose={() => setUsersModalOpen(false)}>
-        <ModalDialog sx={{
-          maxWidth: 460, p: 3,
-          background: mode === 'light' ? 'rgba(255,255,255,0.85)' : 'rgba(35,34,32,0.9)',
-          backdropFilter: 'blur(40px) saturate(200%)',
-          WebkitBackdropFilter: 'blur(40px) saturate(200%)',
-          border: '1px solid',
-          borderColor: mode === 'light' ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.08)',
-          borderRadius: '20px',
-        }}>
-          <ModalClose />
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
-            <Box sx={{ width: 36, height: 36, borderRadius: 'md', bgcolor: 'primary.softBg', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <UsersIcon size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />
-            </Box>
-            <Box>
-              <Typography level="title-md" fontWeight={700}>Collaborators</Typography>
-              <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{selectedCompany?.name}</Typography>
-            </Box>
-          </Stack>
-          <Stack spacing={2}>
-            <Stack direction="row" spacing={1}>
-              <Input size="sm" placeholder="Enter email address" value={newUserEmail} onChange={e => setNewUserEmail(e.target.value)} sx={{ flex: 1 }} startDecorator={<Mail size={14} />} />
-              <Button size="sm" onClick={handleAddCollaborator} loading={addingUser} startDecorator={!addingUser && <Plus size={14} />}>Add</Button>
-            </Stack>
-            {selectedCompany?.collaboratorEmails && selectedCompany.collaboratorEmails.length > 0 && (
-              <Box>
-                <Typography level="body-xs" fontWeight={600} sx={{ mb: 1, color: 'text.secondary' }}>
-                  {selectedCompany.collaboratorEmails.length} collaborator(s)
-                </Typography>
-                <List size="sm">
-                  {selectedCompany.collaboratorEmails.map(email => (
-                    <ListItem key={email} endAction={<IconButton size="sm" color="danger" variant="plain" onClick={() => setRemoveUserConfirm({ open: true, email })}><X size={14} /></IconButton>}>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Avatar size="sm" sx={{ width: 24, height: 24, fontSize: '0.65rem' }}>{email.charAt(0).toUpperCase()}</Avatar>
-                        <Typography level="body-xs">{email}</Typography>
-                      </Stack>
-                    </ListItem>
-                  ))}
-                </List>
-              </Box>
-            )}
-          </Stack>
-        </ModalDialog>
-      </Modal>
+      {/* Team Management Modal */}
+      {selectedCompany && (
+        <TeamManagementModal
+          open={teamModalOpen}
+          onClose={() => setTeamModalOpen(false)}
+          companyId={selectedCompany.id}
+          companyName={selectedCompany.name}
+          ownerId={selectedCompany.ownerId || user?.uid || ''}
+          currentUserRole="owner"
+        />
+      )}
 
       {deleteConfirm && (
         <DangerousConfirmDialog open={deleteConfirm.open}
@@ -887,12 +925,6 @@ export default function CompaniesPage() {
           description="This will permanently delete the company and all data."
           confirmPhrase="DELETE ALL DATA" confirmText="Delete Everything" cancelText="Cancel"
           loading={deleting} warningItems={getWarningItems()} />
-      )}
-      {removeUserConfirm && (
-        <ConfirmDialog open={removeUserConfirm.open} title="Remove Collaborator"
-          description={`Remove "${removeUserConfirm.email}" from this company?`}
-          confirmText="Remove" variant="danger"
-          onConfirm={handleRemoveCollaborator} onClose={() => setRemoveUserConfirm(null)} />
       )}
 
       <NotificationPanel open={notificationPanelOpen} onClose={() => setNotificationPanelOpen(false)} />

@@ -1,19 +1,14 @@
 'use client';
 import { Box, Card, CardContent, Typography, Stack, Button, Chip, Divider } from '@mui/joy';
-import { Check, Zap, Crown } from 'lucide-react';
+import { Check, Zap, Crown, Bot, Building2, Users, Send, History, Landmark, Repeat, Headphones, Sparkles } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { PLANS, formatMessages } from '@/lib/plans';
+import { PLANS } from '@/lib/plans';
 import type { PlanId, PlanDefinition } from '@/types/subscription';
 
 interface PricingCardsProps {
   onSelectPlan: (planId: PlanId) => void;
   loading?: boolean;
 }
-
-const PLAN_ICONS: Record<string, any> = {
-  pro: Zap,
-  max: Crown,
-};
 
 export default function PricingCards({ onSelectPlan, loading }: PricingCardsProps) {
   const { plan: currentPlan, isTrial, isTrialExpired: trialExpired } = useSubscription();
@@ -23,9 +18,9 @@ export default function PricingCards({ onSelectPlan, loading }: PricingCardsProp
   return (
     <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: 'stretch' }}>
       {plans.map((plan) => {
-        const Icon = PLAN_ICONS[plan.id];
         const isCurrent = currentPlan.id === plan.id;
         const isPopular = plan.id === 'pro';
+        const isMax = plan.id === 'max';
 
         return (
           <Card
@@ -64,10 +59,13 @@ export default function PricingCards({ onSelectPlan, loading }: PricingCardsProp
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
                     <Box sx={{
                       width: 28, height: 28, borderRadius: 'sm',
-                      bgcolor: isPopular ? 'primary.softBg' : 'neutral.softBg',
+                      bgcolor: isPopular ? 'primary.softBg' : 'warning.softBg',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                     }}>
-                      <Icon size={14} style={{ color: isPopular ? 'var(--joy-palette-primary-500)' : undefined }} />
+                      {isPopular
+                        ? <Zap size={14} style={{ color: 'var(--joy-palette-primary-500)' }} />
+                        : <Crown size={14} style={{ color: 'var(--joy-palette-warning-500)' }} />
+                      }
                     </Box>
                     <Typography level="title-md" fontWeight={700}>{plan.name}</Typography>
                     {isCurrent && (
@@ -87,11 +85,36 @@ export default function PricingCards({ onSelectPlan, loading }: PricingCardsProp
 
                 <Divider />
 
+                {/* Max: "Everything in Pro" callout */}
+                {isMax && (
+                  <Stack direction="row" spacing={0.75} alignItems="center" sx={{
+                    px: 1.5, py: 1, borderRadius: 'sm',
+                    bgcolor: 'primary.softBg', border: '1px solid', borderColor: 'primary.200',
+                  }}>
+                    <Check size={13} style={{ color: 'var(--joy-palette-primary-500)', flexShrink: 0 }} />
+                    <Typography level="body-xs" fontWeight={700} sx={{ color: 'primary.600' }}>
+                      Everything in Pro, plus:
+                    </Typography>
+                  </Stack>
+                )}
+
                 <Stack spacing={1}>
                   {getFeatureList(plan).map((feature, i) => (
                     <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
                       <Check size={14} style={{ color: 'var(--joy-palette-success-500)', marginTop: 2, flexShrink: 0 }} />
-                      <Typography level="body-xs">{feature}</Typography>
+                      <Typography level="body-xs">
+                        {feature.text}
+                        {feature.badge && (
+                          <Chip
+                            size="sm"
+                            variant="soft"
+                            color="warning"
+                            sx={{ ml: 0.75, fontSize: '9px', height: '16px', fontWeight: 700 }}
+                          >
+                            {feature.badge}
+                          </Chip>
+                        )}
+                      </Typography>
                     </Stack>
                   ))}
                 </Stack>
@@ -122,37 +145,37 @@ export default function PricingCards({ onSelectPlan, loading }: PricingCardsProp
   );
 }
 
-function getFeatureList(plan: PlanDefinition): string[] {
-  const features: string[] = [];
+interface FeatureItem {
+  text: string;
+  badge?: string;
+}
 
-  features.push(`${plan.sessionMessageLimit} msgs/session · ${plan.weeklyMessageLimit}/week`);
-  features.push(`${plan.allowedModels.length === 1 ? 'Basic AI' : plan.allowedModels.length <= 2 ? 'Enhanced AI' : 'Advanced AI capabilities'}`);
-  features.push(`${plan.maxCompanies === 1 ? '1 company' : `Up to ${plan.maxCompanies} companies`}`);
-
-  if (plan.maxCollaboratorsPerCompany === 0) {
-    features.push('Owner only (no collaborators)');
-  } else if (plan.maxCollaboratorsPerCompany === -1) {
-    features.push('Unlimited collaborators');
-  } else {
-    features.push(`${plan.maxCollaboratorsPerCompany} collaborators/company`);
+function getFeatureList(plan: PlanDefinition): FeatureItem[] {
+  if (plan.id === 'pro') {
+    return [
+      { text: 'Extended AI usage per session (4h)' },
+      { text: 'Standard weekly AI allowance' },
+      { text: 'Fast AI model' },
+      { text: `Up to ${plan.maxCompanies} companies` },
+      { text: 'Unlimited customers & vendors' },
+      { text: 'Unlimited invoices & bills' },
+      { text: `${plan.maxCollaboratorsPerCompany} team members/company` },
+      { text: 'All financial reports' },
+      { text: 'Payroll & salary slips' },
+      { text: 'Custom branding' },
+    ];
   }
 
-  if (plan.maxCustomers === -1) {
-    features.push('Unlimited customers & vendors');
-  } else {
-    features.push(`${plan.maxCustomers} customers & vendors`);
-  }
-
-  if (plan.maxInvoicesPerMonth === -1) {
-    features.push('Unlimited invoices');
-  } else {
-    features.push(`${plan.maxInvoicesPerMonth} invoices/month`);
-  }
-
-  if (plan.features.allReports) features.push('All financial reports');
-  else features.push('Basic reports (P&L)');
-
-  if (plan.features.payroll) features.push('Payroll & salary slips');
-
-  return features;
+  // Max — only show what's different/better than Pro
+  return [
+    { text: '3x more AI usage per session', badge: '3x' },
+    { text: '3.5x weekly AI allowance', badge: '3.5x' },
+    { text: 'Advanced AI models', badge: 'NEW' },
+    { text: `Up to ${plan.maxCompanies} companies` },
+    { text: 'Unlimited team members' },
+    { text: 'Unlimited email sends' },
+    { text: 'Unlimited chat history' },
+    { text: 'Unlimited bank accounts & recurring txns' },
+    { text: 'Priority support (24h)', badge: 'VIP' },
+  ];
 }

@@ -67,7 +67,7 @@ function CompanyMenu({ company, onSelect, onOpenSecurity, onOpenUsers, onBackup,
           <Shield size={14} /> Security
         </MenuItem>
         <MenuItem onClick={(e) => onOpenUsers(company, e)}>
-          <UsersIcon size={14} /> Collaborators
+          <UsersIcon size={14} /> Team
         </MenuItem>
         <MenuItem onClick={(e) => { e.stopPropagation(); onBackup(company.id, company.name); }}>
           <Download size={14} /> Backup

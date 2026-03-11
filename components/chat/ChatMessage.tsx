@@ -99,59 +99,102 @@ function RichText({ content }: { content: string }) {
   );
 }
 
-// Inline suggestion buttons
-function SuggestionButtons({ suggestions, onSelect }: { suggestions: string[][]; onSelect: (text: string) => void }) {
-  const [selected, setSelected] = useState<string | null>(null);
+// Inline suggestion buttons — persists selection across page reloads
+function SuggestionButtons({
+  suggestions,
+  onSelect,
+  persistedSelection,
+  messageId,
+  companyId,
+  chatId,
+}: {
+  suggestions: string[][];
+  onSelect: (text: string) => void;
+  persistedSelection?: string;
+  messageId?: string;
+  companyId?: string;
+  chatId?: string;
+}) {
+  const [selected, setSelected] = useState<string | null>(persistedSelection || null);
 
   if (suggestions.length === 0) return null;
 
-  const handleSelect = (option: string) => {
+  const handleSelect = async (option: string) => {
     if (selected) return;
     setSelected(option);
     onSelect(option);
+    // Persist to Firestore so it stays hidden after refresh
+    if (companyId && chatId && messageId && !messageId.startsWith('temp-')) {
+      import('@/services/chats').then(({ updateMessageSelectedSuggestion }) => {
+        updateMessageSelectedSuggestion(companyId, chatId, messageId, option).catch(() => {});
+      });
+    }
   };
 
+  // If already selected (from persistence), only show the selected one
+  if (selected) {
+    return (
+      <Stack spacing={0.75} sx={{ mt: 1.5 }}>
+        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+          <Box
+            sx={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 0.5,
+              px: 1.5,
+              py: 0.5,
+              borderRadius: '8px',
+              fontSize: '13px',
+              fontWeight: 500,
+              color: 'primary.plainColor',
+              bgcolor: 'primary.softBg',
+              opacity: 0.7,
+            }}
+          >
+            <Check size={14} />
+            {selected}
+          </Box>
+        </Stack>
+      </Stack>
+    );
+  }
+
   return (
-    <Stack spacing={1} sx={{ mt: 1.5 }}>
+    <Stack spacing={0.75} sx={{ mt: 1.5 }}>
       {suggestions.map((group, gi) => (
-        <Stack key={gi} direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-          {group.map((option, oi) => {
-            const isSelected = selected === option;
-            const isHidden = selected !== null && !isSelected;
-            if (isHidden) return null;
-            return (
-              <Chip
-                key={oi}
-                variant={isSelected ? 'solid' : 'outlined'}
-                color="primary"
-                size="sm"
-                onClick={() => handleSelect(option)}
-                disabled={selected !== null}
-                sx={{
-                  cursor: selected ? 'default' : 'pointer',
-                  fontWeight: 500,
-                  borderRadius: '16px',
-                  px: 1.5,
-                  transition: 'all 0.2s ease',
-                  ...(isSelected ? {
-                    opacity: 1,
-                    '&.Mui-disabled': {
-                      opacity: 1,
-                      bgcolor: 'primary.500',
-                      color: '#fff',
-                    },
-                  } : {
-                    '&:hover': {
-                      bgcolor: 'primary.100',
-                      borderColor: 'primary.400',
-                    },
-                  }),
-                }}
-              >
-                {option}
-              </Chip>
-            );
-          })}
+        <Stack key={gi} direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
+          {group.map((option, oi) => (
+            <Box
+              key={oi}
+              onClick={() => handleSelect(option)}
+              sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                px: 1.5,
+                py: 0.5,
+                borderRadius: '8px',
+                fontSize: '13px',
+                fontWeight: 500,
+                cursor: 'pointer',
+                border: '1px solid',
+                borderColor: 'neutral.outlinedBorder',
+                color: 'text.primary',
+                bgcolor: 'background.surface',
+                transition: 'all 0.15s ease',
+                userSelect: 'none',
+                '&:hover': {
+                  borderColor: 'primary.400',
+                  bgcolor: 'primary.softBg',
+                  color: 'primary.plainColor',
+                },
+                '&:active': {
+                  transform: 'scale(0.97)',
+                },
+              }}
+            >
+              {option}
+            </Box>
+          ))}
         </Stack>
       ))}
     </Stack>
@@ -388,51 +431,52 @@ function EntityInlineCard({ entity, entityType }: { entity: Record<string, any>;
     );
   }
 
-  // Invoice card
+  // Invoice card — clean, modern design
   if (type === 'invoice') {
     const statusColor = entity.status === 'paid' ? 'success' : entity.status === 'overdue' ? 'danger' : entity.status === 'sent' ? 'primary' : 'neutral';
+    const statusLabel = entity.status?.toUpperCase() || 'DRAFT';
     const total = entity.total || entity.items?.reduce((s: number, i: any) => s + ((i.quantity || 1) * (i.rate || 0)), 0) || 0;
+    const dueText = entity.dueDate ? `Due ${formatInlineDate(entity.dueDate)}` : '';
     return (
       <Box
         sx={{
-          borderRadius: 'lg',
+          borderRadius: '12px',
           border: '1px solid',
-          borderColor: 'divider',
+          borderColor: 'neutral.outlinedBorder',
+          bgcolor: 'background.surface',
           overflow: 'hidden',
           mt: 1,
+          transition: 'border-color 0.15s',
+          '&:hover': { borderColor: 'neutral.400' },
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 2, bgcolor: 'background.surface' }}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Box
-              sx={{
-                width: 36,
-                height: 36,
-                borderRadius: 'md',
-                bgcolor: 'primary.softBg',
-                color: 'primary.softColor',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <FileText size={18} />
-            </Box>
-            <Box>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography level="title-sm" fontWeight="lg">
-                  {entity.invoiceNumber || 'Draft Invoice'}
-                </Typography>
-                <Chip size="sm" variant="soft" color={statusColor} sx={{ fontSize: '11px', fontWeight: 600 }}>
-                  {entity.status?.toUpperCase() || 'DRAFT'}
-                </Chip>
-              </Stack>
-              <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.25 }}>
-                {entity.customerName}{entity.dueDate ? ` · Due ${formatInlineDate(entity.dueDate)}` : ''}
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* Left accent bar */}
+          <Box sx={{
+            width: 3, alignSelf: 'stretch', borderRadius: 4, flexShrink: 0,
+            bgcolor: statusColor === 'neutral' ? 'neutral.400' : `${statusColor}.500`,
+          }} />
+          {/* Info */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Typography level="body-sm" fontWeight={600} sx={{ color: 'text.primary' }} noWrap>
+                {entity.invoiceNumber || 'Draft Invoice'}
               </Typography>
-            </Box>
-          </Stack>
-          <Typography level="title-md" fontWeight="lg">
+              <Chip
+                size="sm"
+                variant="soft"
+                color={statusColor}
+                sx={{ fontSize: '10px', fontWeight: 700, height: 18, '--Chip-paddingInline': '6px' }}
+              >
+                {statusLabel}
+              </Chip>
+            </Stack>
+            <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }} noWrap>
+              {entity.customerName}{dueText ? ` \u00B7 ${dueText}` : ''}
+            </Typography>
+          </Box>
+          {/* Amount */}
+          <Typography level="body-md" fontWeight={700} sx={{ color: 'text.primary', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
             {formatInlineCurrency(total)}
           </Typography>
         </Box>
@@ -440,51 +484,49 @@ function EntityInlineCard({ entity, entityType }: { entity: Record<string, any>;
     );
   }
 
-  // Bill card
+  // Bill card — matches invoice style
   if (type === 'bill') {
-    const statusColor = entity.status === 'paid' ? 'success' : entity.status === 'overdue' ? 'danger' : 'warning';
+    const statusColor: 'success' | 'danger' | 'warning' | 'neutral' = entity.status === 'paid' ? 'success' : entity.status === 'overdue' ? 'danger' : 'warning';
+    const statusLabel = entity.status?.toUpperCase() || 'UNPAID';
     const total = entity.total || entity.items?.reduce((s: number, i: any) => s + ((i.quantity || 1) * (i.rate || 0)), 0) || 0;
+    const dueText = entity.dueDate ? `Due ${formatInlineDate(entity.dueDate)}` : '';
     return (
       <Box
         sx={{
-          borderRadius: 'lg',
+          borderRadius: '12px',
           border: '1px solid',
-          borderColor: 'divider',
+          borderColor: 'neutral.outlinedBorder',
+          bgcolor: 'background.surface',
           overflow: 'hidden',
           mt: 1,
+          transition: 'border-color 0.15s',
+          '&:hover': { borderColor: 'neutral.400' },
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 2, bgcolor: 'background.surface' }}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Box
-              sx={{
-                width: 36,
-                height: 36,
-                borderRadius: 'md',
-                bgcolor: 'warning.softBg',
-                color: 'warning.softColor',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Receipt size={18} />
-            </Box>
-            <Box>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography level="title-sm" fontWeight="lg">
-                  {entity.billNumber || 'Bill'}
-                </Typography>
-                <Chip size="sm" variant="soft" color={statusColor} sx={{ fontSize: '11px', fontWeight: 600 }}>
-                  {entity.status?.toUpperCase() || 'UNPAID'}
-                </Chip>
-              </Stack>
-              <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.25 }}>
-                {entity.vendorName}{entity.dueDate ? ` · Due ${formatInlineDate(entity.dueDate)}` : ''}
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{
+            width: 3, alignSelf: 'stretch', borderRadius: 4, flexShrink: 0,
+            bgcolor: `${statusColor}.500`,
+          }} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Typography level="body-sm" fontWeight={600} sx={{ color: 'text.primary' }} noWrap>
+                {entity.billNumber || 'Bill'}
               </Typography>
-            </Box>
-          </Stack>
-          <Typography level="title-md" fontWeight="lg">
+              <Chip
+                size="sm"
+                variant="soft"
+                color={statusColor}
+                sx={{ fontSize: '10px', fontWeight: 700, height: 18, '--Chip-paddingInline': '6px' }}
+              >
+                {statusLabel}
+              </Chip>
+            </Stack>
+            <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }} noWrap>
+              {entity.vendorName}{dueText ? ` \u00B7 ${dueText}` : ''}
+            </Typography>
+          </Box>
+          <Typography level="body-md" fontWeight={700} sx={{ color: 'text.primary', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
             {formatInlineCurrency(total)}
           </Typography>
         </Box>
@@ -892,7 +934,8 @@ export default function ChatMessage({
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
   const { company } = useCompany();
   const { user } = useAuth();
-  const { currentSessionId } = useChat();
+  const chatCtx = useChat();
+  const { currentSessionId } = chatCtx;
 
   const isUser = message.role === 'user';
 
@@ -1086,17 +1129,46 @@ export default function ChatMessage({
                   py: 1.25,
                 }}
               >
-                <Typography
-                  level="body-md"
-                  sx={{
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
-                    lineHeight: 1.6,
-                    color: 'inherit',
-                  }}
-                >
-                  {message.content}
-                </Typography>
+                {/* Show message text only if it's not just "Attached ..." auto-text */}
+                {message.content && !(message.attachments && message.attachments.length > 0 && message.content.startsWith('Attached ')) && (
+                  <Typography
+                    level="body-md"
+                    sx={{
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                      lineHeight: 1.6,
+                      color: 'inherit',
+                    }}
+                  >
+                    {message.content}
+                  </Typography>
+                )}
+                {/* Attachment chips in user message */}
+                {message.attachments && message.attachments.length > 0 && (
+                  <Stack direction="row" spacing={0.75} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+                    {message.attachments.map((att) => (
+                      <Chip
+                        key={att.id}
+                        size="sm"
+                        variant="soft"
+                        sx={(theme) => ({
+                          bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.18)' : 'primary.softBg',
+                          color: theme.palette.mode === 'dark' ? '#fff' : 'primary.plainColor',
+                          fontSize: '0.75rem',
+                          fontWeight: 500,
+                          cursor: 'pointer',
+                          '&:hover': {
+                            bgcolor: theme.palette.mode === 'dark' ? 'rgba(255,255,255,0.28)' : 'primary.softHoverBg',
+                          },
+                        })}
+                        startDecorator={<FileText size={13} />}
+                        onClick={() => window.open(att.url, '_blank')}
+                      >
+                        {att.name}
+                      </Chip>
+                    ))}
+                  </Stack>
+                )}
               </Box>
             </Box>
           </Stack>
@@ -1111,7 +1183,14 @@ export default function ChatMessage({
                   <>
                     {text && <RichText content={text} />}
                     {!isUser && suggestions.length > 0 && onSendMessage && (
-                      <SuggestionButtons suggestions={suggestions} onSelect={onSendMessage} />
+                      <SuggestionButtons
+                        suggestions={suggestions}
+                        onSelect={onSendMessage}
+                        persistedSelection={message.selectedSuggestion}
+                        messageId={message.id}
+                        companyId={company?.id}
+                        chatId={currentSessionId || undefined}
+                      />
                     )}
                   </>
                 );
@@ -1133,19 +1212,21 @@ export default function ChatMessage({
 
                           {/* Multiple entities display — each card with inline actions */}
                           {rd.type === 'entity' && rd.entities && rd.entities.length > 0 && (
-                            <Stack spacing={1.5}>
+                            <Stack spacing={0.75}>
                               {rd.entities.map((item, idx) => (
-                                <Stack key={idx} direction="row" alignItems="center" spacing={1}>
+                                <Stack key={idx} direction="row" alignItems="stretch" spacing={0.75}>
                                   <Box sx={{ flex: 1, minWidth: 0 }}>
                                     <EntityInlineCard entity={item.entity} entityType={item.entityType} />
                                   </Box>
                                   {item.actions && item.actions.length > 0 && (
-                                    <ChatActionButtons
-                                      actions={item.actions}
-                                      onAction={handleAction}
-                                      compact
-                                      disabledActions={clickedToolActions}
-                                    />
+                                    <Stack direction="row" alignItems="center">
+                                      <ChatActionButtons
+                                        actions={item.actions}
+                                        onAction={handleAction}
+                                        compact
+                                        disabledActions={clickedToolActions}
+                                      />
+                                    </Stack>
                                   )}
                                 </Stack>
                               ))}
@@ -1308,16 +1389,59 @@ export default function ChatMessage({
               {/* Follow-up suggestion */}
               {!isUser && followUp && (
                 <Typography
-                  level="body-sm"
+                  level="body-xs"
                   sx={{
-                    mt: 2,
-                    color: 'text.secondary',
+                    mt: 1.5,
+                    color: 'text.tertiary',
                     fontStyle: 'italic',
                   }}
                 >
                   {followUp}
                 </Typography>
               )}
+
+              {/* "Process All Entries" button — shown on document analysis messages with pending entries */}
+              {!isUser && richData?.type === 'list' && richData?.summary?.count > 0 && (() => {
+                const { pendingDocumentEntries, processAllDocumentEntries, isSendingMessage } = chatCtx;
+                if (pendingDocumentEntries.length === 0) return null;
+                const entryTypes = new Set(pendingDocumentEntries.map((e: any) => e.type));
+                const typeLabels: Record<string, string> = {
+                  invoice: 'invoices', bill: 'bills', expense: 'expenses',
+                  journal_entry: 'journal entries', customer: 'customers', vendor: 'vendors', payment: 'payments',
+                };
+                const typeSummary = Array.from(entryTypes).map((t: string) => {
+                  const count = pendingDocumentEntries.filter((e: any) => e.type === t).length;
+                  return `${count} ${typeLabels[t] || t}`;
+                }).join(', ');
+
+                return (
+                  <Box sx={{ mt: 2 }}>
+                    <Button
+                      size="sm"
+                      variant="solid"
+                      color="primary"
+                      disabled={isSendingMessage}
+                      onClick={() => processAllDocumentEntries()}
+                      sx={{
+                        borderRadius: '20px',
+                        fontWeight: 600,
+                        px: 2.5,
+                        py: 0.75,
+                        fontSize: '13px',
+                        boxShadow: 'sm',
+                        '&:hover': { boxShadow: 'md' },
+                        '&.Mui-disabled': {
+                          opacity: 0.5,
+                          bgcolor: 'primary.500',
+                          color: '#fff',
+                        },
+                      }}
+                    >
+                      Process all entries ({typeSummary})
+                    </Button>
+                  </Box>
+                );
+              })()}
 
               </Box>
 

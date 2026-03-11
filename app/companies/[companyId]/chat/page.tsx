@@ -59,12 +59,12 @@ export default function ChatPage() {
     await renameChat(sessionId, newTitle);
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, files?: File[]) => {
     // sendMessage will create a chat if none exists
     await sendMessage(content, (newChatId) => {
       // Replace URL to new chat (no back button to empty state)
       router.replace(`/companies/${companyId}/chat/${newChatId}`);
-    });
+    }, files);
     setSelectedForm(null);
     setInputValue('');
   };

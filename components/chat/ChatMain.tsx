@@ -23,7 +23,7 @@ interface ChatMainProps {
   voiceEnabled?: boolean;
   selectedForm?: FormShortcut | null;
   inputValue?: string;
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, files?: File[]) => void;
   onExecuteToolAction?: (toolName: string, args: Record<string, any>, sourceMessageId?: string, actionKey?: string) => void;
   onSelectAction?: (prompt: string) => void;
   onClearForm?: () => void;
@@ -75,8 +75,8 @@ export default function ChatMain({
     }
   }, [messages, isAITyping]);
 
-  const handleSend = (content: string) => {
-    onSendMessage(content);
+  const handleSend = (content: string, files?: File[]) => {
+    onSendMessage(content, files);
   };
 
   const handleSelectAction = (prompt: string) => {

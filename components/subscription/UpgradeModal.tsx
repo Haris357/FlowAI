@@ -85,21 +85,20 @@ function getUpgradeHighlights(currentPlanId: string, nextPlanId: string): string
 
   if (currentPlanId === 'free') {
     return [
-      `${next.sessionMessageLimit} msgs/session · ${next.weeklyMessageLimit}/week`,
+      'Extended AI usage per session',
       'Unlimited customers & vendors',
-      'All financial reports',
+      'All financial reports & exports',
       'Payroll & salary slips',
       `Up to ${next.maxCompanies} companies`,
-      'Email support',
     ];
   }
   if (currentPlanId === 'pro') {
     return [
-      `${next.sessionMessageLimit} msgs/session · ${next.weeklyMessageLimit}/week`,
-      'Advanced AI capabilities',
+      '3x more AI usage per session',
+      'Advanced AI models',
       'Up to 10 companies',
-      'Unlimited collaborators',
-      'Unlimited everything',
+      'Unlimited team members',
+      'Unlimited email sends & chat history',
       'Priority support (24h)',
     ];
   }

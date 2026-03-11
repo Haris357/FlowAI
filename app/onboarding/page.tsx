@@ -25,7 +25,6 @@ import {
   LinearProgress,
   IconButton,
   Chip,
-  CircularProgress,
 } from '@mui/joy';
 import {
   Building2, CheckCircle2, ArrowRight, Moon, Sun, Sparkles, Loader2,
@@ -260,9 +259,9 @@ export default function OnboardingPage() {
         });
       } catch {}
 
-      toast.success('Company created successfully!');
       localStorage.setItem('selectedCompanyId', companyId);
-      router.push(`/companies/${companyId}/dashboard`);
+      router.replace('/companies');
+      toast.success('Company created successfully!');
     } catch (error) {
       console.error('Error creating company:', error);
       toast.error('Failed to create company');
@@ -441,7 +440,7 @@ export default function OnboardingPage() {
           <Box sx={{ borderTop: 1, borderColor: 'divider', p: 2, display: 'flex', justifyContent: 'flex-end' }}>
             <Button
               color="primary"
-              endDecorator={loading ? <CircularProgress size="sm" /> : <CheckCircle2 size={16} />}
+              endDecorator={!loading ? <CheckCircle2 size={16} /> : undefined}
               onClick={handleSubmit}
               loading={loading}
               sx={{ px: 3 }}

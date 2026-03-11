@@ -40,17 +40,17 @@ export default function PremiumModal() {
   const max = PLANS.max;
 
   const proFeatures = [
-    `${formatMessages(pro.sessionMessageLimit)} AI msgs/session`,
+    'Extended AI usage (4h sessions)',
     `Up to ${pro.maxCompanies} companies`,
-    'Unlimited clients & vendors',
-    'All reports & exports',
+    'Unlimited customers & vendors',
+    'All reports, payroll & exports',
   ];
 
   const maxFeatures = [
-    `${formatMessages(max.sessionMessageLimit)} AI msgs/session`,
+    '3x AI + advanced models',
     `Up to ${max.maxCompanies} companies`,
-    'Priority support',
-    'Unlimited everything',
+    'Unlimited team members & emails',
+    'Priority support (24h)',
   ];
 
   return (

@@ -62,12 +62,27 @@ export default function ChatActionButtons({
             <Tooltip key={index} title={disabled ? 'Done' : action.label} placement="top">
               <IconButton
                 size="sm"
-                variant="soft"
-                color={disabled ? 'neutral' : (actionColors[action.type] || 'neutral')}
+                variant={disabled ? 'plain' : 'outlined'}
+                color={disabled ? 'success' : (actionColors[action.type] || 'neutral')}
                 onClick={() => !disabled && onAction(action)}
                 disabled={disabled}
                 sx={{
-                  '--IconButton-size': '28px',
+                  '--IconButton-size': '30px',
+                  borderRadius: '8px',
+                  transition: 'all 0.15s',
+                  ...(disabled ? {
+                    '&.Mui-disabled': {
+                      opacity: 0.6,
+                      color: 'success.500',
+                    },
+                  } : {
+                    borderColor: 'neutral.outlinedBorder',
+                    color: `${actionColors[action.type] || 'neutral'}.plainColor`,
+                    '&:hover': {
+                      bgcolor: `${actionColors[action.type] || 'neutral'}.softBg`,
+                      borderColor: `${actionColors[action.type] || 'neutral'}.outlinedBorder`,
+                    },
+                  }),
                 }}
               >
                 {disabled ? <Check size={14} /> : (actionIcons[action.type] || <FileText size={14} />)}
@@ -80,21 +95,36 @@ export default function ChatActionButtons({
   }
 
   return (
-    <Stack direction="row" spacing={1} flexWrap="wrap" sx={{ gap: 1 }}>
+    <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
       {actions.map((action, index) => {
         const disabled = isDisabled(action, disabledActions);
         return (
           <Button
             key={index}
             size="sm"
-            variant="soft"
-            color={disabled ? 'neutral' : (actionColors[action.type] || 'neutral')}
+            variant={disabled ? 'plain' : 'outlined'}
+            color={disabled ? 'success' : (actionColors[action.type] || 'neutral')}
             startDecorator={disabled ? <Check size={14} /> : (actionIcons[action.type] || <FileText size={14} />)}
             onClick={() => !disabled && onAction(action)}
             disabled={disabled}
             sx={{
               fontWeight: 500,
               fontSize: '13px',
+              borderRadius: '20px',
+              px: 2,
+              ...(disabled ? {
+                '&.Mui-disabled': {
+                  opacity: 0.6,
+                  color: 'success.500',
+                },
+              } : {
+                borderColor: 'neutral.outlinedBorder',
+                color: 'text.primary',
+                '&:hover': {
+                  bgcolor: `${actionColors[action.type] || 'neutral'}.softBg`,
+                  borderColor: `${actionColors[action.type] || 'neutral'}.outlinedBorder`,
+                },
+              }),
             }}
           >
             {disabled ? 'Sent' : action.label}

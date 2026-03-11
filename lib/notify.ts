@@ -1,6 +1,6 @@
 /**
  * Centralized notification utility.
- * Sends both an in-app notification (Firestore) and an email (Nodemailer) in one call.
+ * Sends both an in-app notification (Firestore) and an email (Resend) in one call.
  * Non-blocking — won't throw if email/notification fails.
  */
 

@@ -14,12 +14,24 @@ export default function LoginPage() {
   const { mode, toggleMode } = useTheme();
   const router = useRouter();
 
-  // Redirect authenticated users away from login
+  // Redirect authenticated users away from login (only if not mid-sign-in)
   useEffect(() => {
-    if (!authLoading && user) {
-      router.replace('/companies');
+    if (!authLoading && user && !loading) {
+      // Check if user has companies — new users should go to onboarding
+      const checkAndRedirect = async () => {
+        try {
+          const { collection, query, where, getDocs } = await import('firebase/firestore');
+          const { db } = await import('@/lib/firebase');
+          const q = query(collection(db, 'companies'), where('ownerId', '==', user.uid));
+          const snap = await getDocs(q);
+          router.replace(snap.empty ? '/onboarding' : '/companies');
+        } catch {
+          router.replace('/companies');
+        }
+      };
+      checkAndRedirect();
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, loading, router]);
 
   const handleGoogleLogin = async () => {
     setLoading(true);

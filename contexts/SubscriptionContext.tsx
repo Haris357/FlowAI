@@ -120,10 +120,13 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   // ── Compute trial end timestamp ──
   useEffect(() => {
     if (subscription?.trialEndsAt) {
-      const endMs = subscription.trialEndsAt.toMillis?.()
-        || (subscription.trialEndsAt as any)?.seconds * 1000
-        || 0;
-      setTrialEndsAtMs(endMs);
+      const t = subscription.trialEndsAt as any;
+      let endMs = 0;
+      if (typeof t.toMillis === 'function') endMs = t.toMillis();
+      else if (typeof t.toDate === 'function') endMs = t.toDate().getTime();
+      else if (t.seconds != null) endMs = t.seconds * 1000;
+      else if (t._seconds != null) endMs = t._seconds * 1000;
+      setTrialEndsAtMs(endMs || null);
     } else {
       setTrialEndsAtMs(null);
     }
@@ -154,18 +157,18 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     const nextWeekStart = getNextWeekStart();
 
     if (!usageData) {
-      setSessionRemaining(currentPlan.sessionMessageLimit);
+      setSessionRemaining(currentPlan.sessionTokenLimit);
       setSessionPercentUsed(0);
       setSessionResetsAt(Date.now() + sessionDurationMs);
-      setWeeklyRemaining(currentPlan.weeklyMessageLimit);
+      setWeeklyRemaining(currentPlan.weeklyTokenLimit);
       setWeeklyPercentUsed(0);
       setWeeklyResetsAt(nextWeekStart);
       setBlockedBy('none');
       return;
     }
 
-    let sessionUsed = usageData.sessionMessagesUsed || 0;
-    let weeklyUsed = usageData.weeklyMessagesUsed || 0;
+    let sessionUsed = usageData.sessionTokensUsed || 0;
+    let weeklyUsed = usageData.weeklyTokensUsed || 0;
     let sessionStartMs = usageData.sessionStart?.toMillis?.()
       || (usageData.sessionStart as any)?.seconds * 1000
       || Date.now();
@@ -179,19 +182,19 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
       weeklyUsed = 0;
     }
 
-    const sRemaining = Math.max(0, currentPlan.sessionMessageLimit - sessionUsed);
-    const wBase = Math.max(0, currentPlan.weeklyMessageLimit - weeklyUsed);
-    const bonus = usageData.bonusMessages || 0;
+    const sRemaining = Math.max(0, currentPlan.sessionTokenLimit - sessionUsed);
+    const wBase = Math.max(0, currentPlan.weeklyTokenLimit - weeklyUsed);
+    const bonus = usageData.bonusTokens || 0;
     const wRemaining = wBase + bonus;
 
     setSessionRemaining(sRemaining);
-    setSessionPercentUsed(currentPlan.sessionMessageLimit > 0
-      ? Math.min(100, (sessionUsed / currentPlan.sessionMessageLimit) * 100) : 0);
+    setSessionPercentUsed(currentPlan.sessionTokenLimit > 0
+      ? Math.min(100, (sessionUsed / currentPlan.sessionTokenLimit) * 100) : 0);
     setSessionResetsAt(sessionStartMs + sessionDurationMs);
 
     setWeeklyRemaining(wRemaining);
-    setWeeklyPercentUsed(currentPlan.weeklyMessageLimit > 0
-      ? Math.min(100, (weeklyUsed / currentPlan.weeklyMessageLimit) * 100) : 0);
+    setWeeklyPercentUsed(currentPlan.weeklyTokenLimit > 0
+      ? Math.min(100, (weeklyUsed / currentPlan.weeklyTokenLimit) * 100) : 0);
     setWeeklyResetsAt(nextWeekStart);
 
     if (sRemaining <= 0) setBlockedBy('session');
@@ -363,15 +366,15 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         const reason = blockedBy === 'trial_expired'
           ? 'Your free trial has ended. Subscribe to continue.'
           : blockedBy === 'session'
-          ? `You've used all messages in this session. Resets in ${sessionTimeLeft}.`
+          ? `You've reached your session usage limit. Resets in ${sessionTimeLeft}.`
           : blockedBy === 'weekly'
-          ? 'You\'ve reached your weekly AI message limit. Resets Monday.'
+          ? 'You\'ve reached your weekly usage limit. Resets Monday.'
           : undefined;
         return {
           allowed,
           reason,
-          currentUsage: usage?.sessionMessagesUsed || 0,
-          limit: plan.sessionMessageLimit,
+          currentUsage: usage?.sessionTokensUsed || 0,
+          limit: plan.sessionTokenLimit,
           upgradeRequired: effectivePlanId === 'pro' ? 'max' : 'pro',
         };
       }

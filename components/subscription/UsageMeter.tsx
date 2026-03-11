@@ -1,21 +1,32 @@
 'use client';
 import { useState } from 'react';
-import { Box, LinearProgress, Typography, Stack, Divider, Chip } from '@mui/joy';
-import { ChevronDown, Clock } from 'lucide-react';
+import { Box, Typography, Stack, Divider, Chip, Tooltip } from '@mui/joy';
+import { ChevronDown, Clock, Zap, CalendarDays } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 
 interface UsageMeterProps {
   compact?: boolean;
+  collapsed?: boolean;
 }
 
-export default function UsageMeter({ compact = false }: UsageMeterProps) {
+/** Terracotta-colored progress bar matching the app's brand */
+function ProgressBar({ value, height = 5 }: { value: number; height?: number }) {
+  const pct = Math.min(100, Math.max(0, value));
+  const color = pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#D97757';
+  return (
+    <Box sx={{ height, borderRadius: height / 2, bgcolor: 'neutral.200', overflow: 'hidden' }}>
+      <Box sx={{ height: '100%', width: `${pct}%`, borderRadius: height / 2, bgcolor: color, transition: 'width 0.3s ease' }} />
+    </Box>
+  );
+}
+
+export default function UsageMeter({ compact = false, collapsed = false }: UsageMeterProps) {
   const { usage, plan, sessionPercentUsed, sessionRemaining, sessionTimeLeft, weeklyPercentUsed, weeklyRemaining, loading, isPaidSubscriber, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   if (loading) return null;
 
-  // Paid subscribers skip trial states entirely
-  // Trial expired - show subscribe prompt
+  // Trial expired
   if (!isPaidSubscriber && trialExpired) {
     if (compact) {
       return (
@@ -47,7 +58,7 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
     );
   }
 
-  // Trial active but no usage yet - show trial timer
+  // Trial active but no usage yet
   if (!isPaidSubscriber && isTrial && !usage) {
     if (compact) {
       return (
@@ -79,10 +90,41 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
     );
   }
 
-  if (!usage) return null;
+  if (!usage) {
+    // Collapsed state with no usage — show empty bars
+    if (collapsed) {
+      return (
+        <Tooltip title="No usage yet" placement="right">
+          <Stack spacing={0.75} alignItems="center" sx={{ py: 0.5 }}>
+            <Zap size={14} style={{ color: 'var(--joy-palette-text-tertiary)' }} />
+            <ProgressBar value={0} height={3} />
+            <ProgressBar value={0} height={3} />
+          </Stack>
+        </Tooltip>
+      );
+    }
+    return null;
+  }
 
-  const color = sessionPercentUsed > 80 ? 'danger' : sessionPercentUsed > 50 ? 'warning' : 'primary';
-  const weeklyColor = weeklyPercentUsed > 80 ? 'danger' : weeklyPercentUsed > 50 ? 'warning' : 'primary';
+  const sessionPct = Math.min(100, sessionPercentUsed);
+  const weeklyPct = Math.min(100, weeklyPercentUsed);
+
+  // Collapsed sidebar — just two thin progress bars with a tooltip
+  if (collapsed) {
+    return (
+      <Tooltip
+        title={`Session: ${Math.round(sessionPct)}% | Weekly: ${Math.round(weeklyPct)}%`}
+        placement="right"
+      >
+        <Stack spacing={0.75} alignItems="center" sx={{ py: 0.5 }}>
+          <ProgressBar value={sessionPct} height={4} />
+          <ProgressBar value={weeklyPct} height={4} />
+        </Stack>
+      </Tooltip>
+    );
+  }
+
+  const pctColor = (pct: number) => pct > 80 ? '#ef4444' : pct > 50 ? '#f59e0b' : '#D97757';
 
   if (compact) {
     return (
@@ -109,16 +151,20 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
             '&:hover': { bgcolor: 'background.level1' },
           }}
         >
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
-            <Typography level="body-xs" sx={{ color: 'text.tertiary', fontWeight: 600, fontSize: '11px' }}>
-              Session Usage
-            </Typography>
+          {/* Session bar */}
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.4 }}>
             <Stack direction="row" spacing={0.5} alignItems="center">
-              <Typography level="body-xs" sx={{ color: 'text.secondary', fontSize: '11px', fontWeight: 500 }}>
-                {sessionRemaining} left
+              <Zap size={10} style={{ color: 'var(--joy-palette-text-tertiary)' }} />
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', fontWeight: 600, fontSize: '10px' }}>
+                Session
+              </Typography>
+            </Stack>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <Typography level="body-xs" sx={{ color: pctColor(sessionPct), fontSize: '10px', fontWeight: 600 }}>
+                {Math.round(sessionPct)}%
               </Typography>
               <ChevronDown
-                size={12}
+                size={11}
                 style={{
                   color: 'var(--joy-palette-text-tertiary)',
                   transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
@@ -127,12 +173,23 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
               />
             </Stack>
           </Stack>
-          <LinearProgress
-            determinate
-            value={Math.min(100, sessionPercentUsed)}
-            color={color}
-            sx={{ height: 4, borderRadius: 2, bgcolor: 'neutral.200' }}
-          />
+          <ProgressBar value={sessionPct} height={6} />
+
+          <Box sx={{ mb: 0.75 }} />
+
+          {/* Weekly bar */}
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.4 }}>
+            <Stack direction="row" spacing={0.5} alignItems="center">
+              <CalendarDays size={10} style={{ color: 'var(--joy-palette-text-tertiary)' }} />
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', fontWeight: 600, fontSize: '10px' }}>
+                Weekly
+              </Typography>
+            </Stack>
+            <Typography level="body-xs" sx={{ color: pctColor(weeklyPct), fontSize: '10px', fontWeight: 600 }}>
+              {Math.round(weeklyPct)}%
+            </Typography>
+          </Stack>
+          <ProgressBar value={weeklyPct} height={6} />
         </Box>
 
         {/* Dropdown Details */}
@@ -154,54 +211,52 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
             }}
           >
             <Typography level="body-xs" fontWeight={700} sx={{ mb: 1, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'text.tertiary', fontSize: '10px' }}>
-              Session Usage
+              Usage Details
             </Typography>
 
             <Stack spacing={0.75}>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Session</Typography>
-                <Typography level="body-xs" fontWeight={600}>
-                  {usage.sessionMessagesUsed} / {plan.sessionMessageLimit}
+              {/* Session section */}
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <Zap size={11} style={{ color: '#D97757' }} />
+                  <Typography level="body-xs" sx={{ color: 'text.secondary', fontWeight: 600 }}>Session</Typography>
+                </Stack>
+                <Typography level="body-xs" fontWeight={600} sx={{ color: pctColor(sessionPct) }}>
+                  {Math.round(sessionPct)}%
                 </Typography>
               </Stack>
-
-              <Stack direction="row" justifyContent="space-between">
-                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Remaining</Typography>
-                <Typography level="body-xs" fontWeight={600} sx={{ color: color === 'danger' ? 'danger.500' : color === 'warning' ? 'warning.600' : 'text.primary' }}>
-                  {sessionRemaining}
-                </Typography>
-              </Stack>
-
-              <Stack direction="row" justifyContent="space-between">
-                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Resets in</Typography>
-                <Typography level="body-xs" fontWeight={600}>
-                  {sessionTimeLeft || 'New session'}
-                </Typography>
-              </Stack>
+              <ProgressBar value={sessionPct} height={5} />
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '10px' }}>
+                {sessionTimeLeft ? `Resets in ${sessionTimeLeft}` : 'New session'}
+              </Typography>
 
               <Divider sx={{ my: 0.25 }} />
 
-              <Stack direction="row" justifyContent="space-between">
-                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>This Week</Typography>
-                <Typography level="body-xs" fontWeight={600}>
-                  {usage.weeklyMessagesUsed} / {plan.weeklyMessageLimit}
-                </Typography>
-              </Stack>
-
-              <Stack direction="row" justifyContent="space-between">
-                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Weekly Left</Typography>
-                <Typography level="body-xs" fontWeight={600} sx={{ color: weeklyColor === 'danger' ? 'danger.500' : weeklyColor === 'warning' ? 'warning.600' : 'text.primary' }}>
-                  {weeklyRemaining}
-                </Typography>
-              </Stack>
-
-              {(usage.bonusMessages || 0) > 0 && (
-                <Stack direction="row" justifyContent="space-between">
-                  <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Bonus Messages</Typography>
-                  <Typography level="body-xs" fontWeight={600} sx={{ color: 'success.600' }}>
-                    +{usage.bonusMessages}
-                  </Typography>
+              {/* Weekly section */}
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  <CalendarDays size={11} style={{ color: '#D97757' }} />
+                  <Typography level="body-xs" sx={{ color: 'text.secondary', fontWeight: 600 }}>This Week</Typography>
                 </Stack>
+                <Typography level="body-xs" fontWeight={600} sx={{ color: pctColor(weeklyPct) }}>
+                  {Math.round(weeklyPct)}%
+                </Typography>
+              </Stack>
+              <ProgressBar value={weeklyPct} height={5} />
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '10px' }}>
+                Resets Monday
+              </Typography>
+
+              {(usage.bonusTokens || 0) > 0 && (
+                <>
+                  <Divider sx={{ my: 0.25 }} />
+                  <Stack direction="row" justifyContent="space-between">
+                    <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Bonus</Typography>
+                    <Typography level="body-xs" fontWeight={600} sx={{ color: 'success.600' }}>
+                      Active
+                    </Typography>
+                  </Stack>
+                </>
               )}
 
               <Divider sx={{ my: 0.25 }} />
@@ -243,6 +298,7 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
     );
   }
 
+  // Full size (non-compact)
   return (
     <Box>
       {isTrial && trialTimeLeft && (
@@ -254,38 +310,35 @@ export default function UsageMeter({ compact = false }: UsageMeterProps) {
         </Stack>
       )}
 
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.75 }}>
-        <Typography level="body-sm" fontWeight={600}>
-          Session Usage
-        </Typography>
-        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-          {usage.sessionMessagesUsed} / {plan.sessionMessageLimit}
-        </Typography>
-      </Stack>
-      <LinearProgress
-        determinate
-        value={Math.min(100, sessionPercentUsed)}
-        color={color}
-        sx={{ height: 8, borderRadius: 4, bgcolor: 'neutral.100' }}
-      />
-      <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.5 }}>
-        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-          {sessionRemaining} remaining · {sessionTimeLeft ? `resets in ${sessionTimeLeft}` : 'new session'}
-        </Typography>
-        {(usage.bonusMessages || 0) > 0 && (
-          <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-            +{usage.bonusMessages} bonus
-          </Typography>
-        )}
-      </Stack>
-      <Stack direction="row" justifyContent="space-between" sx={{ mt: 0.75 }}>
-        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-          Weekly: {usage.weeklyMessagesUsed} / {plan.weeklyMessageLimit}
-        </Typography>
-        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-          Resets Monday
+      {/* Session bar */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 0.5 }}>
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <Zap size={13} style={{ color: '#D97757' }} />
+          <Typography level="body-sm" fontWeight={600}>Session</Typography>
+        </Stack>
+        <Typography level="body-xs" fontWeight={600} sx={{ color: pctColor(sessionPct) }}>
+          {Math.round(sessionPct)}%
         </Typography>
       </Stack>
+      <ProgressBar value={sessionPct} height={6} />
+      <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.4, fontSize: '10px' }}>
+        {sessionTimeLeft ? `Resets in ${sessionTimeLeft}` : 'New session'}
+      </Typography>
+
+      {/* Weekly bar */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1.25, mb: 0.5 }}>
+        <Stack direction="row" spacing={0.75} alignItems="center">
+          <CalendarDays size={13} style={{ color: '#D97757' }} />
+          <Typography level="body-sm" fontWeight={600}>Weekly</Typography>
+        </Stack>
+        <Typography level="body-xs" fontWeight={600} sx={{ color: pctColor(weeklyPct) }}>
+          {Math.round(weeklyPct)}%
+        </Typography>
+      </Stack>
+      <ProgressBar value={weeklyPct} height={6} />
+      <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.4, fontSize: '10px' }}>
+        Resets Monday
+      </Typography>
     </Box>
   );
 }

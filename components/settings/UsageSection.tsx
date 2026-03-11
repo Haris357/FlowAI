@@ -38,7 +38,7 @@ export default function UsageSection() {
             <Typography level="title-md" fontWeight={700}>AI Capabilities</Typography>
           </Stack>
           <Chip size="sm" variant="soft" color="primary">
-            {plan.allowedModels.length === 1 ? 'Basic AI' : plan.allowedModels.length <= 2 ? 'Enhanced AI' : 'Advanced AI'}
+            {plan.allowedModels.length === 1 ? 'Basic AI' : plan.allowedModels.length <= 2 ? 'Fast AI' : 'Fast + Advanced AI'}
           </Chip>
           <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 1.5 }}>
             Upgrade your plan to unlock more powerful AI capabilities.

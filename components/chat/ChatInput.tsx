@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, KeyboardEvent } from 'react';
+import { useState, useEffect, useRef, KeyboardEvent } from 'react';
 import {
   Box,
   Chip,
@@ -9,27 +9,30 @@ import {
   Textarea,
   Typography,
   Tooltip,
+  CircularProgress,
 } from '@mui/joy';
 import {
   Send,
-  Mic,
-  MicOff,
-  Paperclip,
+  Plus,
   X,
   FileText,
   Receipt,
   Users,
-  BookOpen,
   Calculator,
   Zap,
   AlertCircle,
   CheckCircle,
   Clock,
   Bell,
+  FileSpreadsheet,
+  Image,
+  File,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { FormShortcut } from './FormShortcuts';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { ChatAttachment } from '@/types';
+import { validateFile, getFileCategory, getAcceptString } from '@/lib/chat-upload';
 
 const QUICK_ACTIONS = [
   { label: 'Overdue Invoices', icon: AlertCircle, prompt: 'Show me all overdue invoices' },
@@ -42,8 +45,15 @@ const QUICK_ACTIONS = [
   { label: 'View Accounts', icon: Calculator, prompt: 'Show me the list of accounts' },
 ];
 
+const FILE_TYPE_ICON: Record<string, React.ElementType> = {
+  spreadsheet: FileSpreadsheet,
+  document: FileText,
+  pdf: FileText,
+  image: Image,
+};
+
 interface ChatInputProps {
-  onSend: (message: string) => void;
+  onSend: (message: string, attachments?: File[]) => void;
   disabled?: boolean;
   placeholder?: string;
   voiceEnabled?: boolean;
@@ -61,7 +71,6 @@ export default function ChatInput({
   onSend,
   disabled = false,
   placeholder = 'How can I help you today?',
-  voiceEnabled = true,
   centered = false,
   selectedForm,
   onClearForm,
@@ -69,19 +78,22 @@ export default function ChatInput({
   showQuickActions = false,
   onSelectAction,
 }: ChatInputProps) {
-  const { usage, plan, sessionRemaining, sessionPercentUsed, sessionTimeLeft, weeklyRemaining, isPaidSubscriber, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
+  const { usage, plan, sessionRemaining, sessionPercentUsed, weeklyPercentUsed, sessionTimeLeft, weeklyRemaining, isPaidSubscriber, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
   const [value, setValue] = useState(initialValue);
-  const [isListening, setIsListening] = useState(false);
   const [isFocused, setIsFocused] = useState(false);
+  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initialValue) setValue(initialValue);
   }, [initialValue]);
 
   const handleSend = () => {
-    if (!value.trim() || disabled) return;
-    onSend(value.trim());
+    if ((!value.trim() && pendingFiles.length === 0) || disabled || uploading) return;
+    onSend(value.trim(), pendingFiles.length > 0 ? pendingFiles : undefined);
     setValue('');
+    setPendingFiles([]);
     onClearForm?.();
   };
 
@@ -97,31 +109,29 @@ export default function ChatInput({
     setValue(prompt);
   };
 
-  const startVoiceInput = () => {
-    const windowWithSpeech = window as any;
-    const SpeechRecognitionAPI =
-      windowWithSpeech.webkitSpeechRecognition || windowWithSpeech.SpeechRecognition;
+  const handleFileSelect = (accept?: string) => {
+    if (!fileInputRef.current) return;
+    fileInputRef.current.accept = accept || getAcceptString();
+    fileInputRef.current.click();
+  };
 
-    if (!SpeechRecognitionAPI) {
-      toast.error('Speech recognition not supported in this browser');
-      return;
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    e.target.value = ''; // Reset so same file can be selected again
+
+    for (const file of files) {
+      const error = validateFile(file);
+      if (error) {
+        toast.error(error);
+        return;
+      }
     }
 
-    const recognition = new SpeechRecognitionAPI();
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-    recognition.onstart = () => setIsListening(true);
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setValue((prev) => prev + transcript);
-    };
-    recognition.onerror = () => {
-      toast.error('Voice input failed. Please try again.');
-      setIsListening(false);
-    };
-    recognition.onend = () => setIsListening(false);
-    recognition.start();
+    setPendingFiles(prev => [...prev, ...files]);
+  };
+
+  const removePendingFile = (index: number) => {
+    setPendingFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleClearForm = () => {
@@ -139,6 +149,15 @@ export default function ChatInput({
         py: 2,
       }}
     >
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        hidden
+        multiple
+        onChange={handleFileChange}
+      />
+
       <Box
         sx={{
           position: 'relative',
@@ -176,6 +195,41 @@ export default function ChatInput({
           </Box>
         )}
 
+        {/* Pending file previews */}
+        {pendingFiles.length > 0 && (
+          <Stack direction="row" spacing={1} sx={{ px: 2, pt: 1.5, pb: 0.5, flexWrap: 'wrap', gap: 0.75 }}>
+            {pendingFiles.map((file, i) => {
+              const category = getFileCategory(file.type) || 'document';
+              const FileIcon = FILE_TYPE_ICON[category] || File;
+              return (
+                <Chip
+                  key={`${file.name}-${i}`}
+                  size="sm"
+                  variant="outlined"
+                  color="neutral"
+                  startDecorator={<FileIcon size={14} />}
+                  endDecorator={
+                    <IconButton
+                      size="sm"
+                      variant="plain"
+                      color="neutral"
+                      onClick={() => removePendingFile(i)}
+                      sx={{ '--IconButton-size': '18px', minWidth: 18, minHeight: 18, borderRadius: '50%' }}
+                    >
+                      <X size={12} />
+                    </IconButton>
+                  }
+                  sx={{ fontWeight: 500, fontSize: '0.75rem', maxWidth: 220, borderColor: 'divider' }}
+                >
+                  <Typography noWrap level="body-xs" sx={{ maxWidth: 160 }}>
+                    {file.name}
+                  </Typography>
+                </Chip>
+              );
+            })}
+          </Stack>
+        )}
+
         <Textarea
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -183,14 +237,20 @@ export default function ChatInput({
           onFocus={() => setIsFocused(true)}
           onBlur={() => setIsFocused(false)}
           disabled={disabled}
-          placeholder={selectedForm ? `Fill in the ${selectedForm.label.toLowerCase()} details...` : placeholder}
+          placeholder={
+            pendingFiles.length > 0
+              ? 'Add a message or send to analyze the file...'
+              : selectedForm
+                ? `Fill in the ${selectedForm.label.toLowerCase()} details...`
+                : placeholder
+          }
           minRows={1}
           maxRows={6}
           sx={{
             border: 'none',
             bgcolor: 'transparent',
             px: 2,
-            pt: selectedForm ? 0.5 : 1.5,
+            pt: selectedForm || pendingFiles.length > 0 ? 0.5 : 1.5,
             pb: 5.5,
             resize: 'none',
             '&:focus-within': { outline: 'none' },
@@ -216,60 +276,53 @@ export default function ChatInput({
           }}
         >
           <Stack direction="row" spacing={0.5} alignItems="center">
+            {/* Attach file button */}
             <IconButton
               size="sm"
               variant="plain"
               color="neutral"
-              disabled={disabled}
+              disabled={disabled || uploading}
+              onClick={() => handleFileSelect()}
               sx={{ borderRadius: 'md', '&:hover': { bgcolor: 'background.level1' } }}
             >
-              <Paperclip size={18} />
+              {uploading ? <CircularProgress size="sm" sx={{ '--CircularProgress-size': '18px' }} /> : <Plus size={18} />}
             </IconButton>
-
-            {voiceEnabled && (
-              <IconButton
-                size="sm"
-                variant={isListening ? 'solid' : 'plain'}
-                color={isListening ? 'danger' : 'neutral'}
-                onClick={startVoiceInput}
-                disabled={disabled}
-                sx={{
-                  borderRadius: 'md',
-                  transition: 'all 0.2s',
-                  '&:hover': { bgcolor: isListening ? undefined : 'background.level1' },
-                }}
-              >
-                {isListening ? <MicOff size={18} /> : <Mic size={18} />}
-              </IconButton>
-            )}
           </Stack>
 
           <Stack direction="row" spacing={1} alignItems="center">
-            {/* Flow AI v1 Badge with Message Tooltip */}
+            {/* Flow AI v1 Badge with Usage Tooltip */}
             <Tooltip
               title={
-                usage && (usage.sessionMessagesUsed || 0) > 0 ? (
-                  <Box sx={{ p: 0.5 }}>
-                    <Typography level="body-xs" fontWeight={700} sx={{ mb: 0.75 }}>
-                      Session Usage
+                usage && (usage.sessionTokensUsed || 0) > 0 ? (
+                  <Box sx={{ p: 0.5, minWidth: 180 }}>
+                    <Typography level="body-xs" fontWeight={700} sx={{ mb: 1 }}>
+                      Usage
                     </Typography>
-                    <Stack spacing={0.25}>
-                      <Stack direction="row" justifyContent="space-between" spacing={3}>
-                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Session</Typography>
-                        <Typography level="body-xs">{usage.sessionMessagesUsed} / {plan.sessionMessageLimit}</Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between" spacing={3}>
-                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Remaining</Typography>
-                        <Typography level="body-xs">{sessionRemaining}</Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between" spacing={3}>
-                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Resets in</Typography>
-                        <Typography level="body-xs">{sessionTimeLeft || 'New session'}</Typography>
-                      </Stack>
-                      <Stack direction="row" justifyContent="space-between" spacing={3}>
-                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Weekly</Typography>
-                        <Typography level="body-xs">{usage.weeklyMessagesUsed} / {plan.weeklyMessageLimit}</Typography>
-                      </Stack>
+                    <Stack spacing={1}>
+                      <Box>
+                        <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.25 }}>
+                          <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Session</Typography>
+                          <Typography level="body-xs" fontWeight={600}>{Math.round(sessionPercentUsed)}%</Typography>
+                        </Stack>
+                        <Box sx={{ height: 4, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.15)', overflow: 'hidden' }}>
+                          <Box sx={{ height: '100%', width: `${Math.min(100, sessionPercentUsed)}%`, borderRadius: 2, bgcolor: sessionPercentUsed > 80 ? '#ef4444' : sessionPercentUsed > 50 ? '#f59e0b' : '#D97757', transition: 'width 0.3s ease' }} />
+                        </Box>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '10px', mt: 0.25 }}>
+                          {sessionTimeLeft ? `Resets in ${sessionTimeLeft}` : 'New session'}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.25 }}>
+                          <Typography level="body-xs" sx={{ color: 'text.secondary' }}>Weekly</Typography>
+                          <Typography level="body-xs" fontWeight={600}>{Math.round(weeklyPercentUsed)}%</Typography>
+                        </Stack>
+                        <Box sx={{ height: 4, borderRadius: 2, bgcolor: 'rgba(255,255,255,0.15)', overflow: 'hidden' }}>
+                          <Box sx={{ height: '100%', width: `${Math.min(100, weeklyPercentUsed)}%`, borderRadius: 2, bgcolor: weeklyPercentUsed > 80 ? '#ef4444' : '#D97757', transition: 'width 0.3s ease' }} />
+                        </Box>
+                        <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '10px', mt: 0.25 }}>
+                          Resets Monday
+                        </Typography>
+                      </Box>
                     </Stack>
                   </Box>
                 ) : 'Flow AI v1'
@@ -312,9 +365,9 @@ export default function ChatInput({
                     · Trial Expired
                   </Typography>
                 )}
-                {!trialExpired && usage && (usage.sessionMessagesUsed || 0) > 0 && (
+                {!trialExpired && usage && (usage.sessionTokensUsed || 0) > 0 && (
                   <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '11px' }}>
-                    · {usage.sessionMessagesUsed} / {plan.sessionMessageLimit}
+                    · {Math.round(sessionPercentUsed)}%
                   </Typography>
                 )}
               </Box>
@@ -325,7 +378,7 @@ export default function ChatInput({
               variant="solid"
               color="primary"
               onClick={handleSend}
-              disabled={!value.trim() || disabled}
+              disabled={(!value.trim() && pendingFiles.length === 0) || disabled || uploading}
               sx={{
                 borderRadius: 'md',
                 transition: 'all 0.2s',

@@ -85,11 +85,11 @@ export default function ChatWithIdPage() {
     await renameChat(sessionId, newTitle);
   };
 
-  const handleSendMessage = async (content: string) => {
+  const handleSendMessage = async (content: string, files?: File[]) => {
     await sendMessage(content, (newChatId) => {
       // Navigate to the new chat URL when a chat is created
       router.push(`/companies/${companyId}/chat/${newChatId}`);
-    });
+    }, files);
     setSelectedForm(null);
     setInputValue('');
   };

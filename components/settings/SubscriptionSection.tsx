@@ -312,12 +312,12 @@ export default function SubscriptionSection() {
                 gap: 0.75, mb: 2.5,
               }}>
                 {[
-                  `${formatMessages(plan.sessionMessageLimit)} AI messages/session`,
-                  `${formatMessages(plan.weeklyMessageLimit)} messages/week`,
+                  plan.id === 'max' ? '3x AI usage + advanced models' : plan.id === 'pro' ? 'Extended AI usage (4h sessions)' : 'Limited AI usage',
                   `Up to ${plan.maxCompanies} companies`,
-                  plan.maxCollaboratorsPerCompany === -1 ? 'Unlimited collaborators' : `${plan.maxCollaboratorsPerCompany} collaborators/company`,
+                  plan.maxCollaboratorsPerCompany === -1 ? 'Unlimited team members' : `${plan.maxCollaboratorsPerCompany} team members/company`,
                   plan.features.allReports ? 'All financial reports' : 'Basic reports',
                   plan.features.payroll ? 'Payroll & salary slips' : null,
+                  plan.id === 'max' ? 'Priority support (24h)' : null,
                 ].filter(Boolean).map((f, i) => (
                   <Stack key={i} direction="row" spacing={0.75} alignItems="center">
                     <Check size={12} color="#D97757" style={{ flexShrink: 0 }} />

@@ -150,11 +150,10 @@ export default function SubscriptionSuccessModal() {
                   What's included
                 </Typography>
                 <Stack spacing={1}>
-                  <FeatureRow icon={<Zap size={14} />} text={`${formatMessages(activePlan.sessionMessageLimit)} AI messages per session`} />
-                  <FeatureRow icon={<Zap size={14} />} text={`${formatMessages(activePlan.weeklyMessageLimit)} messages per week`} />
+                  <FeatureRow icon={<Zap size={14} />} text={activePlan.id === 'max' ? '3x more AI usage + advanced models' : 'Extended AI usage per session (4h)'} />
                   <FeatureRow icon={<Crown size={14} />} text={`Up to ${activePlan.maxCompanies} companies`} />
-                  <FeatureRow icon={<Users size={14} />} text={activePlan.maxCollaboratorsPerCompany === -1 ? 'Unlimited collaborators' : `${activePlan.maxCollaboratorsPerCompany} collaborators per company`} />
-                  <FeatureRow icon={<Shield size={14} />} text="All reports, exports & payroll" />
+                  <FeatureRow icon={<Users size={14} />} text={activePlan.maxCollaboratorsPerCompany === -1 ? 'Unlimited team members' : `${activePlan.maxCollaboratorsPerCompany} team members per company`} />
+                  <FeatureRow icon={<Shield size={14} />} text={activePlan.id === 'max' ? 'Unlimited everything + priority support' : 'All reports, payroll & exports'} />
                 </Stack>
               </Box>
 

@@ -560,7 +560,7 @@ export interface EmailTemplateData {
   feedbackSubject?: string;
   feedbackResponse?: string;
   // Message reset
-  weeklyMessageLimit?: string;
+  weeklyMessageLimit?: string; // @deprecated — kept for template compatibility
 }
 
 export interface EmailTemplateResult {
@@ -626,7 +626,7 @@ export const EMAIL_TEMPLATE_OPTIONS: EmailTemplateOption[] = [
     fields: [
       { key: 'userName', label: 'User Name', type: 'text', required: true, placeholder: 'John Doe' },
       { key: 'warningType', label: 'Warning Type', type: 'text', required: true, placeholder: 'Token Limit Reached' },
-      { key: 'warningMessage', label: 'Warning Message', type: 'textarea', required: true, placeholder: 'You are approaching your weekly message limit...' },
+      { key: 'warningMessage', label: 'Warning Message', type: 'textarea', required: true, placeholder: 'You are approaching your weekly usage limit...' },
     ],
   },
   {
@@ -984,14 +984,14 @@ ${pSignOff()}`;
 function tplMessagesGranted(d: EmailTemplateData): EmailTemplateResult {
   const amount = d.messageAmount ?? 0;
   const formatted = amount.toLocaleString('en-US');
-  const subject = `You've received ${formatted} bonus weekly AI messages on Flowbooks`;
+  const subject = `You've received bonus AI usage on Flowbooks`;
 
   const body = `
 ${pGreeting(d.userName)}
-${pParagraph('Great news! Bonus weekly AI messages have been added to your Flowbooks account.')}
-${pInfoBox('Messages Granted', `${formatted} weekly messages`, C.brand)}
-${pParagraph('These bonus messages are added to your weekly allowance and can be used for AI-powered features including the chat assistant, report generation, invoice analysis, and more.')}
-${pParagraph('Your weekly message balance has been updated and is available for use immediately.')}
+${pParagraph('Great news! Bonus AI usage has been added to your Flowbooks account.')}
+${pInfoBox('Bonus Granted', `Extra weekly AI allowance`, C.brand)}
+${pParagraph('This bonus is added to your weekly allowance and can be used for AI-powered features including the chat assistant, report generation, invoice analysis, and more.')}
+${pParagraph('Your weekly balance has been updated and is available for use immediately.')}
 ${pButton('Check My Balance', 'https://flowbooks.app/settings')}
 ${pSignOff()}`;
 
@@ -1290,21 +1290,21 @@ ${pSignOff()}`;
 function tplMessageReset(d: EmailTemplateData): EmailTemplateResult {
   const limit = d.weeklyMessageLimit || '150';
   const plan = d.planName || 'your';
-  const subject = `Your Weekly AI Messages Have Been Reset — Flowbooks`;
+  const subject = `Your Weekly AI Usage Has Been Reset — Flowbooks`;
 
   const body = `
 ${pGreeting(d.userName)}
-${pParagraph('Your weekly AI messages have been reset! You\'re all set for another week of AI-powered accounting.')}
+${pParagraph('Your weekly AI usage has been reset! You\'re all set for another week of AI-powered accounting.')}
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
                 <tr>
                   <td style="padding:22px 24px;background:${C.greenBg};border-radius:10px;border:1px solid #D1FAE5;">
                     <p style="margin:0 0 8px;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:${C.greenDark};font-weight:600;">Weekly Reset</p>
-                    <p style="margin:0 0 6px;font-size:24px;font-weight:700;color:${C.green};">${esc(limit)} messages/week</p>
+                    <p style="margin:0 0 6px;font-size:24px;font-weight:700;color:${C.green};">Weekly AI Usage Reset</p>
                     <p style="margin:0;font-size:13px;color:${C.textMid};">Available on your ${esc(plan)} plan</p>
                   </td>
                 </tr>
               </table>
-${pParagraph('Use your messages to chat with the AI assistant, generate invoices, and get accounting insights.')}
+${pParagraph('Use your AI allowance to chat with the assistant, generate invoices, and get accounting insights.')}
 ${pButton('Open Flowbooks', 'https://flowbooks.app/companies')}
 ${pSignOff()}`;
 

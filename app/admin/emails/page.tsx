@@ -128,7 +128,7 @@ const TEMPLATE_UI: Record<EmailTemplateType, {
     icon: RefreshCw,
     color: '#F59E0B',
     fields: [
-      { key: 'weeklyMessageLimit', label: 'Weekly Message Limit', type: 'text', required: true, placeholder: '750' },
+      { key: 'weeklyTokenLimit', label: 'Weekly Token Limit', type: 'text', required: true, placeholder: '1000000' },
     ],
   },
 };
@@ -347,7 +347,7 @@ export default function AdminEmailCenterPage() {
         {/* Stats row */}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <StatCard title="Templates" value={EMAIL_TEMPLATE_OPTIONS.length} subtitle="Available templates" icon={Mail} color="primary" />
-          <StatCard title="Delivery" value="SMTP" subtitle="Nodemailer transport" icon={Send} color="success" />
+          <StatCard title="Delivery" value="Resend" subtitle="Resend API" icon={Send} color="success" />
           <StatCard title="Notifications" value="In-App" subtitle="Auto-created per send" icon={Inbox} color="warning" />
         </Stack>
 

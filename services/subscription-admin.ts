@@ -122,17 +122,17 @@ export async function checkUsageBudgetAdmin(userId: string): Promise<UsageBudget
     return {
       canSend: true,
       blockedBy: 'none',
-      session: { used: 0, limit: plan.sessionMessageLimit, remaining: plan.sessionMessageLimit, resetsAt: Date.now() + sessionDurationMs },
-      weekly: { used: 0, limit: plan.weeklyMessageLimit, remaining: plan.weeklyMessageLimit, resetsAt: nextWeekStart },
+      session: { used: 0, limit: plan.sessionTokenLimit, remaining: plan.sessionTokenLimit, resetsAt: Date.now() + sessionDurationMs },
+      weekly: { used: 0, limit: plan.weeklyTokenLimit, remaining: plan.weeklyTokenLimit, resetsAt: nextWeekStart },
       planId: effectivePlanId,
       allowedModels: plan.allowedModels,
     };
   }
 
   const data = usageSnap.data()!;
-  let sessionUsed = data.sessionMessagesUsed || 0;
-  let weeklyUsed = data.weeklyMessagesUsed || 0;
-  let bonusMessages = data.bonusMessages || 0;
+  let sessionUsed = data.sessionTokensUsed || 0;
+  let weeklyUsed = data.weeklyTokensUsed || 0;
+  let bonusTokens = data.bonusTokens || 0;
   let sessionStartMs = data.sessionStart?.toMillis?.() || data.sessionStart?._seconds * 1000 || Date.now();
   let needsUpdate = false;
   const updates: Record<string, any> = {};
@@ -141,9 +141,9 @@ export async function checkUsageBudgetAdmin(userId: string): Promise<UsageBudget
   if (Date.now() > sessionStartMs + sessionDurationMs) {
     sessionUsed = 0;
     sessionStartMs = Date.now();
-    updates.sessionMessagesUsed = 0;
+    updates.sessionTokensUsed = 0;
     updates.sessionStart = Timestamp.now();
-    updates.sessionLimit = plan.sessionMessageLimit;
+    updates.sessionLimit = plan.sessionTokenLimit;
     updates.sessionDurationMs = sessionDurationMs;
     needsUpdate = true;
   }
@@ -152,9 +152,9 @@ export async function checkUsageBudgetAdmin(userId: string): Promise<UsageBudget
   const docWeekStart = data.weekStart || '';
   if (docWeekStart !== currentWeekStart) {
     weeklyUsed = 0;
-    updates.weeklyMessagesUsed = 0;
+    updates.weeklyTokensUsed = 0;
     updates.weekStart = currentWeekStart;
-    updates.weeklyLimit = plan.weeklyMessageLimit;
+    updates.weeklyLimit = plan.weeklyTokenLimit;
     needsUpdate = true;
   }
 
@@ -165,9 +165,9 @@ export async function checkUsageBudgetAdmin(userId: string): Promise<UsageBudget
     await usageRef.update(updates);
   }
 
-  const sessionRemaining = Math.max(0, plan.sessionMessageLimit - sessionUsed);
-  const weeklyBase = Math.max(0, plan.weeklyMessageLimit - weeklyUsed);
-  const weeklyRemaining = weeklyBase + bonusMessages;
+  const sessionRemaining = Math.max(0, plan.sessionTokenLimit - sessionUsed);
+  const weeklyBase = Math.max(0, plan.weeklyTokenLimit - weeklyUsed);
+  const weeklyRemaining = weeklyBase + bonusTokens;
 
   let blockedBy: 'none' | 'session' | 'weekly' = 'none';
   if (sessionRemaining <= 0) blockedBy = 'session';
@@ -176,8 +176,8 @@ export async function checkUsageBudgetAdmin(userId: string): Promise<UsageBudget
   return {
     canSend: blockedBy === 'none',
     blockedBy,
-    session: { used: sessionUsed, limit: plan.sessionMessageLimit, remaining: sessionRemaining, resetsAt: sessionStartMs + sessionDurationMs },
-    weekly: { used: weeklyUsed, limit: plan.weeklyMessageLimit, remaining: weeklyRemaining, resetsAt: nextWeekStart },
+    session: { used: sessionUsed, limit: plan.sessionTokenLimit, remaining: sessionRemaining, resetsAt: sessionStartMs + sessionDurationMs },
+    weekly: { used: weeklyUsed, limit: plan.weeklyTokenLimit, remaining: weeklyRemaining, resetsAt: nextWeekStart },
     planId: effectivePlanId,
     allowedModels: plan.allowedModels,
   };
@@ -188,15 +188,15 @@ export async function checkUsageBudgetAdmin(userId: string): Promise<UsageBudget
 // ==========================================
 
 /**
- * Track a single AI message usage (session + weekly).
- * Each AI response = 1 message. Internal token/cost tracking preserved for admin.
+ * Track AI usage (session + weekly) by raw token consumption.
+ * Tokens are deducted directly — no credit conversion.
  */
 export async function trackUsageAdmin(
   userId: string,
   tokensConsumed: number,
   model: string,
   cost: number
-): Promise<{ sessionRemaining: number; weeklyRemaining: number }> {
+): Promise<{ sessionRemaining: number; weeklyRemaining: number; tokensUsed: number }> {
   const subscription = await getSubscriptionAdmin(userId);
   const effectivePlanId = getEffectivePlanId(subscription);
   const plan = getPlan(effectivePlanId);
@@ -207,18 +207,18 @@ export async function trackUsageAdmin(
   const usageSnap = await usageRef.get();
 
   if (!usageSnap.exists) {
-    // Create new usage doc with first message
+    // Create new usage doc
     await usageRef.set({
       userId,
       planId: effectivePlanId,
       sessionStart: Timestamp.now(),
-      sessionMessagesUsed: 1,
-      sessionLimit: plan.sessionMessageLimit,
+      sessionTokensUsed: tokensConsumed,
+      sessionLimit: plan.sessionTokenLimit,
       sessionDurationMs,
       weekStart: currentWeekStart,
-      weeklyMessagesUsed: 1,
-      weeklyLimit: plan.weeklyMessageLimit,
-      bonusMessages: 0,
+      weeklyTokensUsed: tokensConsumed,
+      weeklyLimit: plan.weeklyTokenLimit,
+      bonusTokens: 0,
       totalTokensConsumed: tokensConsumed,
       costAccumulated: cost,
       requestCount: 1,
@@ -228,16 +228,19 @@ export async function trackUsageAdmin(
       updatedAt: Timestamp.now(),
     });
 
+    console.log(`[trackUsage] New doc — ${tokensConsumed} tokens`);
+
     return {
-      sessionRemaining: Math.max(0, plan.sessionMessageLimit - 1),
-      weeklyRemaining: Math.max(0, plan.weeklyMessageLimit - 1),
+      sessionRemaining: Math.max(0, plan.sessionTokenLimit - tokensConsumed),
+      weeklyRemaining: Math.max(0, plan.weeklyTokenLimit - tokensConsumed),
+      tokensUsed: tokensConsumed,
     };
   }
 
   const data = usageSnap.data()!;
   const updateFields: Record<string, any> = {
-    sessionMessagesUsed: FieldValue.increment(1),
-    weeklyMessagesUsed: FieldValue.increment(1),
+    sessionTokensUsed: FieldValue.increment(tokensConsumed),
+    weeklyTokensUsed: FieldValue.increment(tokensConsumed),
     totalTokensConsumed: FieldValue.increment(tokensConsumed),
     costAccumulated: FieldValue.increment(cost),
     requestCount: FieldValue.increment(1),
@@ -247,21 +250,26 @@ export async function trackUsageAdmin(
   };
 
   // Check if weekly limit is exhausted — deduct from bonus instead
-  const weeklyUsed = data.weeklyMessagesUsed || 0;
-  const weeklyRemaining = Math.max(0, plan.weeklyMessageLimit - weeklyUsed);
-  if (weeklyRemaining < 1 && (data.bonusMessages || 0) > 0) {
-    updateFields.bonusMessages = FieldValue.increment(-1);
+  const weeklyUsed = data.weeklyTokensUsed || 0;
+  const weeklyRemaining = Math.max(0, plan.weeklyTokenLimit - weeklyUsed);
+  if (weeklyRemaining < tokensConsumed && (data.bonusTokens || 0) > 0) {
+    const bonusToUse = Math.min(data.bonusTokens, tokensConsumed);
+    updateFields.bonusTokens = FieldValue.increment(-bonusToUse);
   }
 
   await usageRef.update(updateFields);
 
-  const newSessionUsed = (data.sessionMessagesUsed || 0) + 1;
-  const newWeeklyUsed = weeklyUsed + 1;
-  const newBonus = Math.max(0, (data.bonusMessages || 0) - (weeklyRemaining < 1 ? 1 : 0));
+  console.log(`[trackUsage] ${tokensConsumed} tokens deducted`);
+
+  const newSessionUsed = (data.sessionTokensUsed || 0) + tokensConsumed;
+  const newWeeklyUsed = weeklyUsed + tokensConsumed;
+  const bonusDeducted = weeklyRemaining < tokensConsumed ? Math.min(data.bonusTokens || 0, tokensConsumed) : 0;
+  const newBonus = Math.max(0, (data.bonusTokens || 0) - bonusDeducted);
 
   return {
-    sessionRemaining: Math.max(0, plan.sessionMessageLimit - newSessionUsed),
-    weeklyRemaining: Math.max(0, plan.weeklyMessageLimit - newWeeklyUsed) + newBonus,
+    sessionRemaining: Math.max(0, plan.sessionTokenLimit - newSessionUsed),
+    weeklyRemaining: Math.max(0, plan.weeklyTokenLimit - newWeeklyUsed) + newBonus,
+    tokensUsed: tokensConsumed,
   };
 }
 

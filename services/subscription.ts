@@ -87,7 +87,7 @@ export interface RemainingUsage {
     percentUsed: number;
     resetsAt: string; // "YYYY-MM-DD" (next Monday)
   };
-  bonusMessages: number;
+  bonusTokens: number;
   blockedBy: 'none' | 'session' | 'weekly';
 }
 
@@ -101,16 +101,16 @@ export async function getRemainingUsage(userId: string, planId: PlanId): Promise
 
   if (!usage) {
     return {
-      session: { used: 0, limit: plan.sessionMessageLimit, remaining: plan.sessionMessageLimit, percentUsed: 0, resetsAt: Date.now() + sessionDurationMs },
-      weekly: { used: 0, limit: plan.weeklyMessageLimit, remaining: plan.weeklyMessageLimit, percentUsed: 0, resetsAt: nextWeekStart },
-      bonusMessages: 0,
+      session: { used: 0, limit: plan.sessionTokenLimit, remaining: plan.sessionTokenLimit, percentUsed: 0, resetsAt: Date.now() + sessionDurationMs },
+      weekly: { used: 0, limit: plan.weeklyTokenLimit, remaining: plan.weeklyTokenLimit, percentUsed: 0, resetsAt: nextWeekStart },
+      bonusTokens: 0,
       blockedBy: 'none',
     };
   }
 
   // Client-side auto-reset logic (mirrors server)
-  let sessionUsed = usage.sessionMessagesUsed || 0;
-  let weeklyUsed = usage.weeklyMessagesUsed || 0;
+  let sessionUsed = usage.sessionTokensUsed || 0;
+  let weeklyUsed = usage.weeklyTokensUsed || 0;
   let sessionStartMs = usage.sessionStart?.toMillis?.()
     || (usage.sessionStart as any)?._seconds * 1000
     || (usage.sessionStart as any)?.seconds * 1000
@@ -127,16 +127,16 @@ export async function getRemainingUsage(userId: string, planId: PlanId): Promise
     weeklyUsed = 0;
   }
 
-  const sessionRemaining = Math.max(0, plan.sessionMessageLimit - sessionUsed);
-  const weeklyBase = Math.max(0, plan.weeklyMessageLimit - weeklyUsed);
-  const bonus = usage.bonusMessages || 0;
+  const sessionRemaining = Math.max(0, plan.sessionTokenLimit - sessionUsed);
+  const weeklyBase = Math.max(0, plan.weeklyTokenLimit - weeklyUsed);
+  const bonus = usage.bonusTokens || 0;
   const weeklyRemaining = weeklyBase + bonus;
 
-  const sessionPercentUsed = plan.sessionMessageLimit > 0
-    ? Math.min(100, (sessionUsed / plan.sessionMessageLimit) * 100)
+  const sessionPercentUsed = plan.sessionTokenLimit > 0
+    ? Math.min(100, (sessionUsed / plan.sessionTokenLimit) * 100)
     : 0;
-  const weeklyPercentUsed = plan.weeklyMessageLimit > 0
-    ? Math.min(100, (weeklyUsed / plan.weeklyMessageLimit) * 100)
+  const weeklyPercentUsed = plan.weeklyTokenLimit > 0
+    ? Math.min(100, (weeklyUsed / plan.weeklyTokenLimit) * 100)
     : 0;
 
   let blockedBy: 'none' | 'session' | 'weekly' = 'none';
@@ -144,9 +144,9 @@ export async function getRemainingUsage(userId: string, planId: PlanId): Promise
   else if (weeklyRemaining <= 0) blockedBy = 'weekly';
 
   return {
-    session: { used: sessionUsed, limit: plan.sessionMessageLimit, remaining: sessionRemaining, percentUsed: sessionPercentUsed, resetsAt: sessionStartMs + sessionDurationMs },
-    weekly: { used: weeklyUsed, limit: plan.weeklyMessageLimit, remaining: weeklyRemaining, percentUsed: weeklyPercentUsed, resetsAt: nextWeekStart },
-    bonusMessages: bonus,
+    session: { used: sessionUsed, limit: plan.sessionTokenLimit, remaining: sessionRemaining, percentUsed: sessionPercentUsed, resetsAt: sessionStartMs + sessionDurationMs },
+    weekly: { used: weeklyUsed, limit: plan.weeklyTokenLimit, remaining: weeklyRemaining, percentUsed: weeklyPercentUsed, resetsAt: nextWeekStart },
+    bonusTokens: bonus,
     blockedBy,
   };
 }

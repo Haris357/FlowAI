@@ -27,22 +27,22 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
 
     if (usageSnap.exists) {
       await usageRef.update({
-        bonusMessages: FieldValue.increment(messages),
+        bonusTokens: FieldValue.increment(messages),
         updatedAt: Timestamp.now(),
       });
     } else {
-      // Create a fresh usage doc with bonus messages
+      // Create a fresh usage doc with bonus tokens
       await usageRef.set({
         userId,
         planId: 'free',
         sessionStart: Timestamp.now(),
-        sessionMessagesUsed: 0,
-        sessionLimit: 25,
-        sessionDurationMs: 5 * 60 * 60 * 1000,
+        sessionTokensUsed: 0,
+        sessionLimit: 0,
+        sessionDurationMs: 0,
         weekStart: getCurrentWeekStart(),
-        weeklyMessagesUsed: 0,
-        weeklyLimit: 150,
-        bonusMessages: messages,
+        weeklyTokensUsed: 0,
+        weeklyLimit: 0,
+        bonusTokens: messages,
         totalTokensConsumed: 0,
         costAccumulated: 0,
         requestCount: 0,
@@ -54,8 +54,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
     // Create notification
     await db.collection('users').doc(userId).collection('notifications').doc().set({
       type: 'success',
-      title: 'Bonus Weekly Messages Added',
-      message: `You've received ${messages.toLocaleString()} bonus weekly AI messages from the admin team!`,
+      title: 'Bonus Weekly AI Usage Added',
+      message: `Bonus AI usage has been added to your weekly allowance by the admin team!`,
       read: false,
       category: 'ai',
       createdAt: new Date(),
@@ -76,9 +76,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
       console.error('Failed to send message grant email:', emailErr);
     }
 
-    return NextResponse.json({ message: `Granted ${messages} bonus weekly messages` });
+    return NextResponse.json({ message: `Granted ${messages} bonus weekly tokens` });
   } catch (error) {
-    console.error('Error granting messages:', error);
-    return NextResponse.json({ error: 'Failed to grant messages' }, { status: 500 });
+    console.error('Error granting bonus tokens:', error);
+    return NextResponse.json({ error: 'Failed to grant bonus tokens' }, { status: 500 });
   }
 }

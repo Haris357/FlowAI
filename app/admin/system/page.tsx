@@ -20,7 +20,7 @@ const SERVICE_INFO = [
   { label: 'Storage', value: 'Firebase Storage', icon: Database },
   { label: 'Payments', value: 'Lemon Squeezy', icon: CreditCard },
   { label: 'AI Provider', value: 'OpenAI (GPT-4 family)', icon: Server },
-  { label: 'Email', value: 'Nodemailer (SMTP)', icon: Mail },
+  { label: 'Email', value: 'Resend', icon: Mail },
 ];
 
 export default function AdminSystemPage() {
