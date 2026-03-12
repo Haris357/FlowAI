@@ -52,8 +52,8 @@ export default function TeamManagementModal({
     setLoading(true);
     try {
       const [m, inv] = await Promise.all([
-        getCompanyMembers(companyId).catch(() => []),
-        canManage && user?.uid ? getCompanyInvitations(companyId, user.uid).catch(() => []) : Promise.resolve([]),
+        getCompanyMembers(companyId).catch((): CompanyMember[] => []),
+        canManage && user?.uid ? getCompanyInvitations(companyId, user.uid).catch((): Invitation[] => []) : Promise.resolve([] as Invitation[]),
       ]);
 
       // Add owner if not already in members
