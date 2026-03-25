@@ -258,6 +258,9 @@ Be thorough — if you omit a detail, the AI will permanently forget it.` },
     });
 
     const data = await response.json();
+    if (!response.ok || !data.choices?.[0]?.message?.content) {
+      throw new Error(`OpenAI API error ${response.status}: ${data.error?.message || 'Unknown error'}`);
+    }
     return data.choices[0].message.content;
   } catch (error) {
     console.error('[Memory] Summary generation failed:', error);

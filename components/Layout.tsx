@@ -585,9 +585,9 @@ export default function Layout({ children }: LayoutProps) {
                         >
                           {user?.displayName?.charAt(0) || user?.email?.charAt(0)}
                         </Avatar>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Stack direction="row" spacing={0.75} alignItems="center">
-                            <Typography level="body-sm" fontWeight={600} noWrap sx={{ fontSize: '13px' }}>
+                        <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                          <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                            <Typography level="body-sm" fontWeight={600} noWrap sx={{ fontSize: '13px', minWidth: 0 }}>
                               {user?.displayName || user?.email?.split('@')[0]}
                             </Typography>
                             <PlanBadge />
@@ -816,9 +816,9 @@ export default function Layout({ children }: LayoutProps) {
                 >
                   {user?.displayName?.charAt(0) || user?.email?.charAt(0)}
                 </Avatar>
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Stack direction="row" spacing={0.75} alignItems="center">
-                    <Typography level="body-sm" fontWeight={600} noWrap sx={{ fontSize: '13px' }}>
+                <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                  <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
+                    <Typography level="body-sm" fontWeight={600} noWrap sx={{ fontSize: '13px', minWidth: 0 }}>
                       {user?.displayName || user?.email?.split('@')[0]}
                     </Typography>
                     <PlanBadge />

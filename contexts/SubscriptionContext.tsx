@@ -219,7 +219,6 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     }
   }, [user?.uid, effectivePlanId]);
 
-  // ── Initial load ──
   // ── Real-time listener for subscription (user doc) ──
   useEffect(() => {
     if (!user?.uid) {
@@ -230,46 +229,85 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     }
 
     setLoading(true);
-    const userRef = doc(db, 'users', user.uid);
-    const unsubscribe = onSnapshot(userRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data();
-        if (data.subscription) {
-          setSubscription(data.subscription as UserSubscription);
-        } else {
-          setSubscription(null);
-        }
-      }
-      setLoading(false);
-    }, (err) => {
-      console.error('Subscription listener error:', err);
-      setLoading(false);
-    });
+    let unsubscribeFn: (() => void) | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+    let cancelled = false;
 
-    return () => unsubscribe();
+    const start = () => {
+      if (cancelled) return;
+      unsubscribeFn = onSnapshot(
+        doc(db, 'users', user.uid),
+        (snap) => {
+          if (cancelled) return;
+          attempts = 0;
+          const data = snap.exists() ? snap.data() : null;
+          setSubscription(data?.subscription ? (data.subscription as UserSubscription) : null);
+          setLoading(false);
+        },
+        (err) => {
+          if (cancelled) return;
+          console.error('Subscription listener error:', err);
+          setLoading(false);
+          // Retry on permission errors — Firestore auth token may not have propagated yet
+          if (attempts < 3) {
+            retryTimer = setTimeout(start, 1000 * ++attempts);
+          }
+        }
+      );
+    };
+
+    start();
+
+    return () => {
+      cancelled = true;
+      unsubscribeFn?.();
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, [user?.uid]);
 
   // ── Real-time listener for usage/current ──
   useEffect(() => {
     if (!user?.uid || !subscription) return;
 
-    const usageRef = doc(db, 'users', user.uid, 'usage', 'current');
+    let unsubscribeFn: (() => void) | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let attempts = 0;
+    let cancelled = false;
 
-    const unsubscribe = onSnapshot(usageRef, (snap) => {
-      if (snap.exists()) {
-        const data = snap.data() as UsageState;
-        setUsage(data);
-        computeRemaining(data);
-      } else {
-        // No usage doc — fully reset (new session or cleared)
-        setUsage(null);
-        computeRemaining(null);
-      }
-    }, (err) => {
-      console.error('Usage listener error:', err);
-    });
+    const start = () => {
+      if (cancelled) return;
+      unsubscribeFn = onSnapshot(
+        doc(db, 'users', user.uid, 'usage', 'current'),
+        (snap) => {
+          if (cancelled) return;
+          attempts = 0;
+          if (snap.exists()) {
+            const data = snap.data() as UsageState;
+            setUsage(data);
+            computeRemaining(data);
+          } else {
+            setUsage(null);
+            computeRemaining(null);
+          }
+        },
+        (err) => {
+          if (cancelled) return;
+          console.error('Usage listener error:', err);
+          if (attempts < 3) {
+            retryTimer = setTimeout(start, 1000 * ++attempts);
+          }
+        }
+      );
+    };
 
-    return () => unsubscribe();
+    start();
+
+    return () => {
+      cancelled = true;
+      unsubscribeFn?.();
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, [user?.uid, subscription, computeRemaining]);
 
   // ── Weekly auto-reset: check every 60s for Monday rollover ──
