@@ -23,7 +23,8 @@ export async function sendEmail(
     throw new Error('RESEND_API_KEY not configured.');
   }
 
-  const fromEnv = (process.env.RESEND_FROM || '').trim();
+  // Strip surrounding quotes if someone accidentally added them in the env var
+  const fromEnv = (process.env.RESEND_FROM || '').trim().replace(/^["']|["']$/g, '');
   const from = fromEnv || 'Flowbooks <hello@flowbooksai.com>';
 
   const { error } = await resend.emails.send({

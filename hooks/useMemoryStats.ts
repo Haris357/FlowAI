@@ -25,20 +25,16 @@ function toStats(raw: { totalMessages: number; totalTokens: number; compactionCo
   return { ...raw, usagePercentage, memoryHealth };
 }
 
-/**
- * Real-time memory stats for a single conversation (chatId) or all conversations.
- * Uses Firestore onSnapshot so stats update live without polling.
- * Retries up to 3 times with backoff on permission-denied errors (transient auth timing).
- */
 export function useMemoryStats(chatId?: string | null) {
   const { company } = useCompany();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [stats, setStats] = useState<MemoryStats | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!company?.id || !user?.uid) {
-      setLoading(false);
+    // Wait for auth to fully resolve before touching Firestore
+    if (authLoading || !company?.id || !user?.uid) {
+      if (!authLoading) setLoading(false);
       return;
     }
 
@@ -60,11 +56,7 @@ export function useMemoryStats(chatId?: string | null) {
           (snap) => {
             if (cancelled) return;
             attempts = 0;
-            if (!snap.exists()) {
-              setStats(null);
-              setLoading(false);
-              return;
-            }
+            if (!snap.exists()) { setStats(null); setLoading(false); return; }
             const conv = snap.data();
             setStats(toStats({
               totalConversations: 1,
@@ -77,11 +69,12 @@ export function useMemoryStats(chatId?: string | null) {
           },
           (err) => {
             if (cancelled) return;
-            console.warn('[Memory] Snapshot error, retrying...', err.code);
             unsubscribe?.();
-            if (attempts < 3) {
-              retryTimer = setTimeout(start, 1000 * ++attempts);
+            if (attempts < 4) {
+              // Silent retry — transient auth token propagation delay
+              retryTimer = setTimeout(start, 800 * ++attempts);
             } else {
+              console.warn('[Memory] Snapshot failed after retries:', err.code);
               setLoading(false);
             }
           }
@@ -112,11 +105,11 @@ export function useMemoryStats(chatId?: string | null) {
           },
           (err) => {
             if (cancelled) return;
-            console.warn('[Memory] Snapshot error, retrying...', err.code);
             unsubscribe?.();
-            if (attempts < 3) {
-              retryTimer = setTimeout(start, 1000 * ++attempts);
+            if (attempts < 4) {
+              retryTimer = setTimeout(start, 800 * ++attempts);
             } else {
+              console.warn('[Memory] Snapshot failed after retries:', err.code);
               setLoading(false);
             }
           }
@@ -124,14 +117,15 @@ export function useMemoryStats(chatId?: string | null) {
       }
     };
 
-    start();
+    // Small initial delay to let Firestore auth token propagate after login
+    retryTimer = setTimeout(start, 300);
 
     return () => {
       cancelled = true;
       unsubscribe?.();
       if (retryTimer) clearTimeout(retryTimer);
     };
-  }, [company?.id, user?.uid, chatId]);
+  }, [authLoading, company?.id, user?.uid, chatId]);
 
   return { stats, loading, refresh: () => {} };
 }
