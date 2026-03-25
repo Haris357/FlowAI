@@ -92,6 +92,28 @@ function buildContextReminder(
     }];
   }
 
+  // Detect "yes send it" / confirmation after invoice/bill creation
+  const isSendConfirmation = /^(yes[,.]?\s*)?(send it( now)?|send( the)? invoice|yes send|confirm send)/i.test(currentMessage.trim());
+  const lastCreatedInvoice = (() => {
+    for (let i = history.length - 1; i >= 0; i--) {
+      const msg = history[i];
+      if (msg.role === 'assistant') {
+        const idMatch = msg.content.match(/invoice[^a-z0-9]*id[^a-z0-9]*([a-z0-9]{10,})/i) ||
+                        msg.content.match(/invoiceId['":\s]+([a-z0-9]{10,})/i);
+        if (idMatch) return idMatch[1];
+        break;
+      }
+    }
+    return null;
+  })();
+
+  if (isSendConfirmation && lastCreatedInvoice) {
+    return [{
+      role: 'system' as const,
+      content: `[CONTEXT REMINDER: The user just confirmed they want to send the invoice. Call send_invoice immediately with invoiceId="${lastCreatedInvoice}". Do NOT call list_invoices. Do NOT ask any questions. Just call send_invoice now.]`,
+    }];
+  }
+
   if (isShortReply) {
     return [{
       role: 'system' as const,

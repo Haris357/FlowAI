@@ -55,6 +55,7 @@ interface ChatMessageProps {
   followUp?: string;
   onSendMessage?: (content: string) => void;
   onExecuteToolAction?: (toolName: string, args: Record<string, any>, sourceMessageId?: string, actionKey?: string) => void;
+  showSuggestions?: boolean;
 }
 
 // Parse {{BUTTONS:...}} tags from message content
@@ -131,70 +132,46 @@ function SuggestionButtons({
     }
   };
 
-  // If already selected (from persistence), only show the selected one
-  if (selected) {
-    return (
-      <Stack spacing={0.75} sx={{ mt: 1.5 }}>
-        <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-          <Box
-            sx={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 0.5,
-              px: 1.5,
-              py: 0.5,
-              borderRadius: '8px',
-              fontSize: '13px',
-              fontWeight: 500,
-              color: 'primary.plainColor',
-              bgcolor: 'primary.softBg',
-              opacity: 0.7,
-            }}
-          >
-            <Check size={14} />
-            {selected}
-          </Box>
-        </Stack>
-      </Stack>
-    );
-  }
-
   return (
     <Stack spacing={0.75} sx={{ mt: 1.5 }}>
       {suggestions.map((group, gi) => (
         <Stack key={gi} direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-          {group.map((option, oi) => (
-            <Box
-              key={oi}
-              onClick={() => handleSelect(option)}
-              sx={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                px: 1.5,
-                py: 0.5,
-                borderRadius: '8px',
-                fontSize: '13px',
-                fontWeight: 500,
-                cursor: 'pointer',
-                border: '1px solid',
-                borderColor: 'neutral.outlinedBorder',
-                color: 'text.primary',
-                bgcolor: 'background.surface',
-                transition: 'all 0.15s ease',
-                userSelect: 'none',
-                '&:hover': {
-                  borderColor: 'primary.400',
-                  bgcolor: 'primary.softBg',
-                  color: 'primary.plainColor',
-                },
-                '&:active': {
-                  transform: 'scale(0.97)',
-                },
-              }}
-            >
-              {option}
-            </Box>
-          ))}
+          {group.map((option, oi) => {
+            const isSelected = selected === option;
+            const isLocked = !!selected;
+            return (
+              <Box
+                key={oi}
+                onClick={() => !isLocked && handleSelect(option)}
+                sx={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: isSelected ? 0.5 : 0,
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  fontWeight: isSelected ? 600 : 500,
+                  cursor: isLocked ? 'default' : 'pointer',
+                  border: '1px solid',
+                  borderColor: isSelected ? 'primary.400' : 'neutral.outlinedBorder',
+                  color: isSelected ? 'primary.plainColor' : isLocked ? 'text.tertiary' : 'text.primary',
+                  bgcolor: isSelected ? 'primary.softBg' : 'transparent',
+                  opacity: isLocked && !isSelected ? 0.4 : 1,
+                  transition: 'all 0.15s',
+                  userSelect: 'none',
+                  '&:hover': !isLocked ? {
+                    borderColor: 'primary.400',
+                    bgcolor: 'primary.softBg',
+                    color: 'primary.plainColor',
+                  } : {},
+                }}
+              >
+                {isSelected && <Check size={13} />}
+                {option}
+              </Box>
+            );
+          })}
         </Stack>
       ))}
     </Stack>
@@ -853,6 +830,7 @@ export default function ChatMessage({
   followUp,
   onSendMessage,
   onExecuteToolAction,
+  showSuggestions = true,
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [clickedToolActions, setClickedToolActions] = useState<Set<string>>(
@@ -1117,7 +1095,7 @@ export default function ChatMessage({
                 return (
                   <>
                     {text && <RichText content={text} />}
-                    {!isUser && suggestions.length > 0 && onSendMessage && (
+                    {!isUser && suggestions.length > 0 && onSendMessage && showSuggestions && (
                       <SuggestionButtons
                         suggestions={suggestions}
                         onSelect={onSendMessage}

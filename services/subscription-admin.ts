@@ -44,7 +44,7 @@ export async function getSubscriptionAdmin(userId: string): Promise<UserSubscrip
  * - past_due: retain plan for 3 days, then downgrade
  */
 export function getEffectivePlanId(subscription: UserSubscription): PlanId {
-  if (subscription.status === 'active') {
+  if (subscription.status === 'active' || subscription.status === 'paused') {
     return subscription.planId;
   }
 

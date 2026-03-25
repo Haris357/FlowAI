@@ -245,36 +245,39 @@ export default function ChatMain({
             transition: 'opacity 0.3s ease-out 0.1s, transform 0.3s ease-out 0.1s',
           }}
         >
-          {messages.filter(m => !m.hidden).map((message, index) => (
-            <Box
-              key={message.id}
-              sx={{
-                animation: `messageSlideIn 0.3s ease-out ${index * 0.05}s both`,
-                '@keyframes messageSlideIn': {
-                  '0%': {
-                    opacity: 0,
-                    transform: 'translateY(10px)',
+          {(() => {
+            const visible = messages.filter(m => !m.hidden);
+            // Find the index of the last AI message — buttons only show on it
+            let lastAiIndex = -1;
+            for (let i = visible.length - 1; i >= 0; i--) {
+              if (visible[i].role === 'assistant') { lastAiIndex = i; break; }
+            }
+            return visible.map((message, index) => (
+              <Box
+                key={message.id}
+                sx={{
+                  animation: `messageSlideIn 0.3s ease-out ${index * 0.05}s both`,
+                  '@keyframes messageSlideIn': {
+                    '0%': { opacity: 0, transform: 'translateY(10px)' },
+                    '100%': { opacity: 1, transform: 'translateY(0)' },
                   },
-                  '100%': {
-                    opacity: 1,
-                    transform: 'translateY(0)',
-                  },
-                },
-              }}
-            >
-              <ChatMessage
-                message={message}
-                showTimestamp={showTimestamps}
-                userPhotoUrl={userPhotoUrl}
-                userName={userName}
-                richData={message.richData}
-                actions={panelActions && message.id === lastAiMessage?.id ? [] : message.actions}
-                followUp={message.followUp}
-                onSendMessage={onSendMessage}
-                onExecuteToolAction={onExecuteToolAction}
-              />
-            </Box>
-          ))}
+                }}
+              >
+                <ChatMessage
+                  message={message}
+                  showTimestamp={showTimestamps}
+                  userPhotoUrl={userPhotoUrl}
+                  userName={userName}
+                  richData={message.richData}
+                  actions={panelActions && message.id === lastAiMessage?.id ? [] : message.actions}
+                  followUp={message.followUp}
+                  onSendMessage={onSendMessage}
+                  onExecuteToolAction={onExecuteToolAction}
+                  showSuggestions={index === lastAiIndex && !isAITyping}
+                />
+              </Box>
+            ));
+          })()}
 
           {/* Typing indicator or thinking steps accordion (when tools are running) */}
           {isAITyping && (thinkingSteps.length > 0 ? (
