@@ -1,16 +1,16 @@
 'use client';
 
-import { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import { Box, Stack, Typography } from '@mui/joy';
 import { ChatMessage as ChatMessageType, ThinkingStep } from '@/types';
 import ChatMessage from './ChatMessage';
 import ThinkingSteps from './ThinkingSteps';
 import ChatWelcome from './ChatWelcome';
 import ChatInput from './ChatInput';
-import MemoryIndicator from './MemoryIndicator';
 import FlowAIAvatar from './FlowAIAvatar';
 import { FormShortcut } from './FormShortcuts';
 import { SessionUsage } from '@/contexts/ChatContext';
+import { ActionButton } from '@/lib/ai-config';
 
 interface ChatMainProps {
   messages: ChatMessageType[];
@@ -29,6 +29,7 @@ interface ChatMainProps {
   onClearForm?: () => void;
   sessionUsage?: SessionUsage;
   isLoading?: boolean;
+  chatId?: string | null;
 }
 
 export default function ChatMain({
@@ -48,11 +49,29 @@ export default function ChatMain({
   onClearForm,
   sessionUsage,
   isLoading = false,
+  chatId,
 }: ChatMainProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [showWelcome, setShowWelcome] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isCompacting, setIsCompacting] = useState(false);
+  const [dismissedQuestionId, setDismissedQuestionId] = useState<string | null>(null);
+
+  // Detect last AI message with standalone question-type actions — memoized to prevent re-renders
+  const { lastAiMessage, panelActions, panelQuestion } = useMemo(() => {
+    const visible = messages.filter(m => !m.hidden);
+    const last = [...visible].reverse().find(m => m.role === 'assistant') ?? null;
+    const actions = (last?.actions?.length && !isAITyping && dismissedQuestionId !== last.id)
+      ? last.actions : null;
+
+    let question = 'What would you like to do?';
+    if (actions && last?.content) {
+      const sentences = last.content.split(/(?<=[.!?])\s+/);
+      question = [...sentences].reverse().find(s => s.trim().endsWith('?'))?.trim() || question;
+    }
+    return { lastAiMessage: last, panelActions: actions, panelQuestion: question };
+  }, [messages, isAITyping, dismissedQuestionId]);
 
   // Handle smooth transition from welcome to messages
   useEffect(() => {
@@ -179,6 +198,8 @@ export default function ChatMain({
           showQuickActions={true}
           onSelectAction={handleSelectAction}
           sessionUsage={sessionUsage}
+          chatId={chatId}
+          onCompacting={setIsCompacting}
         />
       </Box>
     );
@@ -249,7 +270,7 @@ export default function ChatMain({
                 userPhotoUrl={userPhotoUrl}
                 userName={userName}
                 richData={message.richData}
-                actions={message.actions}
+                actions={panelActions && message.id === lastAiMessage?.id ? [] : message.actions}
                 followUp={message.followUp}
                 onSendMessage={onSendMessage}
                 onExecuteToolAction={onExecuteToolAction}
@@ -299,20 +320,32 @@ export default function ChatMain({
         </Box>
       </Box>
 
-      {/* Input Area - at bottom */}
-      <Box
-        sx={{
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          bgcolor: 'background.surface',
-          pb: 2,
-        }}
-      >
-        {/* Memory Indicator */}
-        <Box sx={{ display: 'flex', justifyContent: 'center', pt: 1, pb: 1 }}>
-          <MemoryIndicator />
+      {/* Compacting banner */}
+      {isCompacting && (
+        <Box sx={{
+          mx: 2, mb: 1, px: 2, py: 1, borderRadius: '10px',
+          bgcolor: 'primary.softBg', border: '1px solid', borderColor: 'primary.outlinedBorder',
+          display: 'flex', alignItems: 'center', gap: 1.5,
+        }}>
+          <Box sx={{ flex: 1, height: 3, borderRadius: 2, bgcolor: 'primary.outlinedBorder', overflow: 'hidden' }}>
+            <Box sx={{
+              height: '100%', borderRadius: 2, bgcolor: 'primary.500',
+              width: '40%',
+              animation: 'compactSlide 1.4s ease-in-out infinite',
+              '@keyframes compactSlide': {
+                '0%': { marginLeft: '-40%' },
+                '100%': { marginLeft: '100%' },
+              },
+            }} />
+          </Box>
+          <Typography level="body-xs" sx={{ color: 'primary.700', fontWeight: 600, whiteSpace: 'nowrap', fontSize: '11px' }}>
+            Compacting conversation…
+          </Typography>
         </Box>
+      )}
 
+      {/* Input Area - at bottom */}
+      <Box sx={{ bgcolor: 'transparent', pb: 2 }}>
         <ChatInput
           onSend={handleSend}
           disabled={isSendingMessage}
@@ -324,6 +357,36 @@ export default function ChatMain({
           initialValue={inputValue}
           showQuickActions={false}
           sessionUsage={sessionUsage}
+          chatId={chatId}
+          onCompacting={setIsCompacting}
+          questionPanel={panelActions && lastAiMessage ? {
+            question: panelQuestion,
+            actions: panelActions,
+            onAction: (action) => {
+              setDismissedQuestionId(lastAiMessage.id);
+              if (action.toolCall && action.entityId && onExecuteToolAction) {
+                const toolArgs: Record<string, Record<string, any>> = {
+                  send_invoice: { invoiceId: action.entityId },
+                  change_invoice_status: { invoiceId: action.entityId, newStatus: 'sent' },
+                  mark_invoice_paid: { invoiceId: action.entityId, newStatus: 'paid' },
+                  cancel_invoice: { invoiceId: action.entityId, newStatus: 'cancelled' },
+                  change_bill_status: { billId: action.entityId, newStatus: 'paid' },
+                };
+                const args = toolArgs[action.toolCall] || { id: action.entityId };
+                onExecuteToolAction(action.toolCall, args, lastAiMessage.id, `${action.toolCall}-${action.entityId}`);
+              } else if (action.type === 'navigate') {
+                const routes: Record<string, string> = {
+                  customer: '/customers', vendor: '/vendors', invoice: '/invoices',
+                  bill: '/bills', transaction: '/transactions', account: '/accounts',
+                };
+                const route = routes[action.entityType || ''];
+                if (route) window.location.href = route;
+              } else if (action.prompt) {
+                onSendMessage(action.prompt);
+              }
+            },
+            onDismiss: () => setDismissedQuestionId(lastAiMessage.id),
+          } : undefined}
         />
       </Box>
     </Box>

@@ -53,13 +53,13 @@ export default function SubscriptionSection() {
       .finally(() => setLoadingHistory(false));
   }, [user?.uid]);
 
-  const handleSelectPlan = async (planId: PlanId) => {
+  const handleSelectPlan = async (planId: PlanId, billingPeriod: 'monthly' | 'yearly' = 'monthly') => {
     if (planId === 'free' || !user?.uid) return;
     setCheckoutLoading(true);
     try {
       const res = await fetch('/api/subscription/checkout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ planId, userId: user.uid }),
+        body: JSON.stringify({ planId, userId: user.uid, billingPeriod }),
       });
       const data = await res.json();
       if (!res.ok) { toast.error(data.error || 'Failed to create checkout'); return; }

@@ -21,12 +21,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.rewrite(url);
   }
 
-  // On main domain, redirect /admin/* to admin subdomain
+  // On main domain, redirect /admin/* to admin subdomain (only in production)
   if (pathname.startsWith('/admin')) {
-    const adminPath = pathname.replace(/^\/admin/, '') || '/';
-    const adminUrl = new URL(adminPath, `https://admin.flowbooksai.com`);
-    adminUrl.search = request.nextUrl.search;
-    return NextResponse.redirect(adminUrl);
+    const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1');
+    if (!isLocalhost) {
+      const adminPath = pathname.replace(/^\/admin/, '') || '/';
+      const adminUrl = new URL(adminPath, `https://admin.flowbooksai.com`);
+      adminUrl.search = request.nextUrl.search;
+      return NextResponse.redirect(adminUrl);
+    }
   }
 
   return NextResponse.next();

@@ -42,10 +42,11 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
     id: 'pro',
     name: 'Pro',
     price: 29.99,
+    yearlyPrice: 23.99, // 20% off monthly price, billed annually
     description: 'For freelancers & small businesses.',
-    sessionTokenLimit: 250_000,
+    sessionTokenLimit: 750_000,
     sessionDurationHours: 4,
-    weeklyTokenLimit: 2_000_000,
+    weeklyTokenLimit: 10_000_000,
     allowedModels: ['gpt-4.1-mini', 'gpt-4o-mini'],
     maxCompanies: 3,
     maxCollaboratorsPerCompany: 3,
@@ -63,15 +64,17 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
       customBranding: true,
     },
     lemonSqueezyVariantId: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_PRO_VARIANT_ID || '',
+    yearlyLemonSqueezyVariantId: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_PRO_YEARLY_VARIANT_ID || '',
   },
   max: {
     id: 'max',
     name: 'Max',
     price: 99.99,
+    yearlyPrice: 79.99, // 20% off monthly price, billed annually
     description: 'For teams & growing organizations.',
-    sessionTokenLimit: 750_000,
+    sessionTokenLimit: 2_000_000,
     sessionDurationHours: 4,
-    weeklyTokenLimit: 7_000_000,
+    weeklyTokenLimit: 35_000_000,
     allowedModels: ['gpt-4.1-mini', 'gpt-4o-mini', 'gpt-4.1-nano', 'gpt-4o'],
     maxCompanies: 10,
     maxCollaboratorsPerCompany: -1,
@@ -89,6 +92,7 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
       customBranding: true,
     },
     lemonSqueezyVariantId: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_MAX_VARIANT_ID || '',
+    yearlyLemonSqueezyVariantId: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_MAX_YEARLY_VARIANT_ID || '',
   },
 };
 
@@ -101,7 +105,9 @@ export function getPlan(planId: PlanId): PlanDefinition {
 }
 
 export function getPlanByVariantId(variantId: string): PlanDefinition | null {
-  return Object.values(PLANS).find(p => p.lemonSqueezyVariantId === variantId) || null;
+  return Object.values(PLANS).find(
+    p => p.lemonSqueezyVariantId === variantId || p.yearlyLemonSqueezyVariantId === variantId
+  ) || null;
 }
 
 export function formatMessages(count: number | undefined | null): string {

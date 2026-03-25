@@ -226,109 +226,87 @@ function EntityInlineCard({ entity, entityType }: { entity: Record<string, any>;
   // Transaction card
   if (type === 'transaction') {
     const isExpense = entity.type === 'expense';
+    const isPayment = entity.type === 'payment_received' || entity.type === 'payment_made';
+    const accentColor = isExpense ? 'danger' : isPayment ? 'primary' : 'success';
     const journalLines = entity.journalLines as { accountName: string; accountCode?: string; debit: number; credit: number }[] | undefined;
+    const metaParts = [
+      entity.date ? formatInlineDate(entity.date) : null,
+      entity.category || null,
+      entity.paymentMethod ? entity.paymentMethod.replace(/_/g, ' ') : null,
+    ].filter(Boolean);
+
     return (
       <Box
         sx={{
-          borderRadius: 'lg',
+          borderRadius: '12px',
           border: '1px solid',
-          borderColor: 'divider',
+          borderColor: 'neutral.outlinedBorder',
+          bgcolor: 'background.surface',
           overflow: 'hidden',
           mt: 1,
+          transition: 'border-color 0.15s',
+          '&:hover': { borderColor: 'neutral.400' },
         }}
       >
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            px: 2.5,
-            py: 2,
-            bgcolor: isExpense ? 'warning.softBg' : 'success.softBg',
-          }}
-        >
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Box
-              sx={{
-                width: 36,
-                height: 36,
-                borderRadius: 'md',
-                bgcolor: isExpense ? 'warning.plainColor' : 'success.plainColor',
-                color: 'common.white',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              {isExpense ? <ArrowDownRight size={18} /> : <ArrowUpRight size={18} />}
-            </Box>
-            <Box>
-              <Typography level="title-sm" fontWeight="lg">
+        {/* Main row */}
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* Accent bar */}
+          <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 4, flexShrink: 0, bgcolor: `${accentColor}.500` }} />
+          {/* Info */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Typography level="body-sm" fontWeight={600} sx={{ color: 'text.primary' }} noWrap>
                 {entity.description || 'Transaction'}
               </Typography>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Chip size="sm" variant="soft" color={isExpense ? 'warning' : 'success'}
-                  sx={{ fontSize: '11px', fontWeight: 600 }}
-                >
-                  {entity.type?.toUpperCase() || 'EXPENSE'}
-                </Chip>
-              </Stack>
-            </Box>
-          </Stack>
-          <Typography level="h4" fontWeight="lg" color={isExpense ? 'warning' : 'success'}>
+              <Chip
+                size="sm"
+                variant="soft"
+                color={accentColor}
+                sx={{ fontSize: '10px', fontWeight: 700, height: 18, '--Chip-paddingInline': '6px' }}
+              >
+                {entity.type?.replace(/_/g, ' ').toUpperCase() || 'EXPENSE'}
+              </Chip>
+            </Stack>
+            {metaParts.length > 0 && (
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }} noWrap>
+                {metaParts.join(' · ')}
+              </Typography>
+            )}
+          </Box>
+          {/* Amount */}
+          <Typography
+            level="body-md"
+            fontWeight={700}
+            sx={{ flexShrink: 0, fontVariantNumeric: 'tabular-nums', color: isExpense ? 'danger.500' : 'success.600' }}
+          >
             {isExpense ? '-' : '+'}{formatInlineCurrency(entity.amount)}
           </Typography>
         </Box>
-        <Stack direction="row" spacing={3} sx={{ px: 2.5, py: 1.5, bgcolor: 'background.surface' }}>
-          {entity.date && (
-            <Stack direction="row" spacing={0.75} alignItems="center">
-              <Calendar size={13} style={{ opacity: 0.5 }} />
-              <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                {formatInlineDate(entity.date)}
-              </Typography>
-            </Stack>
-          )}
-          {entity.category && (
-            <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-              {entity.category}
-            </Typography>
-          )}
-          {entity.paymentMethod && (
-            <Stack direction="row" spacing={0.75} alignItems="center">
-              <CreditCard size={13} style={{ opacity: 0.5 }} />
-              <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                {entity.paymentMethod.replace(/_/g, ' ')}
-              </Typography>
-            </Stack>
-          )}
-        </Stack>
-        {/* Accounting Impact */}
+
+        {/* Journal entry — compact */}
         {journalLines && journalLines.length > 0 && (
-          <Box sx={{ px: 2.5, py: 1.5, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'background.level1' }}>
-            <Stack direction="row" spacing={0.75} alignItems="center" sx={{ mb: 1 }}>
-              <BookOpen size={12} style={{ opacity: 0.5 }} />
-              <Typography level="body-xs" sx={{ color: 'text.tertiary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: '10px' }}>
-                Journal Entry
-              </Typography>
-            </Stack>
-            <Stack spacing={0.5}>
+          <Box sx={{ px: 2, pb: 1.5, borderTop: '1px solid', borderColor: 'divider', pt: 1 }}>
+            <Typography level="body-xs" sx={{ color: 'text.tertiary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '10px', mb: 0.75 }}>
+              Journal Entry
+            </Typography>
+            <Stack spacing={0.4}>
               {journalLines.map((line, i) => (
-                <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Chip
-                    size="sm"
-                    variant="outlined"
-                    color={line.debit > 0 ? 'warning' : 'success'}
-                    sx={{ fontSize: '10px', fontWeight: 700, minWidth: 28, justifyContent: 'center', '--Chip-paddingInline': '4px', height: 18 }}
+                <Stack key={i} direction="row" alignItems="center" spacing={0.75}>
+                  <Typography
+                    sx={{
+                      fontSize: '10px', fontWeight: 700, color: line.debit > 0 ? 'danger.500' : 'success.600',
+                      minWidth: 18, letterSpacing: '0.02em',
+                    }}
                   >
                     {line.debit > 0 ? 'DR' : 'CR'}
-                  </Chip>
-                  <Typography level="body-xs" sx={{ flex: 1, color: 'text.secondary' }}>
+                  </Typography>
+                  <Typography level="body-xs" sx={{ flex: 1, color: 'text.secondary' }} noWrap>
                     {line.accountName}
                   </Typography>
-                  <Typography level="body-xs" fontWeight={600} sx={{ color: 'text.primary' }}>
+                  <Typography level="body-xs" fontWeight={600} sx={{ color: 'text.primary', fontVariantNumeric: 'tabular-nums' }}>
                     {formatInlineCurrency(line.debit > 0 ? line.debit : line.credit)}
                   </Typography>
-                </Box>
+                </Stack>
               ))}
             </Stack>
           </Box>
@@ -339,49 +317,45 @@ function EntityInlineCard({ entity, entityType }: { entity: Record<string, any>;
 
   // Customer card
   if (type === 'customer') {
+    const metaParts = [entity.email, entity.phone].filter(Boolean);
     return (
       <Box
         sx={{
-          borderRadius: 'lg',
+          borderRadius: '12px',
           border: '1px solid',
-          borderColor: 'divider',
+          borderColor: 'neutral.outlinedBorder',
+          bgcolor: 'background.surface',
           overflow: 'hidden',
           mt: 1,
+          transition: 'border-color 0.15s',
+          '&:hover': { borderColor: 'neutral.400' },
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2.5, py: 2, bgcolor: 'background.surface' }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '50%',
-              bgcolor: 'primary.softBg',
-              color: 'primary.softColor',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 700,
-              fontSize: '15px',
-            }}
-          >
-            {entity.name?.charAt(0)?.toUpperCase() || <User size={18} />}
-          </Box>
-          <Box sx={{ flex: 1 }}>
-            <Typography level="title-sm" fontWeight="lg">{entity.name}</Typography>
-            <Stack direction="row" spacing={2} sx={{ mt: 0.25 }}>
-              {entity.email && (
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <Mail size={12} style={{ opacity: 0.5 }} />
-                  <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{entity.email}</Typography>
-                </Stack>
-              )}
-              {entity.phone && (
-                <Stack direction="row" spacing={0.5} alignItems="center">
-                  <Phone size={12} style={{ opacity: 0.5 }} />
-                  <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{entity.phone}</Typography>
-                </Stack>
-              )}
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* Left accent bar */}
+          <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 4, flexShrink: 0, bgcolor: 'primary.400' }} />
+          {/* Info */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Typography level="body-sm" fontWeight={600} sx={{ color: 'text.primary' }} noWrap>
+                {entity.name}
+              </Typography>
+              <Chip size="sm" variant="soft" color="primary" sx={{ fontSize: '10px', fontWeight: 700, height: 18, '--Chip-paddingInline': '6px' }}>
+                CUSTOMER
+              </Chip>
             </Stack>
+            {metaParts.length > 0 && (
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }} noWrap>
+                {metaParts.join(' · ')}
+              </Typography>
+            )}
+          </Box>
+          {/* Avatar initial */}
+          <Box sx={{
+            width: 28, height: 28, borderRadius: '50%', bgcolor: 'primary.softBg', color: 'primary.softColor',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: '12px', flexShrink: 0,
+          }}>
+            {entity.name?.charAt(0)?.toUpperCase() || <User size={14} />}
           </Box>
         </Box>
       </Box>
@@ -390,41 +364,38 @@ function EntityInlineCard({ entity, entityType }: { entity: Record<string, any>;
 
   // Vendor card
   if (type === 'vendor') {
+    const metaParts = [entity.email, entity.paymentTerms, entity.creditLimit ? `Credit $${entity.creditLimit}` : null].filter(Boolean);
     return (
       <Box
         sx={{
-          borderRadius: 'lg',
+          borderRadius: '12px',
           border: '1px solid',
-          borderColor: 'divider',
+          borderColor: 'neutral.outlinedBorder',
+          bgcolor: 'background.surface',
           overflow: 'hidden',
           mt: 1,
+          transition: 'border-color 0.15s',
+          '&:hover': { borderColor: 'neutral.400' },
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, px: 2.5, py: 2, bgcolor: 'background.surface' }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 'md',
-              bgcolor: 'neutral.softBg',
-              color: 'neutral.softColor',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Building2 size={18} />
-          </Box>
-          <Box sx={{ flex: 1 }}>
-            <Typography level="title-sm" fontWeight="lg">{entity.name}</Typography>
-            <Stack direction="row" spacing={2} sx={{ mt: 0.25 }}>
-              {entity.email && (
-                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{entity.email}</Typography>
-              )}
-              {entity.paymentTerms && (
-                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>{entity.paymentTerms}</Typography>
-              )}
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          {/* Left accent bar */}
+          <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 4, flexShrink: 0, bgcolor: 'neutral.400' }} />
+          {/* Info */}
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Typography level="body-sm" fontWeight={600} sx={{ color: 'text.primary' }} noWrap>
+                {entity.name}
+              </Typography>
+              <Chip size="sm" variant="soft" color="neutral" sx={{ fontSize: '10px', fontWeight: 700, height: 18, '--Chip-paddingInline': '6px' }}>
+                VENDOR
+              </Chip>
             </Stack>
+            {metaParts.length > 0 && (
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }} noWrap>
+                {metaParts.join(' · ')}
+              </Typography>
+            )}
           </Box>
         </Box>
       </Box>
@@ -691,25 +662,19 @@ function EntityInlineCard({ entity, entityType }: { entity: Record<string, any>;
     const statusColor = entity.status === 'accepted' ? 'success' : entity.status === 'declined' ? 'danger' : entity.status === 'expired' ? 'neutral' : 'primary';
     const total = entity.total || entity.items?.reduce((s: number, i: any) => s + ((i.quantity || 1) * (i.rate || 0)), 0) || 0;
     return (
-      <Box sx={{ borderRadius: 'lg', border: '1px solid', borderColor: 'divider', overflow: 'hidden', mt: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 2, bgcolor: 'background.surface' }}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Box sx={{ width: 36, height: 36, borderRadius: 'md', bgcolor: 'primary.softBg', color: 'primary.softColor', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <FileCheck size={18} />
-            </Box>
-            <Box>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography level="title-sm" fontWeight="lg">{entity.quoteNumber || 'Quote'}</Typography>
-                <Chip size="sm" variant="soft" color={statusColor} sx={{ fontSize: '11px', fontWeight: 600 }}>
-                  {entity.status?.toUpperCase() || 'DRAFT'}
-                </Chip>
-              </Stack>
-              <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.25 }}>
-                {entity.customerName}{entity.expiryDate ? ` · Expires ${formatInlineDate(entity.expiryDate)}` : ''}
-              </Typography>
-            </Box>
-          </Stack>
-          <Typography level="title-md" fontWeight="lg">{formatInlineCurrency(total)}</Typography>
+      <Box sx={{ borderRadius: '12px', border: '1px solid', borderColor: 'neutral.outlinedBorder', bgcolor: 'background.surface', overflow: 'hidden', mt: 1, transition: 'border-color 0.15s', '&:hover': { borderColor: 'neutral.400' } }}>
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 4, flexShrink: 0, bgcolor: `${statusColor}.500` }} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Typography level="body-sm" fontWeight={600} sx={{ color: 'text.primary' }} noWrap>{entity.quoteNumber || 'Quote'}</Typography>
+              <Chip size="sm" variant="soft" color={statusColor} sx={{ fontSize: '10px', fontWeight: 700, height: 18, '--Chip-paddingInline': '6px' }}>{entity.status?.toUpperCase() || 'DRAFT'}</Chip>
+            </Stack>
+            <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }} noWrap>
+              {entity.customerName}{entity.expiryDate ? ` · Expires ${formatInlineDate(entity.expiryDate)}` : ''}
+            </Typography>
+          </Box>
+          <Typography level="body-md" fontWeight={700} sx={{ color: 'text.primary', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{formatInlineCurrency(total)}</Typography>
         </Box>
       </Box>
     );
@@ -720,25 +685,19 @@ function EntityInlineCard({ entity, entityType }: { entity: Record<string, any>;
     const statusColor = entity.status === 'received' ? 'success' : entity.status === 'cancelled' ? 'danger' : entity.status === 'sent' ? 'primary' : 'neutral';
     const total = entity.total || entity.items?.reduce((s: number, i: any) => s + ((i.quantity || 1) * (i.rate || 0)), 0) || 0;
     return (
-      <Box sx={{ borderRadius: 'lg', border: '1px solid', borderColor: 'divider', overflow: 'hidden', mt: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 2, bgcolor: 'background.surface' }}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Box sx={{ width: 36, height: 36, borderRadius: 'md', bgcolor: 'neutral.softBg', color: 'neutral.softColor', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ShoppingCart size={18} />
-            </Box>
-            <Box>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography level="title-sm" fontWeight="lg">{entity.poNumber || 'Purchase Order'}</Typography>
-                <Chip size="sm" variant="soft" color={statusColor} sx={{ fontSize: '11px', fontWeight: 600 }}>
-                  {entity.status?.toUpperCase() || 'DRAFT'}
-                </Chip>
-              </Stack>
-              <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.25 }}>
-                {entity.vendorName}{entity.expectedDate ? ` · Expected ${formatInlineDate(entity.expectedDate)}` : ''}
-              </Typography>
-            </Box>
-          </Stack>
-          <Typography level="title-md" fontWeight="lg">{formatInlineCurrency(total)}</Typography>
+      <Box sx={{ borderRadius: '12px', border: '1px solid', borderColor: 'neutral.outlinedBorder', bgcolor: 'background.surface', overflow: 'hidden', mt: 1, transition: 'border-color 0.15s', '&:hover': { borderColor: 'neutral.400' } }}>
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 4, flexShrink: 0, bgcolor: statusColor === 'neutral' ? 'neutral.400' : `${statusColor}.500` }} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Typography level="body-sm" fontWeight={600} sx={{ color: 'text.primary' }} noWrap>{entity.poNumber || 'Purchase Order'}</Typography>
+              <Chip size="sm" variant="soft" color={statusColor} sx={{ fontSize: '10px', fontWeight: 700, height: 18, '--Chip-paddingInline': '6px' }}>{entity.status?.toUpperCase() || 'DRAFT'}</Chip>
+            </Stack>
+            <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }} noWrap>
+              {entity.vendorName}{entity.expectedDate ? ` · Expected ${formatInlineDate(entity.expectedDate)}` : ''}
+            </Typography>
+          </Box>
+          <Typography level="body-md" fontWeight={700} sx={{ color: 'text.primary', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{formatInlineCurrency(total)}</Typography>
         </Box>
       </Box>
     );
@@ -749,25 +708,19 @@ function EntityInlineCard({ entity, entityType }: { entity: Record<string, any>;
     const statusColor = entity.status === 'applied' ? 'success' : entity.status === 'cancelled' ? 'danger' : 'warning';
     const total = entity.total || entity.items?.reduce((s: number, i: any) => s + ((i.quantity || 1) * (i.rate || 0)), 0) || 0;
     return (
-      <Box sx={{ borderRadius: 'lg', border: '1px solid', borderColor: 'divider', overflow: 'hidden', mt: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 2, bgcolor: 'background.surface' }}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Box sx={{ width: 36, height: 36, borderRadius: 'md', bgcolor: 'danger.softBg', color: 'danger.softColor', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <RotateCcw size={18} />
-            </Box>
-            <Box>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography level="title-sm" fontWeight="lg">{entity.cnNumber || 'Credit Note'}</Typography>
-                <Chip size="sm" variant="soft" color={statusColor} sx={{ fontSize: '11px', fontWeight: 600 }}>
-                  {entity.status?.toUpperCase() || 'DRAFT'}
-                </Chip>
-              </Stack>
-              <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.25 }}>
-                {entity.customerName}{entity.reason ? ` · ${entity.reason}` : ''}
-              </Typography>
-            </Box>
-          </Stack>
-          <Typography level="title-md" fontWeight="lg" color="danger">{formatInlineCurrency(total)}</Typography>
+      <Box sx={{ borderRadius: '12px', border: '1px solid', borderColor: 'neutral.outlinedBorder', bgcolor: 'background.surface', overflow: 'hidden', mt: 1, transition: 'border-color 0.15s', '&:hover': { borderColor: 'neutral.400' } }}>
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 4, flexShrink: 0, bgcolor: `${statusColor}.500` }} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Typography level="body-sm" fontWeight={600} sx={{ color: 'text.primary' }} noWrap>{entity.cnNumber || 'Credit Note'}</Typography>
+              <Chip size="sm" variant="soft" color={statusColor} sx={{ fontSize: '10px', fontWeight: 700, height: 18, '--Chip-paddingInline': '6px' }}>{entity.status?.toUpperCase() || 'DRAFT'}</Chip>
+            </Stack>
+            <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }} noWrap>
+              {entity.customerName}{entity.reason ? ` · ${entity.reason}` : ''}
+            </Typography>
+          </Box>
+          <Typography level="body-md" fontWeight={700} sx={{ color: 'danger.500', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{formatInlineCurrency(total)}</Typography>
         </Box>
       </Box>
     );
@@ -777,26 +730,20 @@ function EntityInlineCard({ entity, entityType }: { entity: Record<string, any>;
   if (type === 'recurring_transaction') {
     const isActive = entity.isActive !== false;
     return (
-      <Box sx={{ borderRadius: 'lg', border: '1px solid', borderColor: 'divider', overflow: 'hidden', mt: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 2, bgcolor: 'background.surface' }}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Box sx={{ width: 36, height: 36, borderRadius: 'md', bgcolor: 'primary.softBg', color: 'primary.softColor', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <RefreshCcw size={18} />
-            </Box>
-            <Box>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography level="title-sm" fontWeight="lg">{entity.name || 'Recurring'}</Typography>
-                <Chip size="sm" variant="soft" color={isActive ? 'success' : 'neutral'} sx={{ fontSize: '11px', fontWeight: 600 }}>
-                  {isActive ? 'ACTIVE' : 'PAUSED'}
-                </Chip>
-              </Stack>
-              <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.25 }}>
-                {entity.frequency?.charAt(0).toUpperCase() + entity.frequency?.slice(1) || ''}{entity.type ? ` · ${entity.type}` : ''}{entity.nextDate ? ` · Next: ${formatInlineDate(entity.nextDate)}` : ''}
-              </Typography>
-            </Box>
-          </Stack>
+      <Box sx={{ borderRadius: '12px', border: '1px solid', borderColor: 'neutral.outlinedBorder', bgcolor: 'background.surface', overflow: 'hidden', mt: 1, transition: 'border-color 0.15s', '&:hover': { borderColor: 'neutral.400' } }}>
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 4, flexShrink: 0, bgcolor: isActive ? 'success.500' : 'neutral.400' }} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Typography level="body-sm" fontWeight={600} sx={{ color: 'text.primary' }} noWrap>{entity.name || 'Recurring'}</Typography>
+              <Chip size="sm" variant="soft" color={isActive ? 'success' : 'neutral'} sx={{ fontSize: '10px', fontWeight: 700, height: 18, '--Chip-paddingInline': '6px' }}>{isActive ? 'ACTIVE' : 'PAUSED'}</Chip>
+            </Stack>
+            <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }} noWrap>
+              {[entity.frequency ? entity.frequency.charAt(0).toUpperCase() + entity.frequency.slice(1) : null, entity.type, entity.nextDate ? `Next: ${formatInlineDate(entity.nextDate)}` : null].filter(Boolean).join(' · ')}
+            </Typography>
+          </Box>
           {entity.amount && (
-            <Typography level="title-md" fontWeight="lg">{formatInlineCurrency(entity.amount)}</Typography>
+            <Typography level="body-md" fontWeight={700} sx={{ color: 'text.primary', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>{formatInlineCurrency(entity.amount)}</Typography>
           )}
         </Box>
       </Box>
@@ -806,20 +753,16 @@ function EntityInlineCard({ entity, entityType }: { entity: Record<string, any>;
   // Bank Account card
   if (type === 'bank_account') {
     return (
-      <Box sx={{ borderRadius: 'lg', border: '1px solid', borderColor: 'divider', overflow: 'hidden', mt: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 2, bgcolor: 'background.surface' }}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Box sx={{ width: 36, height: 36, borderRadius: 'md', bgcolor: 'primary.softBg', color: 'primary.softColor', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Landmark size={18} />
-            </Box>
-            <Box>
-              <Typography level="title-sm" fontWeight="lg">{entity.accountName || entity.name}</Typography>
-              <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.25 }}>
-                {[entity.bankName, entity.accountType?.replace(/_/g, ' '), entity.currency].filter(Boolean).join(' · ')}
-              </Typography>
-            </Box>
-          </Stack>
-          <Typography level="title-md" fontWeight="lg" color="primary">
+      <Box sx={{ borderRadius: '12px', border: '1px solid', borderColor: 'neutral.outlinedBorder', bgcolor: 'background.surface', overflow: 'hidden', mt: 1, transition: 'border-color 0.15s', '&:hover': { borderColor: 'neutral.400' } }}>
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 4, flexShrink: 0, bgcolor: 'primary.400' }} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography level="body-sm" fontWeight={600} sx={{ color: 'text.primary' }} noWrap>{entity.accountName || entity.name}</Typography>
+            <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }} noWrap>
+              {[entity.bankName, entity.accountType?.replace(/_/g, ' '), entity.currency].filter(Boolean).join(' · ')}
+            </Typography>
+          </Box>
+          <Typography level="body-md" fontWeight={700} sx={{ color: 'primary.600', flexShrink: 0, fontVariantNumeric: 'tabular-nums' }}>
             {formatInlineCurrency(entity.balance || 0)}
           </Typography>
         </Box>
@@ -830,33 +773,25 @@ function EntityInlineCard({ entity, entityType }: { entity: Record<string, any>;
   // Salary Slip card
   if (type === 'salary_slip') {
     const statusColor = entity.status === 'paid' ? 'success' : entity.status === 'cancelled' ? 'danger' : 'neutral';
+    const gross = entity.totalEarnings || entity.salary || 0;
+    const net = entity.netPay || gross;
     return (
-      <Box sx={{ borderRadius: 'lg', border: '1px solid', borderColor: 'divider', overflow: 'hidden', mt: 1 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2.5, py: 2, bgcolor: 'background.surface' }}>
-          <Stack direction="row" alignItems="center" spacing={1.5}>
-            <Box sx={{ width: 36, height: 36, borderRadius: 'md', bgcolor: 'success.softBg', color: 'success.softColor', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Banknote size={18} />
-            </Box>
-            <Box>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Typography level="title-sm" fontWeight="lg">{entity.employeeName || 'Salary Slip'}</Typography>
-                <Chip size="sm" variant="soft" color={statusColor} sx={{ fontSize: '11px', fontWeight: 600 }}>
-                  {entity.status?.toUpperCase() || 'GENERATED'}
-                </Chip>
-              </Stack>
-              <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.25 }}>
-                {entity.month && entity.year ? `${new Date(entity.year, entity.month - 1).toLocaleString('en', { month: 'long' })} ${entity.year}` : ''}{entity.designation ? ` · ${entity.designation}` : ''}
-              </Typography>
-            </Box>
-          </Stack>
-          <Box sx={{ textAlign: 'right' }}>
-            <Typography level="title-md" fontWeight="lg" color="success">
-              {formatInlineCurrency(entity.netPay || entity.totalEarnings || entity.salary || 0)}
+      <Box sx={{ borderRadius: '12px', border: '1px solid', borderColor: 'neutral.outlinedBorder', bgcolor: 'background.surface', overflow: 'hidden', mt: 1, transition: 'border-color 0.15s', '&:hover': { borderColor: 'neutral.400' } }}>
+        <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ width: 3, alignSelf: 'stretch', borderRadius: 4, flexShrink: 0, bgcolor: 'success.500' }} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Stack direction="row" spacing={0.75} alignItems="center">
+              <Typography level="body-sm" fontWeight={600} sx={{ color: 'text.primary' }} noWrap>{entity.employeeName || 'Salary Slip'}</Typography>
+              <Chip size="sm" variant="soft" color={statusColor} sx={{ fontSize: '10px', fontWeight: 700, height: 18, '--Chip-paddingInline': '6px' }}>{entity.status?.toUpperCase() || 'GENERATED'}</Chip>
+            </Stack>
+            <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.25 }} noWrap>
+              {[entity.month && entity.year ? `${new Date(entity.year, entity.month - 1).toLocaleString('en', { month: 'long' })} ${entity.year}` : null, entity.designation].filter(Boolean).join(' · ')}
             </Typography>
-            {entity.netPay && entity.totalEarnings && entity.totalEarnings !== entity.netPay && (
-              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                Gross: {formatInlineCurrency(entity.totalEarnings)}
-              </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'right', flexShrink: 0 }}>
+            <Typography level="body-md" fontWeight={700} sx={{ color: 'success.600', fontVariantNumeric: 'tabular-nums' }}>{formatInlineCurrency(net)}</Typography>
+            {net !== gross && gross > 0 && (
+              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>Gross {formatInlineCurrency(gross)}</Typography>
             )}
           </Box>
         </Box>
@@ -1048,7 +983,7 @@ export default function ChatMessage({
     if (action.type === 'view' && action.data) {
       setViewModal({
         open: true,
-        entityType: action.entityType,
+        entityType: action.entityType as string,
         entity: action.data,
       });
     } else if (action.type === 'navigate') {
@@ -1062,7 +997,7 @@ export default function ChatMessage({
         transaction: '/transactions',
         account: '/accounts',
       };
-      const route = routes[action.entityType];
+      const route = routes[action.entityType ?? ''];
       if (route) {
         window.location.href = route;
       }

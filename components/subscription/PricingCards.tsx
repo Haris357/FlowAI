@@ -1,4 +1,5 @@
 'use client';
+import { useState } from 'react';
 import { Box, Card, CardContent, Typography, Stack, Button, Chip, Divider } from '@mui/joy';
 import { Check, Zap, Crown, Bot, Building2, Users, Send, History, Landmark, Repeat, Headphones, Sparkles } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
@@ -6,141 +7,194 @@ import { PLANS } from '@/lib/plans';
 import type { PlanId, PlanDefinition } from '@/types/subscription';
 
 interface PricingCardsProps {
-  onSelectPlan: (planId: PlanId) => void;
+  onSelectPlan: (planId: PlanId, billingPeriod: 'monthly' | 'yearly') => void;
   loading?: boolean;
 }
 
 export default function PricingCards({ onSelectPlan, loading }: PricingCardsProps) {
   const { plan: currentPlan, isTrial, isTrialExpired: trialExpired } = useSubscription();
+  const [isAnnual, setIsAnnual] = useState(false);
 
   const plans: PlanDefinition[] = [PLANS.pro, PLANS.max];
 
   return (
-    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: 'stretch' }}>
-      {plans.map((plan) => {
-        const isCurrent = currentPlan.id === plan.id;
-        const isPopular = plan.id === 'pro';
-        const isMax = plan.id === 'max';
-
-        return (
-          <Card
-            key={plan.id}
-            variant="outlined"
+    <Stack spacing={2}>
+      {/* Billing Toggle */}
+      <Stack direction="row" alignItems="center" justifyContent="center" spacing={1.5}>
+        <Typography
+          level="body-sm"
+          fontWeight={!isAnnual ? 700 : 400}
+          sx={{ color: !isAnnual ? 'text.primary' : 'text.tertiary', cursor: 'pointer' }}
+          onClick={() => setIsAnnual(false)}
+        >
+          Monthly
+        </Typography>
+        <Box
+          onClick={() => setIsAnnual(!isAnnual)}
+          sx={{
+            width: 44, height: 22, borderRadius: '11px', cursor: 'pointer',
+            bgcolor: isAnnual ? 'primary.500' : 'neutral.300',
+            position: 'relative', transition: 'background-color 0.2s',
+          }}
+        >
+          <Box
             sx={{
-              flex: 1,
-              position: 'relative',
-              borderColor: isPopular ? 'primary.400' : isCurrent ? 'primary.200' : 'divider',
-              transform: isPopular ? 'scale(1.02)' : undefined,
-              boxShadow: isPopular ? 'md' : undefined,
+              position: 'absolute', top: 2, left: isAnnual ? 22 : 2,
+              width: 18, height: 18, borderRadius: '50%', bgcolor: 'white',
+              transition: 'left 0.2s', boxShadow: 'sm',
             }}
-          >
-            {isPopular && (
-              <Chip
-                size="sm"
-                variant="solid"
-                color="primary"
-                sx={{
-                  position: 'absolute',
-                  top: -12,
-                  left: '50%',
-                  transform: 'translateX(-50%)',
-                  fontWeight: 700,
-                  fontSize: '10px',
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                }}
-              >
-                Most Popular
-              </Chip>
-            )}
-            <CardContent sx={{ p: 2.5 }}>
-              <Stack spacing={2}>
-                <Box>
-                  <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-                    <Box sx={{
-                      width: 28, height: 28, borderRadius: 'sm',
-                      bgcolor: isPopular ? 'primary.softBg' : 'warning.softBg',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      {isPopular
-                        ? <Zap size={14} style={{ color: 'var(--joy-palette-primary-500)' }} />
-                        : <Crown size={14} style={{ color: 'var(--joy-palette-warning-500)' }} />
-                      }
-                    </Box>
-                    <Typography level="title-md" fontWeight={700}>{plan.name}</Typography>
-                    {isCurrent && (
-                      <Chip size="sm" variant="outlined" color="neutral" sx={{ fontSize: '10px' }}>Current</Chip>
-                    )}
-                  </Stack>
-                  <Stack direction="row" alignItems="baseline" spacing={0.5}>
-                    <Typography level="h3" fontWeight={700}>
-                      ${plan.price === 0 ? '0' : plan.price}
-                    </Typography>
-                    <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>/month</Typography>
-                  </Stack>
-                  <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.5 }}>
-                    {plan.description}
-                  </Typography>
-                </Box>
+          />
+        </Box>
+        <Typography
+          level="body-sm"
+          fontWeight={isAnnual ? 700 : 400}
+          sx={{ color: isAnnual ? 'text.primary' : 'text.tertiary', cursor: 'pointer' }}
+          onClick={() => setIsAnnual(true)}
+        >
+          Yearly
+        </Typography>
+        {isAnnual && (
+          <Chip size="sm" variant="soft" color="success" sx={{ fontSize: '10px', fontWeight: 700 }}>
+            Save 20%
+          </Chip>
+        )}
+      </Stack>
 
-                <Divider />
+      {/* Plan Cards */}
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: 'stretch' }}>
+        {plans.map((plan) => {
+          const isCurrent = currentPlan.id === plan.id;
+          const isPopular = plan.id === 'pro';
+          const isMax = plan.id === 'max';
+          const displayPrice = isAnnual && plan.yearlyPrice ? plan.yearlyPrice : plan.price;
 
-                {/* Max: "Everything in Pro" callout */}
-                {isMax && (
-                  <Stack direction="row" spacing={0.75} alignItems="center" sx={{
-                    px: 1.5, py: 1, borderRadius: 'sm',
-                    bgcolor: 'primary.softBg', border: '1px solid', borderColor: 'primary.200',
-                  }}>
-                    <Check size={13} style={{ color: 'var(--joy-palette-primary-500)', flexShrink: 0 }} />
-                    <Typography level="body-xs" fontWeight={700} sx={{ color: 'primary.600' }}>
-                      Everything in Pro, plus:
-                    </Typography>
-                  </Stack>
-                )}
-
-                <Stack spacing={1}>
-                  {getFeatureList(plan).map((feature, i) => (
-                    <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
-                      <Check size={14} style={{ color: 'var(--joy-palette-success-500)', marginTop: 2, flexShrink: 0 }} />
-                      <Typography level="body-xs">
-                        {feature.text}
-                        {feature.badge && (
-                          <Chip
-                            size="sm"
-                            variant="soft"
-                            color="warning"
-                            sx={{ ml: 0.75, fontSize: '9px', height: '16px', fontWeight: 700 }}
-                          >
-                            {feature.badge}
-                          </Chip>
-                        )}
+          return (
+            <Card
+              key={plan.id}
+              variant="outlined"
+              sx={{
+                flex: 1,
+                position: 'relative',
+                borderColor: isPopular ? 'primary.400' : isCurrent ? 'primary.200' : 'divider',
+                transform: isPopular ? 'scale(1.02)' : undefined,
+                boxShadow: isPopular ? 'md' : undefined,
+              }}
+            >
+              {isPopular && (
+                <Chip
+                  size="sm"
+                  variant="solid"
+                  color="primary"
+                  sx={{
+                    position: 'absolute',
+                    top: -12,
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    fontWeight: 700,
+                    fontSize: '10px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.05em',
+                  }}
+                >
+                  Most Popular
+                </Chip>
+              )}
+              <CardContent sx={{ p: 2.5 }}>
+                <Stack spacing={2}>
+                  <Box>
+                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                      <Box sx={{
+                        width: 28, height: 28, borderRadius: 'sm',
+                        bgcolor: isPopular ? 'primary.softBg' : 'warning.softBg',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      }}>
+                        {isPopular
+                          ? <Zap size={14} style={{ color: 'var(--joy-palette-primary-500)' }} />
+                          : <Crown size={14} style={{ color: 'var(--joy-palette-warning-500)' }} />
+                        }
+                      </Box>
+                      <Typography level="title-md" fontWeight={700}>{plan.name}</Typography>
+                      {isCurrent && (
+                        <Chip size="sm" variant="outlined" color="neutral" sx={{ fontSize: '10px' }}>Current</Chip>
+                      )}
+                    </Stack>
+                    <Stack direction="row" alignItems="baseline" spacing={0.5}>
+                      <Typography level="h3" fontWeight={700}>
+                        ${displayPrice}
+                      </Typography>
+                      <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
+                        {isAnnual ? '/mo, billed yearly' : '/month'}
                       </Typography>
                     </Stack>
-                  ))}
-                </Stack>
+                    {isAnnual && plan.yearlyPrice && (
+                      <Typography level="body-xs" sx={{ color: 'success.600', mt: 0.25 }}>
+                        Save ${((plan.price - plan.yearlyPrice) * 12).toFixed(0)}/year
+                      </Typography>
+                    )}
+                    <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                      {plan.description}
+                    </Typography>
+                  </Box>
 
-                <Button
-                  variant={isCurrent && !isTrial ? 'outlined' : isPopular ? 'solid' : 'soft'}
-                  color={isCurrent && !isTrial ? 'neutral' : 'primary'}
-                  disabled={(isCurrent && !isTrial && !trialExpired) || loading}
-                  loading={loading}
-                  fullWidth
-                  onClick={() => onSelectPlan(plan.id)}
-                  sx={{ mt: 'auto' }}
-                >
-                  {isCurrent && !isTrial && !trialExpired
-                    ? 'Current Plan'
-                    : isTrial && currentPlan.id === plan.id
-                    ? 'Subscribe Now'
-                    : trialExpired
-                    ? 'Subscribe'
-                    : 'Upgrade'}
-                </Button>
-              </Stack>
-            </CardContent>
-          </Card>
-        );
-      })}
+                  <Divider />
+
+                  {/* Max: "Everything in Pro" callout */}
+                  {isMax && (
+                    <Stack direction="row" spacing={0.75} alignItems="center" sx={{
+                      px: 1.5, py: 1, borderRadius: 'sm',
+                      bgcolor: 'primary.softBg', border: '1px solid', borderColor: 'primary.200',
+                    }}>
+                      <Check size={13} style={{ color: 'var(--joy-palette-primary-500)', flexShrink: 0 }} />
+                      <Typography level="body-xs" fontWeight={700} sx={{ color: 'primary.600' }}>
+                        Everything in Pro, plus:
+                      </Typography>
+                    </Stack>
+                  )}
+
+                  <Stack spacing={1}>
+                    {getFeatureList(plan).map((feature, i) => (
+                      <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
+                        <Check size={14} style={{ color: 'var(--joy-palette-success-500)', marginTop: 2, flexShrink: 0 }} />
+                        <Typography level="body-xs">
+                          {feature.text}
+                          {feature.badge && (
+                            <Chip
+                              size="sm"
+                              variant="soft"
+                              color="warning"
+                              sx={{ ml: 0.75, fontSize: '9px', height: '16px', fontWeight: 700 }}
+                            >
+                              {feature.badge}
+                            </Chip>
+                          )}
+                        </Typography>
+                      </Stack>
+                    ))}
+                  </Stack>
+
+                  <Button
+                    variant={isCurrent && !isTrial ? 'outlined' : isPopular ? 'solid' : 'soft'}
+                    color={isCurrent && !isTrial ? 'neutral' : 'primary'}
+                    disabled={(isCurrent && !isTrial && !trialExpired) || loading}
+                    loading={loading}
+                    fullWidth
+                    onClick={() => onSelectPlan(plan.id, isAnnual ? 'yearly' : 'monthly')}
+                    sx={{ mt: 'auto' }}
+                  >
+                    {isCurrent && !isTrial && !trialExpired
+                      ? 'Current Plan'
+                      : isTrial && currentPlan.id === plan.id
+                      ? 'Subscribe Now'
+                      : trialExpired
+                      ? 'Subscribe'
+                      : 'Upgrade'}
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </Stack>
     </Stack>
   );
 }

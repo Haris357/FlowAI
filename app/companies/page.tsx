@@ -292,7 +292,13 @@ export default function CompaniesPage() {
         const snap = await getDocs(accountsRef);
         if (snap.empty) {
           const allAccounts = getAllChartOfAccounts();
-          await Promise.all(allAccounts.map(a => addDoc(accountsRef, { ...a, createdAt: Timestamp.now(), updatedAt: Timestamp.now() })));
+          await Promise.all(allAccounts.map(a => addDoc(accountsRef, {
+            ...a,
+            typeCode: a.type,       // normalize to standard field names
+            subtypeCode: a.subType, // normalize to standard field names
+            createdAt: Timestamp.now(),
+            updatedAt: Timestamp.now(),
+          })));
           await updateDoc(doc(db, 'companies', company.id), { accountsCreated: true, updatedAt: Timestamp.now() });
         }
       } catch { /* continue */ }

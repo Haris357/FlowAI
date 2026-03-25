@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from './AuthContext';
@@ -261,6 +261,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         setUsage(data);
         computeRemaining(data);
       } else {
+        // No usage doc — fully reset (new session or cleared)
         setUsage(null);
         computeRemaining(null);
       }
@@ -271,26 +272,65 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     return () => unsubscribe();
   }, [user?.uid, subscription, computeRemaining]);
 
-  // ── Update session + trial countdown every 30s ──
+  // ── Weekly auto-reset: check every 60s for Monday rollover ──
+  const weeklyPercentUsedRef = useRef(weeklyPercentUsed);
+  useEffect(() => { weeklyPercentUsedRef.current = weeklyPercentUsed; }, [weeklyPercentUsed]);
+
+  useEffect(() => {
+    const checkWeeklyReset = () => {
+      if (usageRef.current && weeklyPercentUsedRef.current > 0) {
+        const currentWeekStart = getCurrentWeekStart();
+        const storedWeekStart = usageRef.current.weekStart || '';
+        if (storedWeekStart !== currentWeekStart) {
+          computeRemainingRef.current(usageRef.current);
+        }
+      }
+    };
+    const interval = setInterval(checkWeeklyReset, 60_000);
+    return () => clearInterval(interval);
+  }, []); // empty deps — reads live values via refs
+
+  // Stable refs so timer callbacks don't need them in deps
+  const sessionResetsAtRef = useRef(sessionResetsAt);
+  const trialEndsAtMsRef = useRef(trialEndsAtMs);
+  const sessionPercentUsedRef = useRef(sessionPercentUsed);
+  const usageRef = useRef(usage);
+  const computeRemainingRef = useRef(computeRemaining);
+  useEffect(() => { sessionResetsAtRef.current = sessionResetsAt; }, [sessionResetsAt]);
+  useEffect(() => { trialEndsAtMsRef.current = trialEndsAtMs; }, [trialEndsAtMs]);
+  useEffect(() => { sessionPercentUsedRef.current = sessionPercentUsed; }, [sessionPercentUsed]);
+  useEffect(() => { usageRef.current = usage; }, [usage]);
+  useEffect(() => { computeRemainingRef.current = computeRemaining; }, [computeRemaining]);
+
+  // ── Update session + trial countdown every 10s; auto-reset when session expires ──
   useEffect(() => {
     const update = () => {
-      if (sessionResetsAt) {
-        const ms = Math.max(0, sessionResetsAt - Date.now());
+      const now = Date.now();
+      const resetsAt = sessionResetsAtRef.current;
+      const endsAt = trialEndsAtMsRef.current;
+
+      if (resetsAt) {
+        const ms = Math.max(0, resetsAt - now);
         setSessionTimeLeft(formatDuration(ms));
+        // Session just expired — recompute so UI resets to 0% used instantly
+        if (now >= resetsAt && sessionPercentUsedRef.current > 0) {
+          computeRemainingRef.current(usageRef.current);
+        }
       } else {
         setSessionTimeLeft('');
       }
-      if (trialEndsAtMs) {
-        const ms = Math.max(0, trialEndsAtMs - Date.now());
+
+      if (endsAt) {
+        const ms = Math.max(0, endsAt - now);
         setTrialTimeLeft(formatDuration(ms));
       } else {
         setTrialTimeLeft('');
       }
     };
     update();
-    const interval = setInterval(update, 30_000);
+    const interval = setInterval(update, 10_000);
     return () => clearInterval(interval);
-  }, [sessionResetsAt, trialEndsAtMs]);
+  }, []); // empty deps — reads live values via refs, never recreates interval
 
   // ── Check plan limits ──
   const checkLimit = useCallback((limitType: string, currentCount?: number): PlanLimitCheck => {

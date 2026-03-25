@@ -35,15 +35,10 @@ export async function GET(req: Request) {
       );
     }
 
-    // Fetch subscription data for each user
-    const enriched = await Promise.all(users.map(async (user) => {
-      try {
-        const subSnap = await db.collection('users').doc(user.id).collection('subscription').doc('current').get();
-        const sub = subSnap.exists ? subSnap.data() : null;
-        return { ...user, subscription: sub };
-      } catch {
-        return { ...user, subscription: null };
-      }
+    // Subscription is stored as a field on the user document (not a subcollection)
+    const enriched = users.map(user => ({
+      ...user,
+      subscription: (user as any).subscription || null,
     }));
 
     // Plan filter

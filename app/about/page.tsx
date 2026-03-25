@@ -44,7 +44,7 @@ const values = [
   {
     icon: Shield,
     title: 'Security',
-    description: 'Financial data is some of the most sensitive information a business holds. We treat its protection as a non-negotiable priority with bank-grade encryption and strict access controls.',
+    description: 'Financial data is some of the most sensitive information a business holds. We treat its protection as a non-negotiable priority with 256-bit AES encryption and strict access controls.',
     color: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
   },
   {

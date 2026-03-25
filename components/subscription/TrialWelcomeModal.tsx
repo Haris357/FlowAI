@@ -53,15 +53,19 @@ export default function TrialWelcomeModal() {
 
   useEffect(() => {
     if (subLoading || !user?.uid || !isTrial || trialExpired || !isCompaniesPage) return;
+    let cancelled = false;
 
     const ref = doc(db, 'users', user.uid, 'settings', 'trialWelcome');
     getDoc(ref).then(snap => {
+      if (cancelled) return;
       if (!snap.exists() || !snap.data()?.shown) {
         setDoc(ref, { shown: true, shownAt: new Date() }, { merge: true })
-          .then(() => setActive(true))
-          .catch(() => setActive(true));
+          .then(() => { if (!cancelled) setActive(true); })
+          .catch(() => { if (!cancelled) setActive(true); });
       }
     }).catch(() => {});
+
+    return () => { cancelled = true; };
   }, [user?.uid, isTrial, trialExpired, subLoading, isCompaniesPage]);
 
   const handleClose = () => {

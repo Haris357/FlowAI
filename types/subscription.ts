@@ -32,6 +32,8 @@ export interface PlanDefinition {
     customBranding: boolean;
   };
   lemonSqueezyVariantId: string;
+  yearlyPrice?: number;
+  yearlyLemonSqueezyVariantId?: string;
 }
 
 // ==========================================

@@ -1,9 +1,5 @@
-/**
- * Hook for fetching AI conversation memory statistics
- */
-
 import { useState, useEffect } from 'react';
-import { getMemoryStats, MEMORY_CONFIG } from '@/lib/ai-memory';
+import { MEMORY_CONFIG } from '@/lib/ai-memory';
 import { useCompany } from '@/contexts/CompanyContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -21,54 +17,82 @@ const CONTEXT_BUDGET = MEMORY_CONFIG.CONTEXT_BUDGET;
 const WARNING_THRESHOLD = 0.6;
 const CRITICAL_THRESHOLD = 0.85;
 
-export function useMemoryStats() {
+function toStats(raw: { totalMessages: number; totalTokens: number; compactionCount: number; hasActiveMemory: boolean; totalConversations: number }): MemoryStats {
+  const usagePercentage = Math.min(raw.totalTokens / CONTEXT_BUDGET, 1);
+  const memoryHealth: MemoryStats['memoryHealth'] =
+    usagePercentage >= CRITICAL_THRESHOLD ? 'critical' :
+    usagePercentage >= WARNING_THRESHOLD ? 'warning' : 'healthy';
+  return { ...raw, usagePercentage, memoryHealth };
+}
+
+/**
+ * Real-time memory stats for a single conversation (chatId) or all conversations.
+ * Uses Firestore onSnapshot so stats update live without polling.
+ */
+export function useMemoryStats(chatId?: string | null) {
   const { company } = useCompany();
   const { user } = useAuth();
   const [stats, setStats] = useState<MemoryStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const fetchStats = async () => {
+  useEffect(() => {
     if (!company?.id || !user?.uid) {
       setLoading(false);
       return;
     }
 
-    try {
-      setLoading(true);
-      setError(null);
-      const memStats = await getMemoryStats(company.id, user.uid);
+    let unsubscribe: (() => void) | undefined;
 
-      const usagePercentage = memStats.totalTokens / CONTEXT_BUDGET;
-      let memoryHealth: 'healthy' | 'warning' | 'critical' = 'healthy';
+    (async () => {
+      const { collection, query, where, onSnapshot, doc } = await import('firebase/firestore');
+      const { db } = await import('@/lib/firebase');
 
-      if (usagePercentage >= CRITICAL_THRESHOLD) {
-        memoryHealth = 'critical';
-      } else if (usagePercentage >= WARNING_THRESHOLD) {
-        memoryHealth = 'warning';
+      if (chatId) {
+        // Single-chat real-time listener
+        const docRef = doc(db, `companies/${company.id}/conversations`, chatId);
+        unsubscribe = onSnapshot(docRef, (snap) => {
+          if (!snap.exists()) {
+            setStats(null);
+            setLoading(false);
+            return;
+          }
+          const conv = snap.data();
+          setStats(toStats({
+            totalConversations: 1,
+            totalMessages: conv.messages?.length || 0,
+            totalTokens: conv.totalTokens || 0,
+            compactionCount: conv.compactionCount || 0,
+            hasActiveMemory: true,
+          }));
+          setLoading(false);
+        });
+      } else {
+        // All conversations for this user
+        const convsRef = collection(db, `companies/${company.id}/conversations`);
+        const q = query(convsRef, where('userId', '==', user.uid));
+        unsubscribe = onSnapshot(q, (snapshot) => {
+          let totalMessages = 0, totalTokens = 0, compactionCount = 0;
+          snapshot.docs.forEach((d) => {
+            const conv = d.data();
+            totalMessages += conv.messages?.length || 0;
+            totalTokens += conv.totalTokens || 0;
+            compactionCount += conv.compactionCount || 0;
+          });
+          setStats(toStats({
+            totalConversations: snapshot.size,
+            totalMessages,
+            totalTokens,
+            compactionCount,
+            hasActiveMemory: snapshot.size > 0,
+          }));
+          setLoading(false);
+        });
       }
+    })();
 
-      setStats({
-        ...memStats,
-        usagePercentage: Math.min(usagePercentage, 1),
-        memoryHealth,
-      });
-    } catch (err) {
-      console.error('Error fetching memory stats:', err);
-      setError('Failed to load memory statistics');
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => unsubscribe?.();
+  }, [company?.id, user?.uid, chatId]);
 
-  useEffect(() => {
-    fetchStats();
-  }, [company?.id, user?.uid]);
-
-  return {
-    stats,
-    loading,
-    error,
-    refresh: fetchStats,
-  };
+  // refresh is a no-op — onSnapshot keeps stats live automatically
+  return { stats, loading, refresh: () => {} };
 }

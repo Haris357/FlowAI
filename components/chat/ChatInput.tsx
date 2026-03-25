@@ -13,7 +13,7 @@ import {
 } from '@mui/joy';
 import {
   Send,
-  Plus,
+  Paperclip,
   X,
   FileText,
   Receipt,
@@ -27,12 +27,23 @@ import {
   FileSpreadsheet,
   Image,
   File,
+  Check,
+  ArrowRight,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import MemoryIndicator from './MemoryIndicator';
 import { FormShortcut } from './FormShortcuts';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { ChatAttachment } from '@/types';
 import { validateFile, getFileCategory, getAcceptString } from '@/lib/chat-upload';
+import { ActionButton } from '@/lib/ai-config';
+
+interface QuestionPanelProps {
+  question: string;
+  actions: ActionButton[];
+  onAction: (action: ActionButton) => void;
+  onDismiss: () => void;
+}
 
 const QUICK_ACTIONS = [
   { label: 'Overdue Invoices', icon: AlertCircle, prompt: 'Show me all overdue invoices' },
@@ -52,6 +63,117 @@ const FILE_TYPE_ICON: Record<string, React.ElementType> = {
   image: Image,
 };
 
+function InlineQuestionPanel({ question, actions, onAction, onDismiss }: QuestionPanelProps) {
+  const [selected, setSelected] = useState<number | null>(null);
+  const [done, setDone] = useState(false);
+
+  if (done) return null;
+
+  const isBinary = actions.length <= 2;
+
+  const handleClick = (i: number, action: ActionButton) => {
+    if (isBinary) {
+      setDone(true);
+      onAction(action);
+    } else {
+      setSelected(i);
+    }
+  };
+
+  const handleSubmit = () => {
+    if (selected === null) return;
+    setDone(true);
+    onAction(actions[selected]);
+  };
+
+  return (
+    <Box
+      sx={{
+        borderBottom: '1px solid',
+        borderColor: 'divider',
+        animation: 'slideDown 0.18s ease-out',
+        '@keyframes slideDown': { from: { opacity: 0, transform: 'translateY(-6px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
+      }}
+    >
+      {/* Question header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 2, pt: 1.25, pb: 0.75 }}>
+        <Typography level="body-xs" fontWeight={600} sx={{ color: 'text.primary' }}>
+          {question}
+        </Typography>
+        <IconButton
+          size="sm" variant="plain" color="neutral"
+          onClick={onDismiss}
+          sx={{ '--IconButton-size': '20px', borderRadius: '6px', opacity: 0.5, '&:hover': { opacity: 1 } }}
+        >
+          <X size={12} />
+        </IconButton>
+      </Box>
+
+      {/* Options */}
+      <Stack spacing={0} sx={{ pb: isBinary ? 0.75 : 0 }}>
+        {actions.map((action, i) => {
+          const isSelected = selected === i;
+          return (
+            <Box
+              key={i}
+              onClick={() => handleClick(i, action)}
+              sx={{
+                display: 'flex', alignItems: 'center', gap: 1.25,
+                px: 2, py: 0.75, cursor: 'pointer',
+                bgcolor: isSelected ? 'primary.softBg' : 'transparent',
+                transition: 'background 0.1s',
+                '&:hover': { bgcolor: isSelected ? 'primary.softBg' : 'background.level1' },
+              }}
+            >
+              <Box sx={{
+                width: 15, height: 15, borderRadius: isBinary ? '50%' : '3px', flexShrink: 0,
+                border: '1.5px solid', borderColor: isSelected ? 'primary.500' : 'neutral.outlinedBorder',
+                bgcolor: isSelected ? 'primary.500' : 'transparent',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'all 0.1s',
+              }}>
+                {isSelected && <Check size={9} color="#fff" strokeWidth={3} />}
+              </Box>
+              <Typography level="body-xs" sx={{ color: isSelected ? 'primary.700' : 'text.secondary', fontWeight: isSelected ? 600 : 400 }}>
+                {action.label}
+              </Typography>
+            </Box>
+          );
+        })}
+      </Stack>
+
+      {/* Footer for multi-select */}
+      {!isBinary && (
+        <Box sx={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          px: 2, py: 0.75, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'background.level1',
+        }}>
+          <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>{selected !== null ? '1 selected' : '0 selected'}</Typography>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <Typography level="body-xs" onClick={onDismiss} sx={{ color: 'text.tertiary', cursor: 'pointer', '&:hover': { color: 'text.secondary' } }}>
+              Skip
+            </Typography>
+            <IconButton size="sm" variant="solid" color="primary" onClick={handleSubmit} disabled={selected === null}
+              sx={{ '--IconButton-size': '24px', borderRadius: '6px' }}>
+              <ArrowRight size={13} />
+            </IconButton>
+          </Stack>
+        </Box>
+      )}
+
+      {/* Skip for binary */}
+      {isBinary && (
+        <Box sx={{ px: 2, pb: 0.75 }}>
+          <Typography level="body-xs" onClick={onDismiss}
+            sx={{ color: 'text.tertiary', cursor: 'pointer', display: 'inline', '&:hover': { color: 'text.secondary' } }}>
+            Skip
+          </Typography>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 interface ChatInputProps {
   onSend: (message: string, attachments?: File[]) => void;
   disabled?: boolean;
@@ -65,6 +187,9 @@ interface ChatInputProps {
   onSelectAction?: (prompt: string) => void;
   /** @deprecated sessionUsage prop ignored — uses SubscriptionContext directly */
   sessionUsage?: any;
+  questionPanel?: QuestionPanelProps;
+  chatId?: string | null;
+  onCompacting?: (isCompacting: boolean) => void;
 }
 
 export default function ChatInput({
@@ -77,6 +202,9 @@ export default function ChatInput({
   initialValue = '',
   showQuickActions = false,
   onSelectAction,
+  questionPanel,
+  chatId,
+  onCompacting,
 }: ChatInputProps) {
   const { usage, plan, sessionRemaining, sessionPercentUsed, weeklyPercentUsed, sessionTimeLeft, weeklyRemaining, isPaidSubscriber, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
   const [value, setValue] = useState(initialValue);
@@ -161,17 +289,22 @@ export default function ChatInput({
       <Box
         sx={{
           position: 'relative',
-          bgcolor: 'background.surface',
+          bgcolor: 'transparent',
           borderRadius: 'xl',
           border: '1px solid',
           borderColor: isFocused ? 'primary.400' : 'divider',
           boxShadow: isFocused
-            ? '0 0 0 3px rgba(217, 119, 87, 0.1), 0 4px 12px rgba(0, 0, 0, 0.08)'
-            : '0 2px 8px rgba(0, 0, 0, 0.04)',
+            ? '0 0 0 3px rgba(217, 119, 87, 0.1)'
+            : 'none',
           transition: 'all 0.2s ease',
           overflow: 'hidden',
         }}
       >
+        {/* Question Panel — renders inside the input border, above the textarea */}
+        {questionPanel && (
+          <InlineQuestionPanel {...questionPanel} />
+        )}
+
         {/* Selected Form Tag */}
         {selectedForm && (
           <Box sx={{ px: 2, pt: 1.5, pb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -249,14 +382,16 @@ export default function ChatInput({
           sx={{
             border: 'none',
             bgcolor: 'transparent',
+            background: 'transparent',
+            '--joy-palette-background-surface': 'transparent',
             px: 2,
             pt: selectedForm || pendingFiles.length > 0 ? 0.5 : 1.5,
             pb: 5.5,
             resize: 'none',
-            '&:focus-within': { outline: 'none' },
+            '&:focus-within': { outline: 'none', background: 'transparent' },
             '--Textarea-focusedThickness': '0px',
             '--Textarea-focusedHighlight': 'transparent',
-            '& textarea': { '&::placeholder': { color: 'text.tertiary' } },
+            '& textarea': { background: 'transparent', '&::placeholder': { color: 'text.tertiary' } },
           }}
         />
 
@@ -272,7 +407,7 @@ export default function ChatInput({
             right: 0,
             px: 1.5,
             py: 1,
-            bgcolor: 'background.surface',
+            bgcolor: 'transparent',
           }}
         >
           <Stack direction="row" spacing={0.5} alignItems="center">
@@ -285,8 +420,9 @@ export default function ChatInput({
               onClick={() => handleFileSelect()}
               sx={{ borderRadius: 'md', '&:hover': { bgcolor: 'background.level1' } }}
             >
-              {uploading ? <CircularProgress size="sm" sx={{ '--CircularProgress-size': '18px' }} /> : <Plus size={18} />}
+              {uploading ? <CircularProgress size="sm" sx={{ '--CircularProgress-size': '18px' }} /> : <Paperclip size={18} />}
             </IconButton>
+            <MemoryIndicator chatId={chatId} onCompacting={onCompacting} />
           </Stack>
 
           <Stack direction="row" spacing={1} alignItems="center">

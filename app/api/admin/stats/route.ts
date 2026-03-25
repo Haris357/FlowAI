@@ -12,14 +12,15 @@ export async function GET(req: Request) {
     if (!authResult.authorized) return authResult.response;
 
     // Parallel fetch all counts
-    const [usersSnap, ticketsSnap, feedbackSnap, companiesSnap] = await Promise.all([
-      db.collection('users').count().get(),
+    const [ticketsSnap, feedbackSnap, companiesSnap, allUsersSnap] = await Promise.all([
       db.collection('supportTickets').where('status', '==', 'open').count().get(),
       db.collection('feedback').where('status', '==', 'new').count().get(),
       db.collection('companies').count().get(),
+      // Fetch user docs to compute plan distribution (subscription is a field on the user doc)
+      db.collection('users').get(),
     ]);
 
-    const totalUsers = usersSnap.data().count;
+    const totalUsers = allUsersSnap.size;
     const openTickets = ticketsSnap.data().count;
     const newFeedback = feedbackSnap.data().count;
     const totalCompanies = companiesSnap.data().count;
@@ -27,32 +28,45 @@ export async function GET(req: Request) {
     // Get recent users (last 7 days) count
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
-    const recentUsersCountSnap = await db.collection('users')
-      .where('createdAt', '>=', weekAgo)
-      .count()
-      .get();
-    const newUsersThisWeek = recentUsersCountSnap.data().count;
+    let newUsersThisWeek = 0;
 
-    // Get subscription distribution
-    const subsSnap = await db.collectionGroup('subscription').get();
+    // Compute plan distribution — subscription is stored as a field on the user document
     const planDist: Record<string, number> = { free: 0, pro: 0, max: 0 };
-    subsSnap.docs.forEach(doc => {
-      const planId = doc.data().planId || 'free';
+    allUsersSnap.docs.forEach(doc => {
+      const data = doc.data();
+      const planId = data.subscription?.planId || 'free';
       if (planDist[planId] !== undefined) planDist[planId]++;
+      else planDist.free++;
+
+      // Count new users this week
+      const createdAt = data.createdAt;
+      if (createdAt) {
+        const createdMs = createdAt._seconds ? createdAt._seconds * 1000
+          : createdAt.toDate ? createdAt.toDate().getTime()
+          : new Date(createdAt).getTime();
+        if (createdMs >= weekAgo.getTime()) newUsersThisWeek++;
+      }
     });
 
-    // Get recent users (for dashboard sidebar)
-    const recentUsersSnap = await db.collection('users')
-      .orderBy('createdAt', 'desc')
-      .limit(6)
-      .get();
-    const recentUsers = recentUsersSnap.docs.map(doc => ({
-      id: doc.id,
-      name: doc.data().name,
-      email: doc.data().email,
-      photoURL: doc.data().photoURL,
-      createdAt: doc.data().createdAt,
-    }));
+    // Get recent users (for dashboard sidebar) — reuse the already-fetched allUsersSnap
+    const recentUsers = allUsersSnap.docs
+      .map(doc => ({
+        id: doc.id,
+        name: doc.data().name,
+        email: doc.data().email,
+        photoURL: doc.data().photoURL,
+        createdAt: doc.data().createdAt,
+      }))
+      .sort((a, b) => {
+        const getMs = (ts: any) => {
+          if (!ts) return 0;
+          if (ts._seconds) return ts._seconds * 1000;
+          if (ts.toDate) return ts.toDate().getTime();
+          return new Date(ts).getTime();
+        };
+        return getMs(b.createdAt) - getMs(a.createdAt);
+      })
+      .slice(0, 6);
 
     // Build recent activity from multiple sources
     const recentActivity: Array<{ type: string; description: string; timestamp: any }> = [];

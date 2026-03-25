@@ -110,7 +110,7 @@ export default function SignupPage() {
             {[
               { icon: Zap, text: 'Set up in under 5 minutes' },
               { icon: MessageSquare, text: 'AI-powered bookkeeping assistant' },
-              { icon: Shield, text: 'Bank-grade encryption & security' },
+              { icon: Shield, text: 'Encrypted in transit & at rest' },
             ].map((item, i) => (
               <div key={i} className="flex items-center gap-2.5 liquid-glass-subtle px-3 py-2 rounded-xl">
                 <div className="w-5 h-5 rounded-full bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">

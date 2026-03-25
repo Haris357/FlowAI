@@ -105,7 +105,7 @@ export default function AdminUserDetailPage() {
 
   const handleGrantMessages = async () => {
     const amount = parseInt(grantMessages);
-    if (!amount || amount <= 0) { toast.error('Enter a valid message amount'); return; }
+    if (!amount || amount <= 0) { toast.error('Enter a valid token amount'); return; }
     setGrantingMessages(true);
     try {
       const res = await adminFetch(`/api/admin/users/${userId}/grant-messages`, {
@@ -114,10 +114,10 @@ export default function AdminUserDetailPage() {
         body: JSON.stringify({ messages: amount }),
       });
       if (!res.ok) throw new Error();
-      toast.success(`Granted ${amount.toLocaleString()} messages`);
+      toast.success(`Granted ${amount.toLocaleString()} bonus tokens`);
       setGrantMessages('');
       fetchData();
-    } catch { toast.error('Failed to grant messages'); }
+    } catch { toast.error('Failed to grant tokens'); }
     finally { setGrantingMessages(false); }
   };
 
@@ -588,20 +588,20 @@ export default function AdminUserDetailPage() {
                   <FormControl size="sm">
                     <FormLabel>Token Amount</FormLabel>
                     <Input type="number" size="sm" value={grantMessages}
-                      onChange={(e) => setGrantMessages(e.target.value)} placeholder="e.g., 25" />
+                      onChange={(e) => setGrantMessages(e.target.value)} placeholder="e.g., 100000" />
                   </FormControl>
                   <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap>
-                    {[10, 25, 50, 100].map(amount => (
+                    {[50_000, 100_000, 500_000, 1_000_000].map(amount => (
                       <Button key={amount} size="sm" variant="outlined" color="neutral"
                         sx={{ fontSize: '11px', minHeight: '28px', px: 1.5 }}
                         onClick={() => setGrantMessages(String(amount))}>
-                        +{amount}
+                        +{amount >= 1_000_000 ? `${amount / 1_000_000}M` : `${amount / 1_000}K`}
                       </Button>
                     ))}
                   </Stack>
                   <Button size="sm" onClick={handleGrantMessages} loading={grantingMessages}
                     disabled={!grantMessages} color="warning" fullWidth>
-                    Grant Messages
+                    Grant Bonus Tokens
                   </Button>
                 </Stack>
               </CardContent>

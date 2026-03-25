@@ -60,6 +60,70 @@ export interface ToolContext {
 // ACCOUNT PREFERENCES HELPER
 // ==========================================
 
+// Maps subtypeCode → typeCode for accounts that are missing the typeCode field
+const SUBTYPE_TO_TYPE: Record<string, string> = {
+  current_asset: 'asset',
+  fixed_asset: 'asset',
+  other_asset: 'asset',
+  current_liability: 'liability',
+  long_term_liability: 'liability',
+  owner_equity: 'equity',
+  retained_earnings: 'equity',
+  operating_revenue: 'revenue',
+  other_revenue: 'revenue',
+  operating_expense: 'expense',
+  cost_of_goods_sold: 'expense',
+  payroll_expense: 'expense',
+  other_expense: 'expense',
+};
+
+// Maps known account names → typeCode for accounts missing ALL type fields
+const NAME_TO_TYPE: Record<string, string> = {
+  // Assets
+  'cash': 'asset', 'bank account': 'asset', 'accounts receivable': 'asset',
+  'inventory': 'asset', 'office equipment': 'asset', 'computer equipment': 'asset',
+  'furniture & fixtures': 'asset', 'vehicles': 'asset', 'accumulated depreciation': 'asset',
+  'merchandise inventory': 'asset', 'raw materials': 'asset', 'work in progress': 'asset',
+  'finished goods': 'asset',
+  // Liabilities
+  'accounts payable': 'liability', 'credit card': 'liability', 'tax payable': 'liability',
+  'salaries payable': 'liability', 'bank loan': 'liability',
+  // Equity
+  "owner's equity": 'equity', "owner's drawings": 'equity', 'retained earnings': 'equity',
+  // Revenue
+  'service revenue': 'revenue', 'product sales': 'revenue', 'consulting income': 'revenue',
+  'interest income': 'revenue', 'other income': 'revenue', 'project income': 'revenue',
+  'retainer income': 'revenue', 'service fees': 'revenue',
+  // Expenses
+  'advertising & marketing': 'expense', 'bank charges': 'expense',
+  'software & subscriptions': 'expense', 'office supplies': 'expense',
+  'professional services': 'expense', 'travel expenses': 'expense',
+  'meals & entertainment': 'expense', 'internet & phone': 'expense',
+  'insurance': 'expense', 'rent': 'expense', 'utilities': 'expense',
+  'repairs & maintenance': 'expense', 'depreciation expense': 'expense',
+  'salaries & wages': 'expense', 'employee benefits': 'expense',
+  'payroll taxes': 'expense', 'cost of goods sold': 'expense',
+  'freight & shipping': 'expense', 'other expenses': 'expense',
+  'subcontractor costs': 'expense', 'manufacturing overhead': 'expense',
+};
+
+/** Infer typeCode from account name when typeCode/subtypeCode fields are missing */
+function inferTypeFromName(name: string): string | undefined {
+  const lower = name.toLowerCase().trim();
+  // Exact name match first
+  if (NAME_TO_TYPE[lower]) return NAME_TO_TYPE[lower];
+  // Keyword heuristics
+  if (/\bexpense[s]?\b/.test(lower) && !/accumulated/.test(lower)) return 'expense';
+  if (/\b(payroll|wages|salary|salaries)\b/.test(lower)) return 'expense';
+  if (/\b(revenue|income|sales)\b/.test(lower)) return 'revenue';
+  if (/\bpayable\b/.test(lower)) return 'liability';
+  if (/\b(loan|mortgage)\b/.test(lower)) return 'liability';
+  if (/\b(equity|drawings|capital)\b/.test(lower)) return 'equity';
+  if (/\b(retained earnings)\b/.test(lower)) return 'equity';
+  if (/\b(cash|bank|receivable|inventory|equipment|furniture|vehicle|materials)\b/.test(lower)) return 'asset';
+  return undefined;
+}
+
 // Cache preferences per request to avoid multiple Firestore reads
 let _prefCache: { companyId: string; prefs: AccountPreferences } | null = null;
 
@@ -84,28 +148,55 @@ async function resolvePreferredAccount(
   const prefs = await getCachedPreferences(companyId);
   const preferredId = prefs[preferenceIdKey] as string | undefined;
 
+  // isActive check: treat undefined/null as active (backwards compat)
+  const isActive = (a: Account) => a.isActive !== false;
+  // Match by typeCode OR legacy 'type' field OR typeName OR subtypeCode/subType OR infer from name
+  const typeMatches = (a: Account) => {
+    const tc = fallbackTypeCode.toLowerCase();
+    const acc = a as any; // allow access to legacy field names
+    return (
+      acc.typeCode?.toLowerCase() === tc ||
+      acc.type?.toLowerCase() === tc ||          // legacy field from ChartAccount
+      acc.typeName?.toLowerCase().includes(tc) ||
+      SUBTYPE_TO_TYPE[acc.subtypeCode?.toLowerCase() ?? ''] === tc ||
+      SUBTYPE_TO_TYPE[acc.subType?.toLowerCase() ?? ''] === tc || // legacy subType field
+      inferTypeFromName(a.name) === tc
+    );
+  };
+
   if (preferredId) {
-    const preferred = accounts.find(a => a.id === preferredId && a.isActive);
+    const preferred = accounts.find(a => a.id === preferredId && isActive(a));
     if (preferred) return preferred;
   }
 
-  // Fallback: try subtype match first
+  // Fallback: try subtype match first (case-insensitive)
   if (fallbackSubtypeCode) {
-    const match = accounts.find(a => a.isActive && a.typeCode === fallbackTypeCode && a.subtypeCode === fallbackSubtypeCode);
+    const match = accounts.find(a => isActive(a) && typeMatches(a) && a.subtypeCode?.toLowerCase() === fallbackSubtypeCode.toLowerCase());
     if (match) return match;
   }
 
-  // Fallback: try name match
+  // Fallback: try name match within type (case-insensitive)
   if (fallbackNameMatch) {
     const match = accounts.find(a =>
-      a.isActive && a.typeCode === fallbackTypeCode &&
+      isActive(a) && typeMatches(a) &&
       a.name.toLowerCase().includes(fallbackNameMatch.toLowerCase())
     );
     if (match) return match;
   }
 
-  // Final fallback: any active account of the type
-  return accounts.find(a => a.isActive && a.typeCode === fallbackTypeCode);
+  // Fallback: name match across ALL accounts (ignore type) for cash/bank keywords
+  if (fallbackSubtypeCode === 'cash' || fallbackTypeCode === 'asset') {
+    const cashKeywords = ['cash', 'bank', 'checking', 'savings', 'petty cash'];
+    const match = accounts.find(a =>
+      isActive(a) && cashKeywords.some(kw => a.name.toLowerCase().includes(kw))
+    );
+    if (match) return match;
+  }
+
+  // Final fallback: any active account of the type (case-insensitive)
+  const result = accounts.find(a => isActive(a) && typeMatches(a));
+
+  return result;
 }
 
 // ==========================================
@@ -1292,9 +1383,9 @@ async function recordPaymentMade(args: Record<string, any>, companyId: string): 
     };
 
     const accountingConfig = {
-      revenueAccountId: expenseAccount.id,
-      revenueAccountCode: expenseAccount.code,
-      revenueAccountName: expenseAccount.name,
+      expenseAccountId: expenseAccount.id,
+      expenseAccountCode: expenseAccount.code,
+      expenseAccountName: expenseAccount.name,
       createdBy: 'ai-assistant',
     };
 
@@ -1881,13 +1972,26 @@ async function updateBill(args: Record<string, any>, companyId: string): Promise
       return { success: false, message: 'Bill ID is required to update a bill.' };
     }
 
-    // Get the existing bill
-    const docSnap = await getDoc(doc(db, `companies/${companyId}/bills`, billId));
-    if (!docSnap.exists()) {
+    // Get the existing bill — try by doc ID, then scan by billNumber or vendor name
+    const billsRef = collection(db, `companies/${companyId}/bills`);
+    let resolvedId = billId;
+    let docSnap = await getDoc(doc(db, `companies/${companyId}/bills`, billId)).catch(() => null as any);
+    if (!docSnap?.exists()) {
+      const allSnap = await getDocs(query(billsRef, orderBy('createdAt', 'desc'), limit(200)));
+      const needle = billId.toLowerCase();
+      const match = allSnap.docs.find(d => {
+        const data = d.data();
+        const vName = (data.vendorName || '').toLowerCase();
+        const bNum = (data.billNumber || '').toLowerCase();
+        return bNum === needle || vName.includes(needle) || needle.includes(vName);
+      });
+      if (match) { resolvedId = match.id; docSnap = match; }
+    }
+    if (!docSnap?.exists()) {
       return { success: false, message: `Bill not found with ID: ${billId}` };
     }
 
-    const existingBill : any = { id: docSnap.id, ...docSnap.data() };
+    const existingBill: any = { id: docSnap.id, ...docSnap.data() };
 
     // Prepare update data
     const preparedData: Record<string, any> = {};
@@ -1908,14 +2012,14 @@ async function updateBill(args: Record<string, any>, companyId: string): Promise
     if (updateData.taxRate !== undefined) preparedData.taxRate = updateData.taxRate;
     if (updateData.notes !== undefined) preparedData.notes = updateData.notes;
 
-    await updateBillService(companyId, billId, preparedData);
+    await updateBillService(companyId, resolvedId, preparedData);
 
     return {
       success: true,
       message: `Bill **${existingBill.billNumber}** has been updated successfully.`,
       data: { type: 'entity', entityType: 'bill', entity: { ...existingBill, ...preparedData } },
       actions: [
-        { type: 'view', label: 'View Bill', entityType: 'bill', entityId: billId },
+        { type: 'view', label: 'View Bill', entityType: 'bill', entityId: resolvedId },
       ],
     };
   } catch (error: any) {
@@ -2646,13 +2750,21 @@ async function generateSalarySlipAI(args: Record<string, any>, companyId: string
     }
 
     if (!employeeId) {
-      // Still no ID — list employees so user can pick
+      // Still no ID — ask if user wants to create the employee
       const employees = await getActiveEmployees(companyId);
       if (employees.length === 0) {
-        return { success: false, message: 'No active employees found. Please add an employee first.' };
+        return {
+          success: false,
+          message: employeeName
+            ? `I couldn't find **${employeeName}** as an employee. Would you like me to add them as an employee first? Just confirm and I'll create the employee record, then generate the salary slip.`
+            : 'No active employees found. Would you like me to add an employee first?',
+        };
       }
       const names = employees.map(e => e.name).join(', ');
-      return { success: false, message: `I couldn't find an employee named "${employeeName}". Active employees: ${names}. Please specify the employee name.` };
+      return {
+        success: false,
+        message: `I couldn't find **${employeeName}** in the employee list. Would you like me to add **${employeeName}** as a new employee and then generate the salary slip? Or did you mean one of these: ${names}?`,
+      };
     }
 
     const month = Number(args.month);
@@ -2778,6 +2890,16 @@ async function sendInvoiceViaEmail(args: Record<string, any>, companyId: string)
       } catch (e) { /* invalid doc ID */ }
     }
 
+    // Last resort: scan all invoices and match by invoiceNumber (handles missing index / casing)
+    if (snapshot.empty) {
+      const allSnap = await getDocs(query(invoicesRef, orderBy('createdAt', 'desc'), limit(200)));
+      const match = allSnap.docs.find(d => {
+        const num = d.data().invoiceNumber as string | undefined;
+        return num?.toLowerCase() === invoiceId.toLowerCase();
+      });
+      if (match) snapshot = { docs: [match], empty: false } as any;
+    }
+
     if (snapshot.empty) {
       return { success: false, message: `Couldn't find invoice "${invoiceId}". Please check the invoice number.` };
     }
@@ -2873,6 +2995,16 @@ async function changeInvoiceStatus(args: Record<string, any>, companyId: string)
       } catch (e) {
         // Invalid document ID format
       }
+    }
+
+    // Last resort: scan all invoices and match by invoiceNumber (handles missing index / casing)
+    if (snapshot.empty) {
+      const allSnap = await getDocs(query(invoicesRef, orderBy('createdAt', 'desc'), limit(200)));
+      const match = allSnap.docs.find(d => {
+        const num = d.data().invoiceNumber as string | undefined;
+        return num?.toLowerCase() === invoiceId.toLowerCase();
+      });
+      if (match) snapshot = { docs: [match], empty: false } as any;
     }
 
     if (snapshot.empty) {
@@ -2983,7 +3115,7 @@ async function changeBillStatus(args: Record<string, any>, companyId: string): P
 
     const { billId, newStatus } = args;
 
-    // Get current bill - try by bill number first, then by document ID
+    // Get current bill - try by bill number, then document ID, then vendor name
     const billsRef = collection(db, `companies/${companyId}/bills`);
     const q = query(billsRef, where('billNumber', '==', billId));
     let snapshot = await getDocs(q);
@@ -3001,8 +3133,21 @@ async function changeBillStatus(args: Record<string, any>, companyId: string): P
       }
     }
 
+    // If still not found, try scanning by vendor name (case-insensitive)
     if (snapshot.empty) {
-      return { success: false, message: `Couldn't find bill "${billId}"` };
+      const allSnap = await getDocs(query(billsRef, orderBy('createdAt', 'desc'), limit(200)));
+      const needle = billId.toLowerCase();
+      const match = allSnap.docs.find(d => {
+        const data = d.data();
+        const vName = (data.vendorName || '').toLowerCase();
+        const bNum = (data.billNumber || '').toLowerCase();
+        return vName.includes(needle) || needle.includes(vName) || bNum === needle;
+      });
+      if (match) snapshot = { docs: [match], empty: false } as any;
+    }
+
+    if (snapshot.empty) {
+      return { success: false, message: `Couldn't find bill "${billId}". Please check the bill number or vendor name.` };
     }
 
     const billDoc = snapshot.docs[0];

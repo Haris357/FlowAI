@@ -281,7 +281,7 @@ export default function SecurityPage() {
             </span>
           </h1>
           <p className="text-base sm:text-lg text-slate-600 dark:text-[#A8A29E] max-w-2xl mx-auto leading-relaxed">
-            We treat security as a core product feature, not an afterthought. Every layer of Flowbooks is built with bank-grade security measures to keep your data safe.
+            We treat security as a core product feature, not an afterthought. Every layer of Flowbooks is built with industry-standard security measures to keep your data safe.
           </p>
 
           {/* Trust badges */}

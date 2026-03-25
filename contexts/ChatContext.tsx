@@ -688,9 +688,25 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
           // === FOLLOW-UP ROUND ===
           // Send tool results back to AI for potential follow-up actions (e.g., create invoice → send invoice)
+          // Skip follow-up for simple CRUD tools that never need a second AI turn
+          const NO_FOLLOWUP_TOOLS = new Set([
+            'add_customer', 'update_customer', 'add_vendor', 'update_vendor',
+            'record_expense', 'record_payment', 'add_account', 'update_account',
+            'list_invoices', 'list_customers', 'list_vendors', 'list_accounts',
+            'list_transactions', 'list_expenses', 'list_payments',
+            'get_invoice', 'get_customer', 'get_vendor', 'get_account',
+            'get_transaction', 'get_expense',
+            'send_payment_reminder', 'send_payment_reminders',
+            'delete_invoice', 'delete_customer', 'delete_vendor',
+            // create_invoice: question panel already handles "send?" — no follow-up needed
+            'create_invoice',
+          ]);
+          const toolCallNames: string[] = (data.toolCalls || []).map((tc: any) => tc.name as string);
+          const needsFollowUp = toolCallNames.some((name: string) => !NO_FOLLOWUP_TOOLS.has(name));
+
           let allResults = [...results];
           let hasFollowUpMessage = false;
-          if (data.rawToolCalls && data.rawToolCalls.length > 0 && results.some(r => r.success)) {
+          if (needsFollowUp && data.rawToolCalls && data.rawToolCalls.length > 0 && results.some(r => r.success)) {
             const followUpPayload = results.map((r, i) => ({
               toolCallId: data.rawToolCalls[i]?.id || data.toolCalls[i].id,
               result: JSON.stringify({
@@ -701,10 +717,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
               }),
             }));
 
-            setThinkingSteps(prev => [
-              ...prev.map(s => ({ ...s, status: 'completed' as const })),
-              { id: 'followup', label: 'Checking next steps', status: 'in_progress' as const },
-            ]);
+            // Mark all tool steps as done — don't show a separate "Checking next steps" indicator
+            setThinkingSteps(prev => prev.map(s => ({ ...s, status: 'completed' as const })));
 
             try {
               const followUpRes = await fetch('/api/chat', {
@@ -734,7 +748,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                   }));
                 }
 
-                setThinkingSteps(prev => prev.map(s => s.id === 'followup' ? { ...s, status: 'completed' as const } : s));
+                // followup step already removed from UI
 
                 if (followUpData.toolCalls && followUpData.toolCalls.length > 0) {
                   // Execute follow-up tool calls

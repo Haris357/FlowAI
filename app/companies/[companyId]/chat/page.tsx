@@ -123,6 +123,7 @@ export default function ChatPage() {
         onSelectAction={handleSelectAction}
         onClearForm={handleClearForm}
         sessionUsage={sessionUsage}
+        chatId={currentSessionId}
       />
 
       {/* Settings Modal */}

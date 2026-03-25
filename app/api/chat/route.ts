@@ -388,7 +388,7 @@ export async function POST(request: NextRequest) {
       tools: FLOW_AI_TOOLS as any,
       tool_choice: 'auto',
       temperature: 0.2,
-      max_tokens: 1536,
+      max_tokens: 4096,
     });
 
     const choice = response.choices[0];

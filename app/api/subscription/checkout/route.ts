@@ -9,7 +9,8 @@ const adminDb = getFirestore();
 
 export async function POST(request: NextRequest) {
   try {
-    const { planId, userId } = await request.json();
+    const { planId, userId, billingPeriod } = await request.json();
+    const isYearly = billingPeriod === 'yearly';
 
     if (!planId || !userId) {
       return NextResponse.json({ error: 'planId and userId are required' }, { status: 400 });
@@ -21,11 +22,17 @@ export async function POST(request: NextRequest) {
     }
 
     // Use server-side env vars (NEXT_PUBLIC_ vars may not be available at runtime in API routes)
-    const variantIdMap: Record<string, string | undefined> = {
+    const monthlyVariantIdMap: Record<string, string | undefined> = {
       pro: process.env.LEMON_SQUEEZY_PRO_VARIANT_ID || process.env.NEXT_PUBLIC_LEMON_SQUEEZY_PRO_VARIANT_ID,
       max: process.env.LEMON_SQUEEZY_MAX_VARIANT_ID || process.env.NEXT_PUBLIC_LEMON_SQUEEZY_MAX_VARIANT_ID,
     };
-    const variantId = variantIdMap[planId] || plan.lemonSqueezyVariantId;
+    const yearlyVariantIdMap: Record<string, string | undefined> = {
+      pro: process.env.LEMON_SQUEEZY_PRO_YEARLY_VARIANT_ID || process.env.NEXT_PUBLIC_LEMON_SQUEEZY_PRO_YEARLY_VARIANT_ID,
+      max: process.env.LEMON_SQUEEZY_MAX_YEARLY_VARIANT_ID || process.env.NEXT_PUBLIC_LEMON_SQUEEZY_MAX_YEARLY_VARIANT_ID,
+    };
+    const variantId = isYearly
+      ? (yearlyVariantIdMap[planId] || plan.yearlyLemonSqueezyVariantId)
+      : (monthlyVariantIdMap[planId] || plan.lemonSqueezyVariantId);
 
     if (!variantId) {
       console.error(`[Checkout] No variant ID for plan: ${planId}`);

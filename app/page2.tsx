@@ -98,7 +98,7 @@ const chatExamples = [
 const faqs = [
   {
     q: "Is my financial data secure?",
-    a: "Absolutely. We use bank-grade 256-bit encryption for all data transmission and storage. Your financial data is yours alone; we never sell it to third parties."
+    a: "Absolutely. Your data is encrypted in transit and at rest using 256-bit AES encryption, secured by Google Cloud infrastructure. We never sell your data to third parties."
   },
   {
     q: "Do I need to know accounting to use this?",
@@ -410,7 +410,7 @@ export default function LandingPage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-xs text-slate-500 dark:text-[#78736D]">
-              {['Bank-grade encryption', 'Real-time data', 'Set up in minutes'].map((t, i) => (
+              {['256-bit AES encryption', 'Real-time data', 'Set up in minutes'].map((t, i) => (
                 <span key={i} className="flex items-center gap-1.5">
                   <Check className="w-3.5 h-3.5 text-brand-500" /> {t}
                 </span>
@@ -846,7 +846,7 @@ export default function LandingPage() {
                 Sign In
               </Link>
             </div>
-            <p className="mt-6 text-xs text-white/50">Bank-grade encryption &bull; Set up in minutes &bull; Cancel anytime</p>
+            <p className="mt-6 text-xs text-white/50">Encrypted in transit &amp; at rest &bull; Set up in minutes &bull; Cancel anytime</p>
           </div>
         </div>
       </section>
