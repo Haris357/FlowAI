@@ -23,7 +23,8 @@ export async function sendEmail(
     throw new Error('RESEND_API_KEY not configured.');
   }
 
-  const from = process.env.RESEND_FROM || 'Flowbooks <hello@flowbooksai.com>';
+  const fromEnv = (process.env.RESEND_FROM || '').trim();
+  const from = fromEnv || 'Flowbooks <hello@flowbooksai.com>';
 
   const { error } = await resend.emails.send({
     from,

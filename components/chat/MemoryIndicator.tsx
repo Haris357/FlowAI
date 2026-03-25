@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Box, Typography, Tooltip, Stack, CircularProgress } from '@mui/joy';
-import { Zap } from 'lucide-react';
+import { CheckCircle } from 'lucide-react';
 import { useMemoryStats } from '@/hooks/useMemoryStats';
 import { compactConversation } from '@/lib/ai-memory';
 import { useCompany } from '@/contexts/CompanyContext';
@@ -19,13 +19,21 @@ export default function MemoryIndicator({ chatId, onCompacting }: MemoryIndicato
   const { company } = useCompany();
   const { user } = useAuth();
   const [compacting, setCompacting] = useState(false);
+  const [done, setDone] = useState(false);
+
+  // Reset done state after 2s
+  useEffect(() => {
+    if (!done) return;
+    const t = setTimeout(() => setDone(false), 2000);
+    return () => clearTimeout(t);
+  }, [done]);
 
   if (loading || !stats || !stats.hasActiveMemory) return null;
 
   const remaining = Math.round((1 - stats.usagePercentage) * 100);
   const used = Math.round(stats.usagePercentage * 100);
 
-  if (used < 20) return null;
+  if (used < 20 && !compacting && !done) return null;
 
   const dotColor =
     stats.memoryHealth === 'critical' ? 'var(--joy-palette-danger-500)' :
@@ -43,7 +51,7 @@ export default function MemoryIndicator({ chatId, onCompacting }: MemoryIndicato
       setCompacting(true);
       onCompacting?.(true);
       await compactConversation(company.id, targetChatId);
-      toast.success('Context compacted');
+      setDone(true);
     } catch {
       toast.error('Failed to compact context');
     } finally {
@@ -51,6 +59,30 @@ export default function MemoryIndicator({ chatId, onCompacting }: MemoryIndicato
       onCompacting?.(false);
     }
   };
+
+  // While compacting — inline spinner, no tooltip
+  if (compacting) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 0.75, py: 0.375 }}>
+        <CircularProgress size="sm" sx={{ '--CircularProgress-size': '14px', '--CircularProgress-trackThickness': '2px', '--CircularProgress-progressThickness': '2px' }} />
+        <Typography level="body-xs" sx={{ color: 'primary.500', fontWeight: 600, fontSize: '11px', lineHeight: 1 }}>
+          Compacting…
+        </Typography>
+      </Box>
+    );
+  }
+
+  // Brief success state
+  if (done) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, px: 0.75, py: 0.375 }}>
+        <CheckCircle size={13} color="var(--joy-palette-success-500)" />
+        <Typography level="body-xs" sx={{ color: 'success.600', fontWeight: 600, fontSize: '11px', lineHeight: 1 }}>
+          Compacted
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Tooltip
@@ -75,10 +107,12 @@ export default function MemoryIndicator({ chatId, onCompacting }: MemoryIndicato
             <Typography level="body-xs" sx={{ color: 'text.primary', fontWeight: 500 }}>
               {remaining}% of context remaining until auto-compact.
             </Typography>
-            <Box onClick={handleCompact} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, cursor: compacting ? 'default' : 'pointer', color: 'primary.500', '&:hover': { color: 'primary.600', textDecoration: 'underline' } }}>
-              {compacting ? <CircularProgress size="sm" sx={{ '--CircularProgress-size': '12px' }} /> : <Zap size={11} />}
+            <Box
+              onClick={handleCompact}
+              sx={{ display: 'flex', alignItems: 'center', gap: 0.75, cursor: 'pointer', color: 'primary.500', '&:hover': { color: 'primary.600', textDecoration: 'underline' } }}
+            >
               <Typography level="body-xs" sx={{ color: 'inherit', fontWeight: 600 }}>
-                {compacting ? 'Compacting...' : 'Click to compact now.'}
+                Click to compact now
               </Typography>
             </Box>
             <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '10px' }}>

@@ -227,41 +227,19 @@ async function generateSummary(
     .map((msg) => `${msg.role.toUpperCase()}: ${msg.content}`)
     .join('\n\n');
 
-  const summaryPrompt = existingSummary
-    ? `Previous summary:\n${existingSummary}\n\nNew messages:\n${messagesText}\n\nCombine into a comprehensive updated summary. You MUST preserve ALL details from the previous summary and add new information.`
-    : `Create a detailed summary of this conversation.\n\nConversation:\n${messagesText}`;
-
   try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    const response = await fetch(`${baseUrl}/api/memory/summarize`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.OPENAI_API_KEY || ''}`,
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        max_tokens: MEMORY_CONFIG.MAX_SUMMARY_TOKENS,
-        temperature: 0.2,
-        messages: [
-          { role: 'system', content: `Create a detailed conversation summary for an AI accounting assistant. You MUST capture ALL of the following:
-1. CUSTOMER/VENDOR NAMES: Every name mentioned and their relationship (e.g., "Jonas - script writing client")
-2. PRICING & RATES: All pricing structures, per-unit rates, discount rules (e.g., "$0.025/word for 3000+ word scripts")
-3. SERVICES & ITEMS: What services/products were discussed, with quantities and amounts
-4. ACTIONS TAKEN: What was created, updated, deleted (with IDs if available)
-5. PENDING TASKS: Any incomplete requests or tasks the user mentioned but haven't been completed
-6. USER PREFERENCES: Patterns in how the user works, preferred payment methods, recurring clients
-7. BUSINESS RULES: Any business rules the user stated (e.g., pricing tiers, payment terms)
-Be thorough — if you omit a detail, the AI will permanently forget it.` },
-          { role: 'user', content: summaryPrompt },
-        ],
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages, existingSummary }),
     });
 
     const data = await response.json();
-    if (!response.ok || !data.choices?.[0]?.message?.content) {
-      throw new Error(`OpenAI API error ${response.status}: ${data.error?.message || 'Unknown error'}`);
+    if (!response.ok || !data.summary) {
+      throw new Error(data.error || `Summarize API error ${response.status}`);
     }
-    return data.choices[0].message.content;
+    return data.summary;
   } catch (error) {
     console.error('[Memory] Summary generation failed:', error);
     return `Summary of ${messages.length} messages: ${messagesText.slice(0, 400)}...`;

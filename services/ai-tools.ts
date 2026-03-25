@@ -2922,7 +2922,7 @@ async function sendInvoiceViaEmail(args: Record<string, any>, companyId: string)
     }
 
     // Call the comprehensive status API
-    const baseUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
     const response = await fetch(`${baseUrl}/api/invoices/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

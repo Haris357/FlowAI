@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useEffect, useState, useCallback, useMemo } from 'react';
-import { Box, Stack, Typography } from '@mui/joy';
+import { useRef, useEffect, useState, useMemo } from 'react';
+import { Box, Stack } from '@mui/joy';
 import { ChatMessage as ChatMessageType, ThinkingStep } from '@/types';
 import ChatMessage from './ChatMessage';
 import ThinkingSteps from './ThinkingSteps';
@@ -55,7 +55,6 @@ export default function ChatMain({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [showWelcome, setShowWelcome] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [isCompacting, setIsCompacting] = useState(false);
   const [dismissedQuestionId, setDismissedQuestionId] = useState<string | null>(null);
 
   // Detect last AI message with standalone question-type actions — memoized to prevent re-renders
@@ -199,7 +198,6 @@ export default function ChatMain({
           onSelectAction={handleSelectAction}
           sessionUsage={sessionUsage}
           chatId={chatId}
-          onCompacting={setIsCompacting}
         />
       </Box>
     );
@@ -320,30 +318,6 @@ export default function ChatMain({
         </Box>
       </Box>
 
-      {/* Compacting banner */}
-      {isCompacting && (
-        <Box sx={{
-          mx: 2, mb: 1, px: 2, py: 1, borderRadius: '10px',
-          bgcolor: 'primary.softBg', border: '1px solid', borderColor: 'primary.outlinedBorder',
-          display: 'flex', alignItems: 'center', gap: 1.5,
-        }}>
-          <Box sx={{ flex: 1, height: 3, borderRadius: 2, bgcolor: 'primary.outlinedBorder', overflow: 'hidden' }}>
-            <Box sx={{
-              height: '100%', borderRadius: 2, bgcolor: 'primary.500',
-              width: '40%',
-              animation: 'compactSlide 1.4s ease-in-out infinite',
-              '@keyframes compactSlide': {
-                '0%': { marginLeft: '-40%' },
-                '100%': { marginLeft: '100%' },
-              },
-            }} />
-          </Box>
-          <Typography level="body-xs" sx={{ color: 'primary.700', fontWeight: 600, whiteSpace: 'nowrap', fontSize: '11px' }}>
-            Compacting conversation…
-          </Typography>
-        </Box>
-      )}
-
       {/* Input Area - at bottom */}
       <Box sx={{ bgcolor: 'transparent', pb: 2 }}>
         <ChatInput
@@ -358,7 +332,6 @@ export default function ChatMain({
           showQuickActions={false}
           sessionUsage={sessionUsage}
           chatId={chatId}
-          onCompacting={setIsCompacting}
           questionPanel={panelActions && lastAiMessage ? {
             question: panelQuestion,
             actions: panelActions,
