@@ -18,6 +18,7 @@ import {
   buildBusinessContextPrompt,
 } from '@/services/userContext';
 import { checkUsageBudgetAdmin, trackUsageAdmin, type UsageBudgetResult } from '@/services/subscription-admin';
+import { getCompanySnapshot, invalidateCompanySnapshot, buildSnapshotPrompt, FIRESTORE_SCHEMA } from '@/services/company-snapshot';
 import { formatDuration } from '@/lib/plans';
 import { trackServer } from '@/lib/analytics-server';
 
@@ -85,6 +86,9 @@ function buildContextReminder(
   // Short user messages are very likely direct answers to the question
   const isShortReply = currentMessage.trim().split(/\s+/).length <= 10;
 
+  // If the user is asking a question back (contains "?"), don't treat it as an answer to execute on
+  const isUserAskingQuestion = currentMessage.includes('?');
+
   if (isRetryRequest) {
     return [{
       role: 'system' as const,
@@ -114,11 +118,16 @@ function buildContextReminder(
     }];
   }
 
-  if (isShortReply) {
+  if (isShortReply && !isUserAskingQuestion) {
     return [{
       role: 'system' as const,
       content: `[CONTEXT REMINDER: The assistant just asked the user a question. The user's current message "${currentMessage}" is their answer to that question. Connect this answer to the pending task and proceed. Do NOT treat it as a new unrelated request. If you now have enough information, execute the action immediately — call the tool, don't just describe what you'll do.]`,
     }];
+  }
+
+  if (isUserAskingQuestion) {
+    // User is confused or asking a clarifying question — answer it, don't blindly execute
+    return [];
   }
 
   return [{
@@ -364,18 +373,19 @@ export async function POST(request: NextRequest) {
     // Build context reminder (skip for follow-up)
     const contextMessages = isFollowUp ? [] : buildContextReminder(recentHistory, message);
 
-    // Load persistent business context for this user
-    let systemPrompt = FLOW_AI_SYSTEM_PROMPT;
-    try {
-      const businessCtx = await getUserBusinessContext(companyId, userId);
-      if (businessCtx) {
-        const ctxSnippet = buildBusinessContextPrompt(businessCtx);
-        if (ctxSnippet) {
-          systemPrompt += ctxSnippet;
-        }
-      }
-    } catch (ctxError) {
-      console.warn('[Flow AI] Failed to load business context:', ctxError);
+    // Load business snapshot (L1→L2→build) and persistent user context in parallel
+    let systemPrompt = FLOW_AI_SYSTEM_PROMPT + '\n\n' + FIRESTORE_SCHEMA;
+    const [snapshot, businessCtx] = await Promise.allSettled([
+      getCompanySnapshot(companyId),
+      getUserBusinessContext(companyId, userId),
+    ]);
+
+    if (snapshot.status === 'fulfilled') {
+      systemPrompt += buildSnapshotPrompt(snapshot.value);
+    }
+    if (businessCtx.status === 'fulfilled' && businessCtx.value) {
+      const ctxSnippet = buildBusinessContextPrompt(businessCtx.value);
+      if (ctxSnippet) systemPrompt += ctxSnippet;
     }
 
     // ==========================================
@@ -470,6 +480,28 @@ export async function POST(request: NextRequest) {
     await addMessageToMemory(companyId, conversationId, assistantMessage);
 
     const cost = calculateCost(promptTokens, completionTokens, MODEL);
+
+    // Invalidate snapshot cache if any write tool was called
+    const READ_ONLY_TOOLS = new Set([
+      'list_customers', 'get_customer', 'search_customers',
+      'list_vendors', 'get_vendor', 'search_vendors',
+      'list_employees', 'get_employee',
+      'list_invoices', 'get_invoice', 'search_invoices',
+      'list_bills', 'get_bill',
+      'list_transactions', 'get_transaction', 'search_transactions',
+      'list_accounts', 'get_account_balance',
+      'list_journal_entries', 'get_journal_entry',
+      'list_quotes', 'get_quote',
+      'list_purchase_orders', 'get_purchase_order',
+      'list_credit_notes', 'get_credit_note',
+      'list_recurring_transactions',
+      'list_bank_accounts',
+      'list_salary_slips',
+      'generate_report', 'get_dashboard_summary',
+      'query_records',
+    ]);
+    const hasWriteCall = toolCalls.some(tc => !READ_ONLY_TOOLS.has(tc.name));
+    if (hasWriteCall) invalidateCompanySnapshot(companyId);
 
     // Track usage for subscription billing (session + weekly, token-weighted)
     let trackResult: { sessionRemaining: number; weeklyRemaining: number; tokensUsed: number } | undefined;

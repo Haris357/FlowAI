@@ -141,7 +141,10 @@ export default function ChatSettings({
         <ModalDialog
           variant="outlined"
           sx={{
-            width: 460,
+            maxWidth: { xs: '95vw', sm: 460 },
+            width: '100%',
+            maxHeight: { xs: '90vh', sm: '85vh' },
+            overflowY: 'auto',
             borderRadius: 'lg',
           }}
         >

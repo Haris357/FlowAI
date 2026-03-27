@@ -173,7 +173,7 @@ export default function TeamManagementModal({
       <ModalDialog
         variant="outlined"
         sx={{
-          maxWidth: 560, width: '95%', borderRadius: '16px', p: 0,
+          maxWidth: { xs: '95vw', sm: 560 }, width: '100%', borderRadius: '16px', p: 0,
           overflow: 'hidden', maxHeight: '85vh',
         }}
       >
@@ -207,7 +207,7 @@ export default function TeamManagementModal({
                 <UserPlus size={13} style={{ marginRight: 6, verticalAlign: -2 }} />
                 Invite a new member
               </Typography>
-              <Stack direction="row" spacing={1}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
                 <Input
                   placeholder="Email address"
                   type="email"
@@ -215,32 +215,34 @@ export default function TeamManagementModal({
                   onChange={e => setInviteEmail(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleInvite()}
                   startDecorator={<Mail size={14} />}
-                  sx={{ flex: 1 }}
+                  sx={{ flex: 1, width: '100%' }}
                   size="sm"
                 />
-                <Select
-                  value={inviteRole}
-                  onChange={(_, v) => v && setInviteRole(v)}
-                  size="sm"
-                  sx={{ minWidth: 100 }}
-                >
-                  {assignableRoles.map(r => (
-                    <Option key={r} value={r}>
-                      <Stack direction="row" spacing={0.75} alignItems="center">
-                        {getRoleIcon(r)}
-                        <span>{ROLE_LABELS[r]}</span>
-                      </Stack>
-                    </Option>
-                  ))}
-                </Select>
-                <Button
-                  size="sm"
-                  loading={sending}
-                  onClick={handleInvite}
-                  startDecorator={<Send size={13} />}
-                >
-                  Invite
-                </Button>
+                <Stack direction="row" spacing={1}>
+                  <Select
+                    value={inviteRole}
+                    onChange={(_, v) => v && setInviteRole(v)}
+                    size="sm"
+                    sx={{ minWidth: 100, flex: 1 }}
+                  >
+                    {assignableRoles.map(r => (
+                      <Option key={r} value={r}>
+                        <Stack direction="row" spacing={0.75} alignItems="center">
+                          {getRoleIcon(r)}
+                          <span>{ROLE_LABELS[r]}</span>
+                        </Stack>
+                      </Option>
+                    ))}
+                  </Select>
+                  <Button
+                    size="sm"
+                    loading={sending}
+                    onClick={handleInvite}
+                    startDecorator={<Send size={13} />}
+                  >
+                    Invite
+                  </Button>
+                </Stack>
               </Stack>
             </Box>
           )}

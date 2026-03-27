@@ -330,7 +330,7 @@ export default function PayrollPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
         <PageBreadcrumbs
@@ -340,7 +340,7 @@ export default function PayrollPage() {
         />
 
         {/* Header */}
-        <Stack direction="row" justifyContent="space-between" alignItems="center">
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={2}>
           <Box>
             <Typography level="h2" sx={{ mb: 0.5 }}>
               Payroll
@@ -354,6 +354,7 @@ export default function PayrollPage() {
             color="primary"
             startDecorator={<Plus size={18} />}
             onClick={handleAdd}
+            sx={{ whiteSpace: 'nowrap' }}
           >
             Add Salary Slip
           </Button>
@@ -362,15 +363,17 @@ export default function PayrollPage() {
         {/* Month/Year Selection */}
         <Card variant="outlined">
           <CardContent>
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Calendar size={18} />
-              <Typography level="body-sm" fontWeight={500}>
-                Period:
-              </Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'stretch', sm: 'center' }}>
+              <Stack direction="row" spacing={2} alignItems="center">
+                <Calendar size={18} />
+                <Typography level="body-sm" fontWeight={500}>
+                  Period:
+                </Typography>
+              </Stack>
               <Select
                 value={selectedMonth}
                 onChange={(_, value) => setSelectedMonth(value || 1)}
-                sx={{ minWidth: 130 }}
+                sx={{ minWidth: { xs: '100%', sm: 130 } }}
               >
                 {MONTHS.map((month, index) => (
                   <Option key={index + 1} value={index + 1}>
@@ -381,7 +384,7 @@ export default function PayrollPage() {
               <Select
                 value={selectedYear}
                 onChange={(_, value) => setSelectedYear(value || new Date().getFullYear())}
-                sx={{ minWidth: 100 }}
+                sx={{ minWidth: { xs: '100%', sm: 100 } }}
               >
                 {years.map((year) => (
                   <Option key={year} value={year}>
@@ -511,7 +514,7 @@ export default function PayrollPage() {
             ) : salarySlips.length === 0 ? (
               <EmptyState type="payroll" />
             ) : (
-              <Sheet sx={{ overflow: 'auto' }}>
+              <Sheet sx={{ overflowX: 'auto' }}>
                 <Table stickyHeader>
                   <thead>
                     <tr>
@@ -632,7 +635,7 @@ export default function PayrollPage() {
         <ModalDialog
           variant="outlined"
           layout="center"
-          sx={{ width: '100%', maxWidth: 700, maxHeight: '90vh', overflow: 'hidden', p: 0 }}
+          sx={{ width: '100%', maxWidth: { xs: '95vw', sm: 700 }, maxHeight: '90vh', overflow: 'hidden', p: 0 }}
         >
           <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1 }}>
             {editingSlip ? 'Edit Salary Slip' : 'New Salary Slip'}

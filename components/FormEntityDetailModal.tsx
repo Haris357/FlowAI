@@ -417,7 +417,7 @@ export default function FormEntityDetailModal({
       <ModalDialog
         variant="outlined"
         sx={{
-          maxWidth: 600,
+          maxWidth: { xs: '95vw', sm: 600 },
           width: '100%',
           maxHeight: '90vh',
           overflow: 'auto',
@@ -457,7 +457,7 @@ export default function FormEntityDetailModal({
         {(onEdit || onDelete) && (
           <>
             <Divider sx={{ mt: 2 }} />
-            <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 2 }}>
+            <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1} justifyContent="flex-end" sx={{ mt: 2 }}>
               {onDelete && deleteAllowed && (
                 <Button
                   variant="soft"

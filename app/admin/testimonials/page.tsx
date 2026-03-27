@@ -229,7 +229,7 @@ export default function TestimonialsAdmin() {
 
       {/* Create/Edit Modal */}
       <Modal open={modalOpen} onClose={() => setModalOpen(false)}>
-        <ModalDialog sx={{ maxWidth: 500, width: '100%' }}>
+        <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 500 }, width: '100%' }}>
           <ModalClose />
           <Typography level="title-lg" fontWeight={700}>
             {editId ? 'Edit Testimonial' : 'Add Testimonial'}
@@ -237,14 +237,14 @@ export default function TestimonialsAdmin() {
           <Divider sx={{ my: 1.5 }} />
 
           <Stack spacing={2}>
-            <Stack direction="row" spacing={2}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <FormControl sx={{ flex: 1 }}>
                 <FormLabel>Name *</FormLabel>
                 <Input
                   size="sm"
                   value={form.name}
                   onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                  placeholder="John Doe"
+                  placeholder="e.g. Alex Johnson"
                 />
               </FormControl>
               <FormControl sx={{ flex: 1 }}>
@@ -253,7 +253,7 @@ export default function TestimonialsAdmin() {
                   size="sm"
                   value={form.role}
                   onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
-                  placeholder="CEO"
+                  placeholder="e.g. Manager"
                 />
               </FormControl>
             </Stack>
@@ -264,7 +264,7 @@ export default function TestimonialsAdmin() {
                 size="sm"
                 value={form.company}
                 onChange={e => setForm(f => ({ ...f, company: e.target.value }))}
-                placeholder="Acme Inc"
+                placeholder="e.g. Company Name"
               />
             </FormControl>
 
@@ -278,7 +278,7 @@ export default function TestimonialsAdmin() {
               />
             </FormControl>
 
-            <Stack direction="row" spacing={2}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
               <FormControl sx={{ flex: 1 }}>
                 <FormLabel>Rating</FormLabel>
                 <Select
@@ -313,7 +313,7 @@ export default function TestimonialsAdmin() {
               />
             </FormControl>
 
-            <Stack direction="row" spacing={1.5} justifyContent="flex-end" sx={{ pt: 1 }}>
+            <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.5} justifyContent="flex-end" sx={{ pt: 1 }}>
               <Button variant="plain" color="neutral" onClick={() => setModalOpen(false)}>
                 Cancel
               </Button>
@@ -331,12 +331,12 @@ export default function TestimonialsAdmin() {
 
       {/* Delete Confirmation */}
       <Modal open={!!deleteConfirm} onClose={() => setDeleteConfirm(null)}>
-        <ModalDialog variant="outlined" sx={{ maxWidth: 360 }}>
+        <ModalDialog variant="outlined" sx={{ maxWidth: { xs: '95vw', sm: 360 }, width: '100%' }}>
           <Typography level="title-md" fontWeight={700}>Delete Testimonial?</Typography>
           <Typography level="body-sm" sx={{ color: 'text.secondary', my: 1 }}>
             This action cannot be undone. The testimonial will be permanently removed.
           </Typography>
-          <Stack direction="row" spacing={1.5} justifyContent="flex-end">
+          <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.5} justifyContent="flex-end">
             <Button variant="plain" color="neutral" onClick={() => setDeleteConfirm(null)}>
               Cancel
             </Button>

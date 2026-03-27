@@ -16,7 +16,7 @@ export default function UpgradeModal() {
 
   return (
     <Modal open={!!upgradeReason} onClose={dismissUpgradeModal}>
-      <ModalDialog variant="outlined" sx={{ maxWidth: 440, width: '100%', borderRadius: 'lg', p: 3 }}>
+      <ModalDialog variant="outlined" sx={{ maxWidth: { xs: '95vw', sm: 440 }, width: '100%', borderRadius: 'lg', p: 3 }}>
         <ModalClose />
         <Stack spacing={2.5}>
           <Stack direction="row" spacing={1.5} alignItems="center">
@@ -58,7 +58,7 @@ export default function UpgradeModal() {
             </>
           )}
 
-          <Stack direction="row" spacing={1} justifyContent="flex-end">
+          <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1} justifyContent="flex-end">
             <Button variant="plain" color="neutral" onClick={dismissUpgradeModal}>
               Maybe Later
             </Button>

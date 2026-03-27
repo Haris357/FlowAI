@@ -486,7 +486,7 @@ export default function BillsPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
         <PageBreadcrumbs
@@ -688,7 +688,7 @@ export default function BillsPage() {
             ) : filteredBills.length === 0 ? (
               <EmptyState type="bills" />
             ) : (
-              <Sheet sx={{ overflow: 'auto' }}>
+              <Sheet sx={{ overflowX: 'auto' }}>
                 <Table stickyHeader>
                   <thead>
                     <tr>
@@ -861,9 +861,9 @@ export default function BillsPage() {
           layout="center"
           sx={{
             width: '100%',
-            maxWidth: 850,
-            maxHeight: '90vh',
-            overflow: 'hidden',
+            maxWidth: { xs: '95vw', sm: 850 },
+            maxHeight: { xs: '90vh', sm: '85vh' },
+            overflowY: 'auto',
             p: 0,
           }}
         >

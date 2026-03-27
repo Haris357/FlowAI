@@ -131,7 +131,7 @@ export default function FeedbackPromptModal() {
     <Modal open={open} onClose={handleDismiss}>
       <ModalDialog
         variant="outlined"
-        sx={{ maxWidth: 400, width: '100%', borderRadius: 'lg', p: 3 }}
+        sx={{ maxWidth: { xs: '95vw', sm: 400 }, width: '100%', borderRadius: 'lg', p: 3 }}
       >
         {/* Close button */}
         <Box sx={{ position: 'absolute', top: 8, right: 8 }}>

@@ -1430,7 +1430,8 @@ export default function ChatMessage({
       <Modal open={showComplaintModal} onClose={handleCloseComplaint}>
         <ModalDialog
           sx={{
-            maxWidth: 440,
+            maxWidth: { xs: '95vw', sm: 440 },
+            width: '100%',
             borderRadius: 'lg',
             p: 2.5,
           }}
@@ -1448,9 +1449,9 @@ export default function ChatMessage({
             maxRows={6}
             value={complaint}
             onChange={(e) => setComplaint(e.target.value)}
-            sx={{ mb: 2 }}
+            sx={{ mb: 2, width: '100%' }}
           />
-          <Stack direction="row" spacing={1} justifyContent="flex-end">
+          <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1} justifyContent="flex-end">
             <Button
               variant="plain"
               color="neutral"

@@ -605,7 +605,7 @@ export default function AccountsPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
         <PageBreadcrumbs
@@ -628,20 +628,20 @@ export default function AccountsPage() {
         <AccordionGroup>
           <Accordion defaultExpanded={false}>
             <AccordionSummary>
-              <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%' }}>
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%', flexWrap: 'wrap' }}>
                 <Wallet size={18} />
                 <Typography level="body-sm" fontWeight={500}>
                   Total Accounts: {loading ? '...' : accounts.length}
                 </Typography>
-                <Typography level="body-sm" sx={{ color: 'text.secondary' }}>|</Typography>
+                <Typography level="body-sm" sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>|</Typography>
                 <Typography level="body-sm" fontWeight={500} sx={{ color: 'primary.600' }}>
                   Assets: {loading ? '...' : formatCurrency(totalAssets)}
                 </Typography>
-                <Typography level="body-sm" sx={{ color: 'text.secondary' }}>|</Typography>
+                <Typography level="body-sm" sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>|</Typography>
                 <Typography level="body-sm" fontWeight={500} sx={{ color: 'danger.600' }}>
                   Liabilities: {loading ? '...' : formatCurrency(totalLiabilities)}
                 </Typography>
-                <Typography level="body-sm" sx={{ color: 'text.secondary' }}>|</Typography>
+                <Typography level="body-sm" sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>|</Typography>
                 <Typography level="body-sm" fontWeight={500} sx={{ color: 'primary.600' }}>
                   Equity: {loading ? '...' : formatCurrency(totalEquity)}
                 </Typography>
@@ -855,52 +855,67 @@ export default function AccountsPage() {
           {/* Accounts Tab */}
           <TabPanel value={0} sx={{ p: 0, pt: 2 }}>
             {/* Filters */}
-            <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mb: 2 }}>
-              <Input
-                placeholder="Search accounts..."
-                startDecorator={<Search size={18} />}
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                sx={{ flex: 1, minWidth: 200 }}
-              />
-              <Select
-                value={filterType}
-                onChange={(_, value) => setFilterType(value || 'all')}
-                sx={{ minWidth: 140 }}
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              flexWrap="wrap"
+              alignItems={{ xs: 'stretch', sm: 'center' }}
+              justifyContent="space-between"
+              sx={{ mb: 2 }}
+            >
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                spacing={2}
+                flexWrap="wrap"
+                sx={{ flex: 1 }}
               >
-                <Option value="all">All Types</Option>
-                {accountTypes.map(type => (
-                  <Option key={type.code} value={type.code}>
-                    {type.name}
-                  </Option>
-                ))}
-              </Select>
-              <Select
-                value={filterSubtype}
-                onChange={(_, value) => setFilterSubtype(value || 'all')}
-                sx={{ minWidth: 160 }}
-              >
-                <Option value="all">All Subtypes</Option>
-                {filteredSubtypesForFilter.map(subtype => (
-                  <Option key={subtype.id} value={subtype.id}>
-                    {subtype.name}
-                  </Option>
-                ))}
-              </Select>
-              <Select
-                value={filterStatus}
-                onChange={(_, value) => setFilterStatus(value || 'all')}
-                sx={{ minWidth: 120 }}
-              >
-                <Option value="all">All Status</Option>
-                <Option value="active">Active</Option>
-                <Option value="inactive">Inactive</Option>
-              </Select>
+                <Input
+                  placeholder="Search accounts..."
+                  startDecorator={<Search size={18} />}
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  sx={{ flex: 1, minWidth: { sm: 200 } }}
+                />
+                <Select
+                  value={filterType}
+                  onChange={(_, value) => setFilterType(value || 'all')}
+                  sx={{ minWidth: { xs: '100%', sm: 140 } }}
+                >
+                  <Option value="all">All Types</Option>
+                  {accountTypes.map(type => (
+                    <Option key={type.code} value={type.code}>
+                      {type.name}
+                    </Option>
+                  ))}
+                </Select>
+                <Select
+                  value={filterSubtype}
+                  onChange={(_, value) => setFilterSubtype(value || 'all')}
+                  sx={{ minWidth: { xs: '100%', sm: 160 } }}
+                >
+                  <Option value="all">All Subtypes</Option>
+                  {filteredSubtypesForFilter.map(subtype => (
+                    <Option key={subtype.id} value={subtype.id}>
+                      {subtype.name}
+                    </Option>
+                  ))}
+                </Select>
+                <Select
+                  value={filterStatus}
+                  onChange={(_, value) => setFilterStatus(value || 'all')}
+                  sx={{ minWidth: { xs: '100%', sm: 120 } }}
+                >
+                  <Option value="all">All Status</Option>
+                  <Option value="active">Active</Option>
+                  <Option value="inactive">Inactive</Option>
+                </Select>
+              </Stack>
               <Button
                 variant="solid"
                 color="primary"
                 startDecorator={<Plus size={18} />}
                 onClick={() => setAddAccountModalOpen(true)}
+                sx={{ whiteSpace: 'nowrap' }}
               >
                 Add Account
               </Button>
@@ -1083,31 +1098,40 @@ export default function AccountsPage() {
           {/* Subtypes Tab */}
           <TabPanel value={1} sx={{ p: 0, pt: 2 }}>
             {/* Filters */}
-            <Stack direction="row" spacing={2} flexWrap="wrap" sx={{ mb: 2 }}>
-              <Input
-                placeholder="Search subtypes..."
-                startDecorator={<Search size={18} />}
-                value={subtypeSearch}
-                onChange={(e) => setSubtypeSearch(e.target.value)}
-                sx={{ flex: 1, minWidth: 200 }}
-              />
-              <Select
-                value={subtypeFilterType}
-                onChange={(_, value) => setSubtypeFilterType(value || 'all')}
-                sx={{ minWidth: 140 }}
-              >
-                <Option value="all">All Types</Option>
-                {accountTypes.map(type => (
-                  <Option key={type.code} value={type.code}>
-                    {type.name}
-                  </Option>
-                ))}
-              </Select>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={2}
+              alignItems={{ xs: 'stretch', sm: 'center' }}
+              justifyContent="space-between"
+              sx={{ mb: 2 }}
+            >
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} sx={{ flex: 1 }}>
+                <Input
+                  placeholder="Search subtypes..."
+                  startDecorator={<Search size={18} />}
+                  value={subtypeSearch}
+                  onChange={(e) => setSubtypeSearch(e.target.value)}
+                  sx={{ flex: 1, minWidth: { sm: 200 } }}
+                />
+                <Select
+                  value={subtypeFilterType}
+                  onChange={(_, value) => setSubtypeFilterType(value || 'all')}
+                  sx={{ minWidth: { xs: '100%', sm: 140 } }}
+                >
+                  <Option value="all">All Types</Option>
+                  {accountTypes.map(type => (
+                    <Option key={type.code} value={type.code}>
+                      {type.name}
+                    </Option>
+                  ))}
+                </Select>
+              </Stack>
               <Button
                 variant="solid"
                 color="primary"
                 startDecorator={<FolderPlus size={18} />}
                 onClick={() => setAddSubtypeModalOpen(true)}
+                sx={{ whiteSpace: 'nowrap' }}
               >
                 Add Subtype
               </Button>
@@ -1275,7 +1299,7 @@ export default function AccountsPage() {
 
       {/* Add Account Modal */}
       <Modal open={addAccountModalOpen} onClose={() => { setAddAccountModalOpen(false); resetAccountValidation(); }}>
-        <ModalDialog sx={{ maxWidth: 500, width: '90%' }}>
+        <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 560 }, width: '100%' }}>
           <ModalClose />
           <Typography level="h4" sx={{ mb: 2 }}>
             Add New Account
@@ -1371,7 +1395,7 @@ export default function AccountsPage() {
 
             <Divider sx={{ my: 1 }} />
 
-            <Stack direction="row" spacing={2} justifyContent="flex-end">
+            <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={2} justifyContent="flex-end">
               <Button
                 variant="outlined"
                 color="neutral"
@@ -1396,7 +1420,7 @@ export default function AccountsPage() {
 
       {/* Add Subtype Modal */}
       <Modal open={addSubtypeModalOpen} onClose={() => { setAddSubtypeModalOpen(false); resetSubtypeValidation(); }}>
-        <ModalDialog sx={{ maxWidth: 450, width: '90%' }}>
+        <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 560 }, width: '100%' }}>
           <ModalClose />
           <Typography level="h4" sx={{ mb: 2 }}>
             Add New Subtype
@@ -1457,7 +1481,7 @@ export default function AccountsPage() {
 
             <Divider sx={{ my: 1 }} />
 
-            <Stack direction="row" spacing={2} justifyContent="flex-end">
+            <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={2} justifyContent="flex-end">
               <Button
                 variant="outlined"
                 color="neutral"
@@ -1482,7 +1506,7 @@ export default function AccountsPage() {
 
       {/* Edit Account Modal */}
       <Modal open={editAccountModalOpen} onClose={() => { setEditAccountModalOpen(false); resetEditAccountValidation(); }}>
-        <ModalDialog sx={{ maxWidth: 500, width: '90%' }}>
+        <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 560 }, width: '100%' }}>
           <ModalClose />
           <Typography level="h4" sx={{ mb: 2 }}>
             Edit Account
@@ -1538,7 +1562,7 @@ export default function AccountsPage() {
 
               <Divider sx={{ my: 1 }} />
 
-              <Stack direction="row" spacing={2} justifyContent="flex-end">
+              <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={2} justifyContent="flex-end">
                 <Button
                   variant="outlined"
                   color="neutral"
@@ -1564,7 +1588,7 @@ export default function AccountsPage() {
 
       {/* Edit Subtype Modal */}
       <Modal open={editSubtypeModalOpen} onClose={() => { setEditSubtypeModalOpen(false); resetEditSubtypeValidation(); }}>
-        <ModalDialog sx={{ maxWidth: 450, width: '90%' }}>
+        <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 560 }, width: '100%' }}>
           <ModalClose />
           <Typography level="h4" sx={{ mb: 2 }}>
             Edit Subtype
@@ -1609,7 +1633,7 @@ export default function AccountsPage() {
 
               <Divider sx={{ my: 1 }} />
 
-              <Stack direction="row" spacing={2} justifyContent="flex-end">
+              <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={2} justifyContent="flex-end">
                 <Button
                   variant="outlined"
                   color="neutral"

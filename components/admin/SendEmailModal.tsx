@@ -98,7 +98,7 @@ export default function SendEmailModal({ open, onClose, userId, userEmail, userN
 
   return (
     <Modal open={open} onClose={onClose}>
-      <ModalDialog sx={{ maxWidth: 520, p: 3, maxHeight: '90vh', overflow: 'auto' }}>
+      <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 520 }, width: '100%', p: 3, maxHeight: '90vh', overflow: 'auto' }}>
         <ModalClose />
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Box sx={{

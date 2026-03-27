@@ -329,7 +329,7 @@ export default function OnboardingPage() {
                     <Input
                       value={formData.companyName}
                       onChange={(e) => handleChange('companyName', e.target.value)}
-                      placeholder="Acme Inc."
+                      placeholder="e.g. My Business"
                       size="sm"
                     />
                   </FormControl>

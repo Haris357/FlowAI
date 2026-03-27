@@ -57,8 +57,8 @@ export default function PremiumModal() {
     <Modal open={open} onClose={() => setOpen(false)}>
       <ModalDialog
         sx={{
-          maxWidth: 480,
-          width: '95%',
+          maxWidth: { xs: '95vw', sm: 480 },
+          width: '100%',
           p: 0,
           overflow: 'hidden',
           borderRadius: '16px',
@@ -106,7 +106,7 @@ export default function PremiumModal() {
 
         <Box sx={{ px: 3, py: 2.5 }}>
           {/* Plan Cards */}
-          <Stack direction="row" spacing={1.5} sx={{ mb: 2.5 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2.5 }}>
             {/* Pro */}
             <Box sx={{
               flex: 1, p: 2, borderRadius: '12px',

@@ -123,7 +123,7 @@ export default function StatusChangeModal({
       <ModalDialog
         variant="outlined"
         sx={{
-          maxWidth: 420,
+          maxWidth: { xs: '95vw', sm: 420 },
           width: '100%',
           borderRadius: 'lg',
           p: 3,
@@ -237,7 +237,7 @@ export default function StatusChangeModal({
 
         {/* Actions */}
         {availableStatuses.length > 0 && (
-          <Stack direction="row" spacing={1} justifyContent="flex-end">
+          <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1} justifyContent="flex-end">
             <Button
               variant="plain"
               color="neutral"

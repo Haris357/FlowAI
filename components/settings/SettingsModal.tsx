@@ -116,9 +116,9 @@ export default function SettingsModal({ open, onClose, initialSection = 'profile
         layout="fullscreen"
         sx={{
           p: 0,
-          maxWidth: 960,
+          maxWidth: { xs: '95vw', sm: '95vw', md: 960 },
+          width: '100%',
           maxHeight: '92vh',
-          width: '95vw',
           borderRadius: '24px',
           overflow: 'hidden',
           mx: 'auto',

@@ -57,6 +57,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Palette,
+  User,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -136,7 +137,7 @@ function SectionCard({ icon, title, description, children }: {
   icon: React.ReactNode; title: string; description?: string; children: React.ReactNode;
 }) {
   return (
-    <Card variant="outlined" sx={{ borderRadius: 'lg' }}>
+    <Card variant="outlined" sx={{ borderRadius: 'lg', width: '100%' }}>
       <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
         <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
           <Box sx={{
@@ -178,6 +179,14 @@ export default function SettingsPage() {
   const [enableTax, setEnableTax] = useState(true);
   const [showDecimalPlaces, setShowDecimalPlaces] = useState(2);
   const [dateFormat, setDateFormat] = useState('MM/dd/yyyy');
+
+  // ─── Contact & invoice details state ───
+  const [contactName, setContactName] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
+  const [contactPhone, setContactPhone] = useState('');
+  const [contactAddress, setContactAddress] = useState('');
+  const [contactCity, setContactCity] = useState('');
+  const [taxId, setTaxId] = useState('');
 
   // ─── Document settings state ───
   const [invoicePrefix, setInvoicePrefix] = useState('INV');
@@ -254,6 +263,12 @@ export default function SettingsPage() {
       setEnableTax(company.enableTax ?? true);
       setShowDecimalPlaces(company.showDecimalPlaces ?? 2);
       setDateFormat(company.dateFormat || 'MM/dd/yyyy');
+      setContactName((company as any).contactName || '');
+      setContactEmail(company.email || '');
+      setContactPhone(company.phone || '');
+      setContactAddress(company.address || '');
+      setContactCity((company as any).city || '');
+      setTaxId(company.taxId || '');
       setInvoicePrefix(company.invoicePrefix || 'INV');
       setInvoiceNextNumber(company.invoiceNextNumber || 1);
       setInvoiceDefaultTerms(company.invoiceDefaultTerms ?? 30);
@@ -470,6 +485,12 @@ export default function SettingsPage() {
         dateFormat,
         hasInventory,
         hasEmployees,
+        contactName: contactName.trim(),
+        email: contactEmail.trim(),
+        phone: contactPhone.trim(),
+        address: contactAddress.trim(),
+        city: contactCity.trim(),
+        taxId: taxId.trim(),
         updatedAt: new Date(),
       });
       toast.success('General settings saved');
@@ -606,8 +627,8 @@ export default function SettingsPage() {
       {/* ─── Sidebar (matches ReportsSidebar pattern) ─── */}
       <Box
         sx={{
-          width: sidebarCollapsed ? 60 : 280,
-          minWidth: sidebarCollapsed ? 60 : 280,
+          width: sidebarCollapsed ? 60 : { xs: 200, sm: 280 },
+          minWidth: sidebarCollapsed ? 60 : { xs: 200, sm: 280 },
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -618,6 +639,7 @@ export default function SettingsPage() {
           overflow: 'hidden',
           position: 'sticky',
           top: 0,
+          flexShrink: 0,
         }}
       >
             {/* Header */}
@@ -737,12 +759,12 @@ export default function SettingsPage() {
       {/* ─── Content area ─── */}
       <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
         {/* Header bar */}
-        <Box sx={{ px: 4, pt: 3, pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+        <Box sx={{ px: { xs: 2, sm: 3, md: 4 }, pt: 3, pb: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
           <PageBreadcrumbs items={[{ label: 'Company Settings', icon: <Settings2 size={14} /> }]} />
         </Box>
 
         {/* Scrollable content */}
-        <Box sx={{ flex: 1, overflow: 'auto', px: 4, py: 3 }}>
+        <Box sx={{ flex: 1, overflow: 'auto', px: { xs: 1, sm: 2, md: 3 }, py: 3 }}>
 
             {/* ═══════════════════════════════════════ */}
             {/* GENERAL                                */}
@@ -754,7 +776,7 @@ export default function SettingsPage() {
                   <Stack spacing={2}>
                     <FormControl>
                       <FormLabel>Company Name</FormLabel>
-                      <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="Acme Inc." size="sm" />
+                      <Input value={companyName} onChange={(e) => setCompanyName(e.target.value)} placeholder="e.g. My Business" size="sm" />
                     </FormControl>
 
                     <Grid container spacing={2}>
@@ -809,6 +831,83 @@ export default function SettingsPage() {
                       />
                       <FormHelperText>Used by AI to better understand your business context.</FormHelperText>
                     </FormControl>
+                  </Stack>
+                </SectionCard>
+
+                {/* Contact & Invoice Details */}
+                <SectionCard icon={<User size={18} />} title="Contact & Invoice Details" description="Your details shown on invoices, bills, and documents">
+                  <Stack spacing={2}>
+                    <FormControl>
+                      <FormLabel>Your Name / Contact Person</FormLabel>
+                      <Input
+                        value={contactName}
+                        onChange={(e) => setContactName(e.target.value)}
+                        placeholder="e.g. Jane Smith"
+                        size="sm"
+                      />
+                      <FormHelperText>Shown as the sender name on invoices.</FormHelperText>
+                    </FormControl>
+
+                    <Grid container spacing={2}>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Contact Email</FormLabel>
+                          <Input
+                            value={contactEmail}
+                            onChange={(e) => setContactEmail(e.target.value)}
+                            placeholder="e.g. hello@mybusiness.com"
+                            type="email"
+                            size="sm"
+                          />
+                        </FormControl>
+                      </Grid>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Contact Phone</FormLabel>
+                          <Input
+                            value={contactPhone}
+                            onChange={(e) => setContactPhone(e.target.value)}
+                            placeholder="e.g. +1 555 000 0000"
+                            size="sm"
+                          />
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+
+                    <FormControl>
+                      <FormLabel>Business Address</FormLabel>
+                      <Input
+                        value={contactAddress}
+                        onChange={(e) => setContactAddress(e.target.value)}
+                        placeholder="Street, area, neighbourhood"
+                        size="sm"
+                      />
+                    </FormControl>
+
+                    <Grid container spacing={2}>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>City</FormLabel>
+                          <Input
+                            value={contactCity}
+                            onChange={(e) => setContactCity(e.target.value)}
+                            placeholder="e.g. New York"
+                            size="sm"
+                          />
+                        </FormControl>
+                      </Grid>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Tax ID / NTN / VAT Number</FormLabel>
+                          <Input
+                            value={taxId}
+                            onChange={(e) => setTaxId(e.target.value)}
+                            placeholder="e.g. 1234567-8"
+                            size="sm"
+                          />
+                        </FormControl>
+                      </Grid>
+                    </Grid>
                   </Stack>
                 </SectionCard>
 
@@ -1280,7 +1379,7 @@ export default function SettingsPage() {
                           </Stack>
                         </AccordionSummary>
                         <AccordionDetails>
-                          <Sheet variant="outlined" sx={{ borderRadius: 'sm', overflow: 'hidden' }}>
+                          <Sheet variant="outlined" sx={{ borderRadius: 'sm', overflowX: 'auto', width: '100%' }}>
                             <Table size="sm">
                               <thead>
                                 <tr>
@@ -1424,7 +1523,7 @@ export default function SettingsPage() {
 
       {/* Add Option Modal */}
       <Modal open={addModalOpen} onClose={() => setAddModalOpen(false)}>
-        <ModalDialog sx={{ width: 400, minWidth: 400 }}>
+        <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 560 }, width: '100%' }}>
           <ModalClose />
           <Typography level="title-lg">Add New Option</Typography>
           <Stack spacing={2} sx={{ mt: 2 }}>
@@ -1451,7 +1550,7 @@ export default function SettingsPage() {
                 <Option value="purple">Purple</Option>
               </Select>
             </FormControl>
-            <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ pt: 1 }}>
+            <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1} justifyContent="flex-end" sx={{ pt: 1 }}>
               <Button variant="plain" color="neutral" onClick={() => setAddModalOpen(false)}>Cancel</Button>
               <Button onClick={handleAddOption} loading={savingOption} disabled={!!labelError || !!codeError || !newOptionLabel || !newOptionCode}>Add Option</Button>
             </Stack>
@@ -1461,7 +1560,7 @@ export default function SettingsPage() {
 
       {/* Edit Option Modal */}
       <Modal open={editModalOpen} onClose={() => setEditModalOpen(false)}>
-        <ModalDialog sx={{ width: 400, minWidth: 400 }}>
+        <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 560 }, width: '100%' }}>
           <ModalClose />
           <Typography level="title-lg">Edit Option</Typography>
           <Stack spacing={2} sx={{ mt: 2 }}>
@@ -1488,7 +1587,7 @@ export default function SettingsPage() {
                 <Option value="purple">Purple</Option>
               </Select>
             </FormControl>
-            <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ pt: 1 }}>
+            <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1} justifyContent="flex-end" sx={{ pt: 1 }}>
               <Button variant="plain" color="neutral" onClick={() => setEditModalOpen(false)}>Cancel</Button>
               <Button onClick={handleUpdateOption} loading={savingOption} disabled={!!labelError || !newOptionLabel}>Save Changes</Button>
             </Stack>

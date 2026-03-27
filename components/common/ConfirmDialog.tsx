@@ -40,7 +40,7 @@ export default function ConfirmDialog({
 
   return (
     <Modal open={open} onClose={onClose}>
-      <ModalDialog variant="outlined" role="alertdialog" sx={{ maxWidth: 400 }}>
+      <ModalDialog variant="outlined" role="alertdialog" sx={{ maxWidth: { xs: '95vw', sm: 400 }, width: '100%' }}>
         <Stack spacing={2}>
           {variant === 'danger' && (
             <AlertTriangle size={24} style={{ color: 'var(--joy-palette-danger-500)' }} />
@@ -50,7 +50,7 @@ export default function ConfirmDialog({
             {description}
           </Typography>
           <Divider />
-          <Stack direction="row" spacing={1} justifyContent="flex-end">
+          <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1} justifyContent="flex-end">
             <Button variant="plain" color="neutral" onClick={onClose} disabled={loading}>
               {cancelText}
             </Button>

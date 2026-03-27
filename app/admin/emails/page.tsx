@@ -734,8 +734,8 @@ export default function AdminEmailCenterPage() {
         <ModalDialog
           variant="outlined"
           sx={{
-            maxWidth: 680,
-            width: '95vw',
+            maxWidth: { xs: '95vw', sm: 680 },
+            width: '100%',
             maxHeight: '90vh',
             overflow: 'hidden',
             p: 0,

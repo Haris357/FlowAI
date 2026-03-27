@@ -584,7 +584,8 @@ export default function EntityDetailModal({
       <ModalDialog
         size="lg"
         sx={{
-          maxWidth: 480,
+          maxWidth: { xs: '95vw', sm: 480 },
+          width: '100%',
           maxHeight: '85vh',
           overflow: 'auto',
           borderRadius: 'xl',
@@ -598,7 +599,7 @@ export default function EntityDetailModal({
 
         {/* Footer */}
         <Divider sx={{ mt: 1 }} />
-        <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ pt: 1.5 }}>
+        <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1} justifyContent="flex-end" sx={{ pt: 1.5 }}>
           <Button variant="plain" color="neutral" onClick={onClose} size="sm">
             Close
           </Button>

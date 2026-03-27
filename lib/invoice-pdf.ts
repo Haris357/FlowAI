@@ -33,9 +33,11 @@ interface InvoiceData {
 
 interface CompanyData {
   name: string;
+  contactName?: string;
   email?: string;
   phone?: string;
   address?: string;
+  city?: string;
   taxId?: string;
   currency: string;
   invoiceFooter?: string;
@@ -134,7 +136,11 @@ function formatCurrency(amount: number, currency: string): string {
 
 function getCompanyDetails(company: CompanyData): string[] {
   const details: string[] = [];
-  if (company.invoiceShowCompanyAddress !== false && company.address) details.push(company.address);
+  if (company.contactName) details.push(company.contactName);
+  if (company.invoiceShowCompanyAddress !== false && company.address) {
+    const addr = company.city ? `${company.address}, ${company.city}` : company.address;
+    details.push(addr);
+  }
   if (company.invoiceShowCompanyEmail !== false && company.email) details.push(company.email);
   if (company.invoiceShowCompanyPhone !== false && company.phone) details.push(company.phone);
   if (company.invoiceShowTaxId !== false && company.taxId) details.push(`Tax ID: ${company.taxId}`);

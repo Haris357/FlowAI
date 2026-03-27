@@ -572,27 +572,28 @@ export default function Layout({ children }: LayoutProps) {
                         '&:hover': { bgcolor: 'background.level1' },
                       }}
                     >
-                      <Stack direction="row" spacing={1.25} alignItems="center">
+                      <Stack direction="row" spacing={1.25} alignItems="center" sx={{ minWidth: 0, width: '100%' }}>
                         <Avatar
                           src={user?.photoURL || undefined}
                           size="sm"
                           sx={{
                             width: 34,
                             height: 34,
+                            flexShrink: 0,
                             border: '2px solid',
                             borderColor: 'primary.200',
                           }}
                         >
                           {user?.displayName?.charAt(0) || user?.email?.charAt(0)}
                         </Avatar>
-                        <Box sx={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
                           <Stack direction="row" spacing={0.75} alignItems="center" sx={{ minWidth: 0 }}>
-                            <Typography level="body-sm" fontWeight={600} noWrap sx={{ fontSize: '13px', minWidth: 0 }}>
+                            <Typography level="body-sm" fontWeight={600} noWrap sx={{ fontSize: '13px', flex: 1, minWidth: 0 }}>
                               {user?.displayName || user?.email?.split('@')[0]}
                             </Typography>
-                            <PlanBadge />
+                            <Box sx={{ flexShrink: 0 }}><PlanBadge /></Box>
                           </Stack>
-                          <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '11px' }} noWrap>
+                          <Typography level="body-xs" noWrap sx={{ color: 'text.tertiary', fontSize: '11px', display: 'block' }}>
                             {user?.email}
                           </Typography>
                         </Box>

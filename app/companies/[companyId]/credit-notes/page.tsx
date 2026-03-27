@@ -522,7 +522,7 @@ export default function CreditNotesPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
         <PageBreadcrumbs
@@ -539,7 +539,7 @@ export default function CreditNotesPage() {
               Manage credit notes for customers and debit notes for vendors.
             </Typography>
           </Box>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             <Button
               variant="outlined"
               color="primary"
@@ -658,13 +658,13 @@ export default function CreditNotesPage() {
         {/* Search */}
         <Card variant="outlined">
           <CardContent>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap" sx={{ mb: 0 }}>
               <Input
                 placeholder="Search notes..."
                 startDecorator={<Search size={18} />}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                sx={{ flex: 1 }}
+                sx={{ flex: 1, minWidth: { xs: '100%', sm: 200 } }}
               />
               <IconButton variant="outlined" onClick={loadData}>
                 <RefreshCw size={18} />
@@ -707,7 +707,7 @@ export default function CreditNotesPage() {
                   </Stack>
                 </CardContent>
               ) : (
-                <Box sx={{ overflowX: 'auto' }}>
+                <Sheet sx={{ overflowX: 'auto' }}>
                   <Table>
                     <thead>
                       <tr>
@@ -784,7 +784,7 @@ export default function CreditNotesPage() {
                       ))}
                     </tbody>
                   </Table>
-                </Box>
+                </Sheet>
               )}
             </Card>
           </TabPanel>
@@ -806,7 +806,7 @@ export default function CreditNotesPage() {
                   </Stack>
                 </CardContent>
               ) : (
-                <Box sx={{ overflowX: 'auto' }}>
+                <Sheet sx={{ overflowX: 'auto' }}>
                   <Table>
                     <thead>
                       <tr>
@@ -883,7 +883,7 @@ export default function CreditNotesPage() {
                       ))}
                     </tbody>
                   </Table>
-                </Box>
+                </Sheet>
               )}
             </Card>
           </TabPanel>
@@ -895,7 +895,7 @@ export default function CreditNotesPage() {
         <ModalDialog
           variant="outlined"
           layout="center"
-          sx={{ width: '100%', maxWidth: 600, maxHeight: '90vh', overflow: 'hidden', p: 0 }}
+          sx={{ width: '100%', maxWidth: { xs: '95vw', sm: 600 }, maxHeight: '90vh', overflow: 'hidden', p: 0 }}
         >
           <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1 }}>
             {editingNote ? `Edit ${modalType === 'credit' ? 'Credit' : 'Debit'} Note` : `New ${modalType === 'credit' ? 'Credit' : 'Debit'} Note`}

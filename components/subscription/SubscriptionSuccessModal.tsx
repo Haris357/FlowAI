@@ -49,7 +49,7 @@ export default function SubscriptionSuccessModal() {
     <Modal open={subscriptionSuccess} onClose={dismissSubscriptionSuccess}>
       <ModalDialog
         sx={{
-          maxWidth: 440,
+          maxWidth: { xs: '95vw', sm: 440 },
           width: '100%',
           p: 0,
           overflow: 'hidden',
@@ -158,7 +158,7 @@ export default function SubscriptionSuccessModal() {
               </Box>
 
               {/* Actions */}
-              <Stack direction="row" spacing={1.5} sx={{ pt: 0.5 }}>
+              <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.5} sx={{ pt: 0.5 }}>
                 <Button
                   variant="outlined"
                   color="neutral"

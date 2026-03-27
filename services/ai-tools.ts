@@ -17,6 +17,8 @@ import {
   deleteDoc,
   serverTimestamp,
   Timestamp,
+  writeBatch,
+  QueryConstraint,
 } from 'firebase/firestore';
 import { RichResponse, ActionButton } from '@/lib/ai-config';
 import { formatStatus, getAllowedTransitions, getStatusOption } from '@/lib/status-management';
@@ -470,6 +472,21 @@ export async function executeAITool(
         return await changeBillStatus(args, companyId);
       case 'change_salary_slip_status':
         return await changeSalarySlipStatus(args, companyId);
+
+      case 'query_records':
+        return await queryRecordsAI(args, companyId);
+
+      // Company Settings
+      case 'update_company_settings':
+        return await updateCompanySettingsAI(args, companyId);
+
+      // Bulk Operations
+      case 'bulk_action':
+        return await bulkActionAI(args, companyId);
+
+      // Contact Management
+      case 'merge_contact':
+        return await mergeContactAI(args, companyId);
 
       default:
         return {
@@ -3256,5 +3273,286 @@ async function changeSalarySlipStatus(args: Record<string, any>, companyId: stri
     };
   } catch (error: any) {
     return handleError(error, 'Change salary slip status');
+  }
+}
+
+// ==========================================
+// GENERIC READ — query_records
+// ==========================================
+
+const ALLOWED_QUERY_COLLECTIONS = new Set([
+  'invoices', 'bills', 'customers', 'vendors',
+  'transactions', 'accounts', 'bankAccounts',
+  'journalEntries', 'recurringTransactions',
+]);
+
+const ALLOWED_QUERY_OPERATORS = new Set(['==', '!=', '<', '<=', '>', '>=', 'in']);
+
+async function queryRecordsAI(args: Record<string, any>, companyId: string): Promise<ToolResult> {
+  try {
+    const { collection: colName, filters = [], orderBy: orderByArg, limit: limitArg = 20 } = args;
+
+    if (!ALLOWED_QUERY_COLLECTIONS.has(colName)) {
+      return { success: false, message: `Collection "${colName}" is not queryable.` };
+    }
+
+    const limitN = Math.min(Math.max(1, Number(limitArg) || 20), 100);
+
+    const constraints: QueryConstraint[] = [];
+    // Apply filters (whitelist operators)
+    for (const f of (filters as Array<{ field: string; operator: string; value: any }>)) {
+      if (!ALLOWED_QUERY_OPERATORS.has(f.operator)) continue;
+      constraints.push(where(f.field, f.operator as any, f.value));
+    }
+    if (orderByArg?.field) {
+      constraints.push(orderBy(orderByArg.field, orderByArg.direction === 'desc' ? 'desc' : 'asc'));
+    }
+    constraints.push(limit(limitN));
+
+    const colRef = collection(db, `companies/${companyId}/${colName}`);
+    const snap = await getDocs(query(colRef, ...constraints));
+
+    const records = snap.docs.map(d => {
+      const raw = d.data();
+      const out: Record<string, any> = { id: d.id };
+      for (const [key, val] of Object.entries(raw)) {
+        // Convert Timestamps to readable date strings
+        if (val && typeof val === 'object' && (typeof val.toDate === 'function' || val._seconds != null || val.seconds != null)) {
+          try {
+            const date = typeof val.toDate === 'function' ? val.toDate() : new Date((val._seconds ?? val.seconds) * 1000);
+            out[key] = date.toISOString().slice(0, 10);
+          } catch { out[key] = String(val); }
+        } else {
+          out[key] = val;
+        }
+      }
+      return out;
+    });
+
+    return {
+      success: true,
+      message: `Found ${records.length} record(s) in ${collection}.`,
+      data: { type: 'list', items: records } as any,
+    };
+  } catch (error: any) {
+    return handleError(error, 'Query records');
+  }
+}
+
+// ==========================================
+// COMPANY SETTINGS
+// ==========================================
+
+async function updateCompanySettingsAI(args: Record<string, any>, companyId: string): Promise<ToolResult> {
+  try {
+    // Whitelist of settable fields — never allow arbitrary writes
+    const ALLOWED_FIELDS = new Set([
+      'name', 'contactName', 'currency', 'taxRate', 'taxName', 'taxNumber',
+      'address', 'city', 'state', 'country', 'zipCode',
+      'phone', 'email', 'website', 'businessType',
+      'fiscalYearStart', 'invoicePrefix', 'invoiceNotes', 'paymentTermsDays',
+    ]);
+
+    const updates: Record<string, any> = {};
+    const changed: string[] = [];
+
+    for (const [key, val] of Object.entries(args)) {
+      if (!ALLOWED_FIELDS.has(key) || val === undefined || val === null) continue;
+      updates[key] = val;
+      changed.push(key);
+    }
+
+    if (changed.length === 0) {
+      return { success: false, message: 'No valid settings fields provided.' };
+    }
+
+    updates.updatedAt = serverTimestamp();
+    await updateDoc(doc(db, `companies/${companyId}`), updates);
+
+    const labels: Record<string, string> = {
+      name: 'Business name', contactName: 'Contact name', currency: 'Currency',
+      taxRate: 'Tax rate', taxName: 'Tax name', taxNumber: 'Tax number',
+      address: 'Address', city: 'City', state: 'State', country: 'Country',
+      zipCode: 'Zip code', phone: 'Phone', email: 'Email', website: 'Website',
+      businessType: 'Business type', fiscalYearStart: 'Fiscal year start',
+      invoicePrefix: 'Invoice prefix', invoiceNotes: 'Invoice notes',
+      paymentTermsDays: 'Payment terms',
+    };
+
+    const summary = changed
+      .map(k => `**${labels[k] || k}** → ${args[k]}`)
+      .join('\n');
+
+    return {
+      success: true,
+      message: `✓ Company settings updated:\n${summary}`,
+    };
+  } catch (error: any) {
+    return handleError(error, 'Update company settings');
+  }
+}
+
+// ==========================================
+// BULK OPERATIONS
+// ==========================================
+
+const BULK_ALLOWED_COLLECTIONS = new Set([
+  'invoices', 'bills', 'customers', 'vendors',
+  'transactions', 'accounts', 'journalEntries', 'recurringTransactions',
+]);
+
+const BULK_ALLOWED_OPERATORS = new Set(['==', '!=', '<', '<=', '>', '>=', 'in']);
+
+// Fields that can be bulk-updated (never allow arbitrary overwrites)
+const BULK_UPDATABLE_FIELDS = new Set([
+  'status', 'isActive', 'category', 'notes', 'paymentTermsDays', 'currency',
+  'dueDate', 'tags', 'reference',
+]);
+
+async function bulkActionAI(args: Record<string, any>, companyId: string): Promise<ToolResult> {
+  try {
+    const { collection, filters = [], action, updates, confirmed } = args;
+
+    if (!BULK_ALLOWED_COLLECTIONS.has(collection)) {
+      return { success: false, message: `Bulk action not supported on "${collection}".` };
+    }
+    if (!['update', 'delete'].includes(action)) {
+      return { success: false, message: 'Action must be "update" or "delete".' };
+    }
+    if (action === 'delete' && !confirmed) {
+      return { success: false, message: 'Bulk delete requires confirmed:true. Ask the user to confirm first.' };
+    }
+    if (action === 'update' && (!updates || Object.keys(updates).length === 0)) {
+      return { success: false, message: 'Provide the fields to update.' };
+    }
+
+    // Validate update fields
+    if (action === 'update') {
+      for (const key of Object.keys(updates)) {
+        if (!BULK_UPDATABLE_FIELDS.has(key)) {
+          return { success: false, message: `Field "${key}" cannot be bulk-updated.` };
+        }
+      }
+    }
+
+    const bulkConstraints: QueryConstraint[] = [];
+    for (const f of (filters as Array<{ field: string; operator: string; value: any }>)) {
+      if (!BULK_ALLOWED_OPERATORS.has(f.operator)) continue;
+      bulkConstraints.push(where(f.field, f.operator as any, f.value));
+    }
+    bulkConstraints.push(limit(500)); // hard cap
+
+    const bulkColRef = collection(db, `companies/${companyId}/${collection}`);
+    const snap = await getDocs(query(bulkColRef, ...bulkConstraints));
+    if (snap.empty) {
+      return { success: true, message: `No matching ${collection} found.` };
+    }
+
+    const count = snap.docs.length;
+
+    // Process in Firestore batches (max 500 writes per batch)
+    const BATCH_SIZE = 499;
+    for (let i = 0; i < snap.docs.length; i += BATCH_SIZE) {
+      const batch = writeBatch(db);
+      const chunk = snap.docs.slice(i, i + BATCH_SIZE);
+      for (const d of chunk) {
+        if (action === 'delete') {
+          batch.delete(d.ref);
+        } else {
+          batch.update(d.ref, { ...updates, updatedAt: serverTimestamp() });
+        }
+      }
+      await batch.commit();
+    }
+
+    const verb = action === 'delete' ? 'Deleted' : 'Updated';
+    return {
+      success: true,
+      message: `✓ ${verb} **${count}** ${collection}${count !== 1 ? '' : ''}.`,
+    };
+  } catch (error: any) {
+    return handleError(error, 'Bulk action');
+  }
+}
+
+// ==========================================
+// MERGE CONTACTS
+// ==========================================
+
+async function mergeContactAI(args: Record<string, any>, companyId: string): Promise<ToolResult> {
+  try {
+    const { type, keepId, mergeId } = args;
+
+    if (!['customer', 'vendor'].includes(type)) {
+      return { success: false, message: 'Type must be "customer" or "vendor".' };
+    }
+    if (keepId === mergeId) {
+      return { success: false, message: 'Keep and merge IDs must be different.' };
+    }
+
+    const col = type === 'customer' ? 'customers' : 'vendors';
+    const base = `companies/${companyId}`;
+
+    const [keepSnap, mergeSnap] = await Promise.all([
+      getDoc(doc(db, `${base}/${col}/${keepId}`)),
+      getDoc(doc(db, `${base}/${col}/${mergeId}`)),
+    ]);
+
+    if (!keepSnap.exists) return { success: false, message: `Record to keep (id: ${keepId}) not found.` };
+    if (!mergeSnap.exists) return { success: false, message: `Record to merge (id: ${mergeId}) not found.` };
+
+    const keepData = keepSnap.data()!;
+    const mergeData = mergeSnap.data()!;
+
+    // Merge non-empty fields from mergeData into keepData (kept record wins on conflicts)
+    const merged: Record<string, any> = {};
+    for (const [key, val] of Object.entries(mergeData)) {
+      if (!keepData[key] && val) merged[key] = val;
+    }
+    merged.updatedAt = serverTimestamp();
+
+    // Update all related records to point to the kept ID
+    const relatedCol = type === 'customer' ? 'invoices' : 'bills';
+    const idField = type === 'customer' ? 'customerId' : 'vendorId';
+    const nameField = type === 'customer' ? 'customerName' : 'vendorName';
+
+    const relatedSnap = await getDocs(
+      query(collection(db, `${base}/${relatedCol}`), where(idField, '==', mergeId))
+    );
+
+    const BATCH_SIZE = 499;
+    const batch = writeBatch(db);
+    let batchCount = 0;
+
+    // Update kept record with merged fields
+    if (Object.keys(merged).length > 0) {
+      batch.update(keepSnap.ref, merged);
+      batchCount++;
+    }
+
+    // Remap related records
+    for (const relDoc of relatedSnap.docs) {
+      batch.update(relDoc.ref, {
+        [idField]: keepId,
+        [nameField]: keepData.name ?? keepData.displayName ?? mergeData.name,
+        updatedAt: serverTimestamp(),
+      });
+      batchCount++;
+    }
+
+    // Delete the merged record
+    batch.delete(mergeSnap.ref);
+
+    await batch.commit();
+
+    const keepName = keepData.name ?? keepData.displayName ?? keepId;
+    const mergeName = mergeData.name ?? mergeData.displayName ?? mergeId;
+
+    return {
+      success: true,
+      message: `✓ Merged **${mergeName}** into **${keepName}**. ${relatedSnap.size} ${relatedCol} updated.`,
+    };
+  } catch (error: any) {
+    return handleError(error, 'Merge contact');
   }
 }

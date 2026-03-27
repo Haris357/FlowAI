@@ -543,7 +543,7 @@ export default function BankAccountsPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
         <PageBreadcrumbs
@@ -560,7 +560,7 @@ export default function BankAccountsPage() {
               Manage bank accounts and track transactions.
             </Typography>
           </Box>
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap' }}>
             <Button
               variant="outlined"
               color="primary"
@@ -710,7 +710,7 @@ export default function BankAccountsPage() {
                   </Stack>
                 </CardContent>
               ) : (
-                <Box sx={{ overflowX: 'auto' }}>
+                <Sheet sx={{ overflowX: 'auto' }}>
                   <Table>
                     <thead>
                       <tr>
@@ -786,7 +786,7 @@ export default function BankAccountsPage() {
                       ))}
                     </tbody>
                   </Table>
-                </Box>
+                </Sheet>
               )}
             </Card>
           </TabPanel>
@@ -795,13 +795,13 @@ export default function BankAccountsPage() {
           <TabPanel value={1}>
             <Card variant="outlined">
               <CardContent sx={{ pb: 0 }}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" sx={{ mb: 2 }}>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} flexWrap="wrap" sx={{ mb: 2 }}>
                   <Input
                     placeholder="Search transactions..."
                     startDecorator={<Search size={18} />}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    sx={{ flex: 1 }}
+                    sx={{ flex: 1, minWidth: { xs: '100%', sm: 200 } }}
                   />
                   <Select
                     value={selectedAccountId}
@@ -831,7 +831,7 @@ export default function BankAccountsPage() {
                   </Stack>
                 </CardContent>
               ) : (
-                <Box sx={{ overflowX: 'auto' }}>
+                <Sheet sx={{ overflowX: 'auto' }}>
                   <Table>
                     <thead>
                       <tr>
@@ -897,7 +897,7 @@ export default function BankAccountsPage() {
                       ))}
                     </tbody>
                   </Table>
-                </Box>
+                </Sheet>
               )}
             </Card>
           </TabPanel>
@@ -909,7 +909,7 @@ export default function BankAccountsPage() {
         <ModalDialog
           variant="outlined"
           layout="center"
-          sx={{ width: '100%', maxWidth: 850, maxHeight: '90vh', overflow: 'hidden', p: 0 }}
+          sx={{ width: '100%', maxWidth: { xs: '95vw', sm: 700 }, maxHeight: '90vh', overflow: 'hidden', p: 0 }}
         >
           <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1 }}>
             {editingAccount ? 'Edit Bank Account' : 'Add Bank Account'}
@@ -1068,7 +1068,7 @@ export default function BankAccountsPage() {
         <ModalDialog
           variant="outlined"
           layout="center"
-          sx={{ width: '100%', maxWidth: 700, maxHeight: '90vh', overflow: 'hidden', p: 0 }}
+          sx={{ width: '100%', maxWidth: { xs: '95vw', sm: 700 }, maxHeight: '90vh', overflow: 'hidden', p: 0 }}
         >
           <DialogTitle sx={{ px: 3, pt: 2.5, pb: 1 }}>New Transaction</DialogTitle>
           <ModalClose disabled={saving} />

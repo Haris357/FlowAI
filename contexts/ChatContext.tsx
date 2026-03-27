@@ -690,6 +690,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           // Send tool results back to AI for potential follow-up actions (e.g., create invoice → send invoice)
           // Skip follow-up for simple CRUD tools that never need a second AI turn
           const NO_FOLLOWUP_TOOLS = new Set([
+            // Simple CRUD / read-only — never need a second AI turn
             'add_customer', 'update_customer', 'add_vendor', 'update_vendor',
             'record_expense', 'record_payment', 'add_account', 'update_account',
             'list_invoices', 'list_customers', 'list_vendors', 'list_accounts',
@@ -698,8 +699,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             'get_transaction', 'get_expense',
             'send_payment_reminder', 'send_payment_reminders',
             'delete_invoice', 'delete_customer', 'delete_vendor',
-            // create_invoice: question panel already handles "send?" — no follow-up needed
-            'create_invoice',
+            // NOTE: create_invoice is intentionally NOT listed here so the AI can
+            // chain send_invoice in the follow-up when the user asked for it.
           ]);
           const toolCallNames: string[] = (data.toolCalls || []).map((tc: any) => tc.name as string);
           const needsFollowUp = toolCallNames.some((name: string) => !NO_FOLLOWUP_TOOLS.has(name));
@@ -714,6 +715,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
                 message: r.message,
                 entityId: r.data?.entity?.id,
                 entityType: r.data?.entityType,
+                // Include invoiceId explicitly so the AI can chain send_invoice
+                ...(r.data?.entityType === 'invoice' && r.data?.entity?.id
+                  ? { invoiceId: r.data.entity.id }
+                  : {}),
               }),
             }));
 

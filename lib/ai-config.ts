@@ -80,6 +80,14 @@ export const ALLOWED_OPERATIONS = [
   'generate_salary_slip', 'list_salary_slips', 'change_salary_slip_status',
   // Report operations
   'generate_report', 'get_dashboard_summary',
+  // Generic read
+  'query_records',
+  // Company settings
+  'update_company_settings',
+  // Bulk operations
+  'bulk_action',
+  // Contact management
+  'merge_contact',
 ] as const;
 
 export const BLOCKED_PATTERNS = [
@@ -1208,6 +1216,149 @@ export const FLOW_AI_TOOLS: AITool[] = [
       },
     },
   },
+  // ============ COMPANY SETTINGS ============
+  {
+    type: 'function',
+    function: {
+      name: 'update_company_settings',
+      description: 'Update company profile and settings such as business name, currency, tax rate, address, contact info, or fiscal year start. Use when the user wants to change their company details.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: 'Company/business name' },
+          contactName: { type: 'string', description: 'Owner or contact person name shown on invoices (e.g. "Muhammad Azmeer Khan")' },
+          currency: { type: 'string', description: 'Default currency code (e.g. USD, GBP, EUR, PKR)' },
+          taxRate: { type: 'number', description: 'Default tax rate as a percentage (e.g. 20 for 20%)' },
+          taxName: { type: 'string', description: 'Tax label (e.g. VAT, GST, Sales Tax)' },
+          taxNumber: { type: 'string', description: 'Tax registration / VAT number' },
+          address: { type: 'string', description: 'Business address / street' },
+          city: { type: 'string', description: 'City' },
+          state: { type: 'string' },
+          country: { type: 'string' },
+          zipCode: { type: 'string' },
+          phone: { type: 'string', description: 'Contact phone number' },
+          email: { type: 'string', description: 'Contact email address' },
+          website: { type: 'string' },
+          businessType: { type: 'string', description: 'e.g. sole_trader, llc, partnership, corporation' },
+          fiscalYearStart: { type: 'string', description: 'Fiscal year start month-day e.g. "01-01" for Jan 1, "04-01" for Apr 1' },
+          invoicePrefix: { type: 'string', description: 'Prefix for invoice numbers e.g. INV, #' },
+          invoiceNotes: { type: 'string', description: 'Default footer notes on invoices' },
+          paymentTermsDays: { type: 'number', description: 'Default payment terms in days (e.g. 30 for Net 30)' },
+        },
+        required: [],
+      },
+    },
+  },
+
+  // ============ BULK OPERATIONS ============
+  {
+    type: 'function',
+    function: {
+      name: 'bulk_action',
+      description: 'Perform an action on multiple records at once. Use for: marking all overdue invoices as sent, deleting all draft bills, updating status of multiple records, etc. ALWAYS confirm with the user before running a bulk delete.',
+      parameters: {
+        type: 'object',
+        properties: {
+          collection: {
+            type: 'string',
+            enum: ['invoices', 'bills', 'customers', 'vendors', 'transactions', 'accounts', 'journalEntries', 'recurringTransactions'],
+            description: 'The collection to act on',
+          },
+          filters: {
+            type: 'array',
+            description: 'Filter conditions to select which records to act on',
+            items: {
+              type: 'object',
+              properties: {
+                field: { type: 'string' },
+                operator: { type: 'string', enum: ['==', '!=', '<', '<=', '>', '>=', 'in'] },
+                value: {},
+              },
+              required: ['field', 'operator', 'value'],
+            },
+          },
+          action: {
+            type: 'string',
+            enum: ['update', 'delete'],
+            description: 'Action to perform on matched records',
+          },
+          updates: {
+            type: 'object',
+            description: 'Fields to update (required when action is "update"). e.g. {"status": "sent"} or {"isActive": false}',
+          },
+          confirmed: {
+            type: 'boolean',
+            description: 'Must be true for delete actions. Always ask user to confirm before passing true.',
+          },
+        },
+        required: ['collection', 'action'],
+      },
+    },
+  },
+
+  // ============ CONTACT MANAGEMENT ============
+  {
+    type: 'function',
+    function: {
+      name: 'merge_contact',
+      description: 'Merge two duplicate customer or vendor records into one. The "keep" record is preserved; the "merge" record is deleted. All invoices/bills referencing the merged record are automatically updated to the kept record.',
+      parameters: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', enum: ['customer', 'vendor'], description: 'Contact type' },
+          keepId: { type: 'string', description: 'ID of the record to keep' },
+          mergeId: { type: 'string', description: 'ID of the duplicate record to merge and delete' },
+        },
+        required: ['type', 'keepId', 'mergeId'],
+      },
+    },
+  },
+
+  // ============ GENERIC READ TOOL ============
+  {
+    type: 'function',
+    function: {
+      name: 'query_records',
+      description: 'Query any collection in the company database for specific records not covered by the business snapshot. Use this for targeted lookups: find invoices by customer, filter by date range, search by status, etc. ALWAYS prefer snapshot data for totals and summaries — only call this when you need specific records. Never call this just to repeat information already in the snapshot.',
+      parameters: {
+        type: 'object',
+        properties: {
+          collection: {
+            type: 'string',
+            enum: ['invoices', 'bills', 'customers', 'vendors', 'transactions', 'accounts', 'bankAccounts', 'journalEntries', 'recurringTransactions'],
+            description: 'The collection to query',
+          },
+          filters: {
+            type: 'array',
+            description: 'Filter conditions (all are ANDed together)',
+            items: {
+              type: 'object',
+              properties: {
+                field: { type: 'string', description: 'Field name (e.g. status, customerId, dueDate)' },
+                operator: { type: 'string', enum: ['==', '!=', '<', '<=', '>', '>=', 'in'], description: 'Comparison operator' },
+                value: { description: 'Value to compare against' },
+              },
+              required: ['field', 'operator', 'value'],
+            },
+          },
+          orderBy: {
+            type: 'object',
+            description: 'Sort order',
+            properties: {
+              field: { type: 'string' },
+              direction: { type: 'string', enum: ['asc', 'desc'] },
+            },
+            required: ['field'],
+          },
+          limit: {
+            type: 'number',
+            description: 'Max records to return (default 20, max 100)',
+          },
+        },
+        required: ['collection'],
+      },
+    },
+  },
 ];
 
 // ==========================================
@@ -1291,6 +1442,7 @@ export const FLOW_AI_SYSTEM_PROMPT = `You are Flow AI, an expert accounting assi
 
 # POST-CREATION BEHAVIOUR
    - After create_invoice succeeds: respond with a SHORT confirmation only (e.g. "Draft invoice created for **[Customer]** — $[amount]. Click **Send Invoice** above to email it."). Do NOT ask a follow-up question. Do NOT use {{BUTTONS:...}}.
+   - CRITICAL: If the user's original message included "send", "send it", "send him", "send her", "send them", "and send", "then send" — call send_invoice IMMEDIATELY after create_invoice in the SAME response without asking. Do NOT create a draft and wait. The user already told you to send it.
    - If user then says "yes", "send it", "yes send it now", or similar: call send_invoice immediately with the invoice ID from your previous create_invoice tool result. Do NOT call list_invoices.
    - After create_bill succeeds: same rule — short confirmation, no follow-up question, no buttons.
 
@@ -1381,6 +1533,27 @@ export const FLOW_AI_SYSTEM_PROMPT = `You are Flow AI, an expert accounting assi
       - "Process all entries" — creates everything (invoices, bills, journal entries, expenses, etc.) in one batch
       - Individual type options like "Create all invoices", "Record all journal entries"
       Example: "I found 5 invoices, 3 journal entries, and 2 expenses. What would you like to do?\n{{BUTTONS:Process all 10 entries|Create invoices only|Let me review first}}"
+
+# COMPANY SETTINGS
+- Use update_company_settings when user asks to change business name, currency, tax rate/name/number, address, payment terms, invoice prefix/notes, or fiscal year.
+- CRITICAL: When a user says "show my company info", "what are my details", "my company profile", "show my info", "what is my company name/email/phone/address" — answer DIRECTLY from the BUSINESS SNAPSHOT already loaded at the top of your context. Do NOT call get_customer, list_customers, search_customers, or any other tool. The snapshot has a "Company Profile" section with all company details.
+- CRITICAL: When a user says "these are MY details", "add MY info to invoices", "I need my name/email/phone/address on invoices", "my contact details", "show my details on documents" — this means update_company_settings with contactName, email, phone, address, city. NEVER create or update a customer. NEVER call add_customer.
+- CRITICAL: "my company", "my info", "my details", "my name" always refers to the BUSINESS OWNER / COMPANY — never to a customer. If a user's name happens to match a customer name, still do NOT show the customer record for "my company info" requests.
+- CRITICAL: When displaying company info, ONLY show fields that actually exist in the Business Snapshot. If a field (phone, address, city, email, tax number, etc.) is NOT present in the snapshot, show "Not set" for that field. NEVER invent, guess, or fabricate any company data. If the snapshot only has a name and currency, only show those two — do not add placeholder or example values for anything else.
+- The contactName field is the owner/sender name shown on all invoices.
+- Only pass the fields the user mentioned — leave others undefined.
+- After updating, confirm what changed in plain language.
+
+# BULK OPERATIONS
+- Use bulk_action when the user wants to act on multiple records at once: "mark all overdue invoices as sent", "delete all draft bills", "deactivate all vendors", etc.
+- For bulk UPDATE: execute immediately if the action is clearly safe (status change, flag toggle).
+- For bulk DELETE: ALWAYS ask the user to confirm first with {{BUTTONS:Yes, delete them all|Cancel}}. Only pass confirmed:true after they confirm.
+- After bulk action, report how many records were affected.
+
+# MERGE CONTACTS
+- Use merge_contact when user says "merge X and Y", "X and Y are the same customer", "combine duplicates".
+- Clarify which record to keep if not obvious. Use {{BUTTONS:Keep [Name A]|Keep [Name B]}} to ask.
+- After merging, confirm: "Merged [Name B] into [Name A]. All invoices updated."
 
 Current date: ${new Date().toISOString().split('T')[0]}`;
 

@@ -382,7 +382,7 @@ export default function CustomersPage() {
       <FormControl required error={!!errors.name}>
         <FormLabel>Customer Name</FormLabel>
         <Input
-          placeholder="e.g., Acme Corporation"
+          placeholder="e.g. Company Name"
           value={formData.name}
           onChange={(e) => handleFieldChange('name', e.target.value)}
           color={errors.name ? 'danger' : undefined}
@@ -487,7 +487,7 @@ export default function CustomersPage() {
   );
 
   return (
-    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3, md: 4 } }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
         <PageBreadcrumbs
@@ -693,7 +693,7 @@ export default function CustomersPage() {
             ) : filteredCustomers.length === 0 ? (
               <EmptyState type="customers" />
             ) : (
-              <Box sx={{ overflowX: 'auto' }}>
+              <Sheet sx={{ overflowX: 'auto', borderRadius: 'md' }}>
                 <Table
                   stickyHeader
                   sx={{
@@ -777,7 +777,7 @@ export default function CustomersPage() {
                     ))}
                   </tbody>
                 </Table>
-              </Box>
+              </Sheet>
             )}
             {!loading && filteredCustomers.length > 0 && (
               <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
@@ -843,9 +843,9 @@ export default function CustomersPage() {
           layout="center"
           sx={{
             width: '100%',
-            maxWidth: 500,
-            maxHeight: '90vh',
-            overflow: 'hidden',
+            maxWidth: { xs: '95vw', sm: 600 },
+            maxHeight: { xs: '90vh', sm: '85vh' },
+            overflowY: 'auto',
             p: 0,
           }}
         >
@@ -885,9 +885,9 @@ export default function CustomersPage() {
           layout="center"
           sx={{
             width: '100%',
-            maxWidth: 500,
-            maxHeight: '90vh',
-            overflow: 'hidden',
+            maxWidth: { xs: '95vw', sm: 600 },
+            maxHeight: { xs: '90vh', sm: '85vh' },
+            overflowY: 'auto',
             p: 0,
           }}
         >

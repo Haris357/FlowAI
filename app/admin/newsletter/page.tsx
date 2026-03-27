@@ -451,7 +451,7 @@ export default function AdminNewsletterPage() {
 
       {/* Preview Modal */}
       <Modal open={previewOpen} onClose={() => setPreviewOpen(false)}>
-        <ModalDialog sx={{ maxWidth: 640, maxHeight: '90vh', overflow: 'auto' }}>
+        <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 640 }, width: '100%', maxHeight: '90vh', overflow: 'auto' }}>
           <ModalClose />
           <Typography level="title-lg" fontWeight={700}>Newsletter Preview</Typography>
           <Divider sx={{ my: 1.5 }} />
@@ -477,7 +477,7 @@ export default function AdminNewsletterPage() {
 
       {/* Confirm Send Modal */}
       <Modal open={confirmOpen} onClose={() => setConfirmOpen(false)}>
-        <ModalDialog sx={{ maxWidth: 440 }}>
+        <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 440 }, width: '100%' }}>
           <ModalClose />
           <Stack spacing={2} alignItems="center" sx={{ textAlign: 'center', py: 1 }}>
             <Box sx={{

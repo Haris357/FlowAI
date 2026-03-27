@@ -91,7 +91,7 @@ export default function TrialWelcomeModal() {
     return (
       <Modal open={active} onClose={handleClose}>
         <ModalDialog sx={{
-          maxWidth: 380, width: '92%', p: 0, overflow: 'hidden', borderRadius: '20px',
+          maxWidth: { xs: '95vw', sm: 380 }, width: '100%', p: 0, overflow: 'hidden', borderRadius: '20px',
           bgcolor: isDark ? '#1C1B19' : '#fff',
           border: '1px solid', borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
           boxShadow: isDark ? '0 32px 64px rgba(0,0,0,0.5)' : '0 32px 64px rgba(0,0,0,0.12)',
@@ -175,7 +175,7 @@ export default function TrialWelcomeModal() {
   return (
     <Modal open={active} onClose={handleClose}>
       <ModalDialog sx={{
-        maxWidth: 380, width: '92%', p: 0, overflow: 'hidden', borderRadius: '20px',
+        maxWidth: { xs: '95vw', sm: 380 }, width: '100%', p: 0, overflow: 'hidden', borderRadius: '20px',
         bgcolor: isDark ? '#1C1B19' : '#fff',
         border: '1px solid', borderColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
         boxShadow: isDark ? '0 32px 64px rgba(0,0,0,0.5)' : '0 32px 64px rgba(0,0,0,0.12)',

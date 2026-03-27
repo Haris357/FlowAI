@@ -114,7 +114,7 @@ export default function SecuritySection() {
       </Stack>
 
       <Modal open={deleteModalOpen} onClose={() => setDeleteModalOpen(false)}>
-        <ModalDialog sx={{ maxWidth: 420 }}>
+        <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 420 }, width: '100%' }}>
           <ModalClose />
           <Stack direction="row" spacing={1.5} alignItems="center">
             <Box sx={{
@@ -136,7 +136,7 @@ export default function SecuritySection() {
                 onChange={(e) => setDeletePassword(e.target.value)} placeholder="Enter password" />
             </FormControl>
           )}
-          <Stack direction="row" spacing={1.5} justifyContent="flex-end" sx={{ mt: 2 }}>
+          <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.5} justifyContent="flex-end" sx={{ mt: 2 }}>
             <Button variant="plain" color="neutral" onClick={() => setDeleteModalOpen(false)}>Cancel</Button>
             <Button color="danger" onClick={handleDeleteAccount} disabled={isEmailUser && !deletePassword}>
               Delete Account

@@ -75,8 +75,8 @@ export default function DangerousConfirmDialog({
         variant="outlined"
         role="alertdialog"
         sx={{
-          width: 480,
-          minWidth: 480,
+          maxWidth: { xs: '95vw', sm: 480 },
+          width: '100%',
           borderColor: 'danger.300',
           boxShadow: '0 0 20px rgba(211, 47, 47, 0.1)',
         }}
@@ -150,7 +150,7 @@ export default function DangerousConfirmDialog({
                 </Typography>
               </Box>
 
-              <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1} justifyContent="flex-end">
                 <Button variant="plain" color="neutral" onClick={handleClose}>
                   {cancelText}
                 </Button>
@@ -214,7 +214,7 @@ export default function DangerousConfirmDialog({
                 </FormHelperText>
               </FormControl>
 
-              <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1} justifyContent="flex-end">
                 <Button
                   variant="plain"
                   color="neutral"

@@ -297,9 +297,16 @@ service cloud.firestore {
 
       // AI Conversation Memory - allow access if user owns the conversation
       match /conversations/{conversationId} {
-        allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+        allow read: if isAuthenticated() && (
+          resource.data.userId == request.auth.uid || hasAccess(companyId)
+        );
         allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
         allow update, delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      }
+
+      // Snapshot cache — server-side admin SDK only, deny all client access
+      match /cache/{cacheId} {
+        allow read, write: if false;
       }
 
       match /chatMessages/{messageId} {

@@ -38,7 +38,9 @@ export interface Company {
   description?: string;
   fiscalYearStart: number;
   logo?: string;
+  contactName?: string;  // Owner / contact person name shown on invoices
   address?: string;
+  city?: string;
   phone?: string;
   email?: string;
   taxId?: string;

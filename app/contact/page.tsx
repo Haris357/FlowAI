@@ -313,7 +313,7 @@ export default function ContactPage() {
                         value={formData.name}
                         onChange={handleChange}
                         required
-                        placeholder="John Smith"
+                        placeholder="e.g. Alex Johnson"
                         className="w-full px-3 py-2.5 rounded-lg text-sm bg-slate-50 dark:bg-[#1A1915] border border-slate-200 dark:border-[#3D3A37] text-slate-900 dark:text-[#EEECE8] placeholder:text-slate-400 dark:placeholder:text-[#5C5752] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
                       />
                     </div>
@@ -325,7 +325,7 @@ export default function ContactPage() {
                         value={formData.email}
                         onChange={handleChange}
                         required
-                        placeholder="john@company.com"
+                        placeholder="e.g. name@company.com"
                         className="w-full px-3 py-2.5 rounded-lg text-sm bg-slate-50 dark:bg-[#1A1915] border border-slate-200 dark:border-[#3D3A37] text-slate-900 dark:text-[#EEECE8] placeholder:text-slate-400 dark:placeholder:text-[#5C5752] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
                       />
                     </div>

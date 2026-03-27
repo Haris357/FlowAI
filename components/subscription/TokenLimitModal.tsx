@@ -69,7 +69,7 @@ export default function TokenLimitModal() {
       <ModalDialog
         variant="outlined"
         sx={{
-          maxWidth: 520,
+          maxWidth: { xs: '95vw', sm: 520 },
           width: '100%',
           borderRadius: 'lg',
           p: 0,
@@ -174,7 +174,7 @@ export default function TokenLimitModal() {
             )}
 
             {/* Footer Actions */}
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
+            <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1} justifyContent="flex-end">
               <Button variant="plain" color="neutral" onClick={dismissMessageLimit}>
                 Maybe Later
               </Button>

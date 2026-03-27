@@ -437,7 +437,7 @@ export default function EmployeesPage() {
         <FormControl required error={!!errors.name}>
           <FormLabel>Full Name</FormLabel>
           <Input
-            placeholder="e.g., John Smith"
+            placeholder="e.g. Full Name"
             value={formData.name}
             onChange={(e) => handleFieldChange('name', e.target.value)}
             color={errors.name ? 'danger' : undefined}
@@ -597,7 +597,7 @@ export default function EmployeesPage() {
   );
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
         <PageBreadcrumbs
@@ -607,14 +607,16 @@ export default function EmployeesPage() {
         />
 
         {/* Header */}
-        <Box>
-          <Typography level="h2" sx={{ mb: 0.5 }}>
-            Employees
-          </Typography>
-          <Typography level="body-md" sx={{ color: 'text.secondary' }}>
-            Manage your employees and payroll
-          </Typography>
-        </Box>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ mb: 0 }}>
+          <Box>
+            <Typography level="h2" sx={{ mb: 0.5 }}>
+              Employees
+            </Typography>
+            <Typography level="body-md" sx={{ color: 'text.secondary' }}>
+              Manage your employees and payroll
+            </Typography>
+          </Box>
+        </Stack>
 
         {/* Stats Cards */}
         <AccordionGroup>
@@ -792,7 +794,7 @@ export default function EmployeesPage() {
             ) : filteredEmployees.length === 0 ? (
               <EmptyState type="employees" />
             ) : (
-              <Sheet sx={{ overflow: 'auto' }}>
+              <Sheet sx={{ overflowX: 'auto' }}>
                 <Table stickyHeader>
                   <thead>
                     <tr>
@@ -953,7 +955,7 @@ export default function EmployeesPage() {
           layout="center"
           sx={{
             width: '100%',
-            maxWidth: 650,
+            maxWidth: { xs: '95vw', sm: 650 },
             maxHeight: '90vh',
             overflow: 'hidden',
             p: 0,
@@ -993,7 +995,7 @@ export default function EmployeesPage() {
           layout="center"
           sx={{
             width: '100%',
-            maxWidth: 650,
+            maxWidth: { xs: '95vw', sm: 650 },
             maxHeight: '90vh',
             overflow: 'hidden',
             p: 0,

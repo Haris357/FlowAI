@@ -753,7 +753,7 @@ export default function CompaniesPage() {
       {/* Create Company Modal */}
       <Modal open={createModalOpen} onClose={() => !creating && setCreateModalOpen(false)}>
         <ModalDialog sx={{
-          maxWidth: 500, width: '90vw', maxHeight: '90vh', overflow: 'auto', p: 3,
+          maxWidth: { xs: '95vw', sm: 500 }, width: '100%', maxHeight: '90vh', overflow: 'auto', p: 3,
           background: mode === 'light' ? 'rgba(255,255,255,0.85)' : 'rgba(35,34,32,0.9)',
           backdropFilter: 'blur(40px) saturate(200%)',
           WebkitBackdropFilter: 'blur(40px) saturate(200%)',
@@ -769,7 +769,7 @@ export default function CompaniesPage() {
             {/* Company Name */}
             <FormControl required size="sm">
               <FormLabel>Company Name</FormLabel>
-              <Input placeholder="Acme Inc." value={newCompany.companyName} onChange={e => handleInputChange('companyName', e.target.value)} autoFocus size="sm" />
+              <Input placeholder="e.g. My Business" value={newCompany.companyName} onChange={e => handleInputChange('companyName', e.target.value)} autoFocus size="sm" />
             </FormControl>
 
             {/* Business Type & Country */}
@@ -850,7 +850,7 @@ export default function CompaniesPage() {
       {/* Security Modal */}
       <Modal open={securityModalOpen} onClose={() => setSecurityModalOpen(false)}>
         <ModalDialog sx={{
-          maxWidth: 380, p: 3,
+          maxWidth: { xs: '95vw', sm: 380 }, width: '100%', p: 3,
           background: mode === 'light' ? 'rgba(255,255,255,0.85)' : 'rgba(35,34,32,0.9)',
           backdropFilter: 'blur(40px) saturate(200%)',
           WebkitBackdropFilter: 'blur(40px) saturate(200%)',
@@ -885,7 +885,7 @@ export default function CompaniesPage() {
       {/* Verify Passcode Modal */}
       <Modal open={verifyModalOpen} onClose={() => setVerifyModalOpen(false)}>
         <ModalDialog sx={{
-          maxWidth: 380, p: 3,
+          maxWidth: { xs: '95vw', sm: 380 }, width: '100%', p: 3,
           background: mode === 'light' ? 'rgba(255,255,255,0.85)' : 'rgba(35,34,32,0.9)',
           backdropFilter: 'blur(40px) saturate(200%)',
           WebkitBackdropFilter: 'blur(40px) saturate(200%)',

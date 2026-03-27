@@ -394,13 +394,13 @@ export default function DashboardPage() {
   const agingTotal = agingRows.reduce((s, r) => s + r.amount, 0);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3 }, px: { xs: 1, sm: 2, md: 3 } }}>
       {/* ══════════ HEADER ══════════ */}
       <Box sx={{ mb: 3 }}>
         <PageBreadcrumbs items={[{ label: 'Dashboard', icon: <LayoutDashboard size={16} /> }]} />
-        <Stack direction="row" alignItems="center" justifyContent="space-between" flexWrap="wrap" gap={2} sx={{ mt: 1 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" gap={2} sx={{ mt: 1 }}>
           <Stack direction="row" alignItems="center" spacing={2}>
-            <Box sx={{ width: 44, height: 44, borderRadius: 'lg', bgcolor: 'primary.softBg', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Box sx={{ width: 44, height: 44, borderRadius: 'lg', bgcolor: 'primary.softBg', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Building2 size={22} style={{ color: 'var(--joy-palette-primary-500)' }} />
             </Box>
             <Box>
@@ -410,7 +410,7 @@ export default function DashboardPage() {
               </Typography>
             </Box>
           </Stack>
-          <Stack direction="row" spacing={1} alignItems="center">
+          <Stack direction="row" spacing={1} alignItems="center" sx={{ flexShrink: 0 }}>
             <Select
               size="sm"
               value={prefs.dateRange}
@@ -505,7 +505,7 @@ export default function DashboardPage() {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           {/* Revenue vs Expenses Trend */}
           {w.revenueExpenseChart && (
-            <Grid xs={12} md={w.breakdownChart ? 7 : 12}>
+            <Grid xs={12} md={w.breakdownChart ? 8 : 12}>
               <Card variant="outlined" sx={{ height: '100%' }}>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
@@ -549,7 +549,7 @@ export default function DashboardPage() {
 
           {/* Expense Breakdown Donut */}
           {w.breakdownChart && (
-            <Grid xs={12} md={w.revenueExpenseChart ? 5 : 12}>
+            <Grid xs={12} md={w.revenueExpenseChart ? 4 : 12}>
               <Card variant="outlined" sx={{ height: '100%' }}>
                 <CardContent>
                   <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>

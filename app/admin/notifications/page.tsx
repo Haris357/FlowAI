@@ -313,7 +313,7 @@ export default function AdminNotificationsPage() {
 
       {/* Send Notification Modal */}
       <Modal open={sendOpen} onClose={() => setSendOpen(false)}>
-        <ModalDialog sx={{ maxWidth: 480, width: '100%' }}>
+        <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 480 }, width: '100%' }}>
           <ModalClose />
           <Typography level="title-lg" fontWeight={700}>
             Send Notification

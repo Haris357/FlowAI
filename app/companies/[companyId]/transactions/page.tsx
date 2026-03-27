@@ -383,7 +383,7 @@ export default function TransactionsPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
         <PageBreadcrumbs
@@ -393,14 +393,16 @@ export default function TransactionsPage() {
         />
 
         {/* Header */}
-        <Box>
-          <Typography level="h2" sx={{ mb: 0.5 }}>
-            Transactions
-          </Typography>
-          <Typography level="body-md" sx={{ color: 'text.secondary' }}>
-            Manage your income and expense transactions.
-          </Typography>
-        </Box>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ mb: 0 }}>
+          <Box>
+            <Typography level="h2" sx={{ mb: 0.5 }}>
+              Transactions
+            </Typography>
+            <Typography level="body-md" sx={{ color: 'text.secondary' }}>
+              Manage your income and expense transactions.
+            </Typography>
+          </Box>
+        </Stack>
 
         {/* Stats Overview - Collapsible Accordion */}
         <AccordionGroup>
@@ -411,11 +413,11 @@ export default function TransactionsPage() {
                 <Typography level="body-sm" fontWeight={500}>
                   Total Income: {loading ? '...' : formatCurrency(totalIncome)}
                 </Typography>
-                <Typography level="body-sm" sx={{ color: 'text.secondary' }}>|</Typography>
+                <Typography level="body-sm" sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>|</Typography>
                 <Typography level="body-sm" fontWeight={500}>
                   Total Expenses: {loading ? '...' : formatCurrency(totalExpenses)}
                 </Typography>
-                <Typography level="body-sm" sx={{ color: 'text.secondary' }}>|</Typography>
+                <Typography level="body-sm" sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>|</Typography>
                 <Typography level="body-sm" fontWeight={500}>
                   Net Balance: {loading ? '...' : formatCurrency(totalIncome - totalExpenses)}
                 </Typography>
@@ -754,7 +756,7 @@ export default function TransactionsPage() {
           layout="center"
           sx={{
             width: '100%',
-            maxWidth: 700,
+            maxWidth: { xs: '95vw', sm: 700 },
             maxHeight: '90vh',
             overflow: 'hidden',
             p: 0,

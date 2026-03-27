@@ -411,7 +411,7 @@ export default function JournalEntriesPage() {
   }
 
   return (
-    <Container maxWidth="lg" sx={{ py: 4 }}>
+    <Container maxWidth="lg" sx={{ py: { xs: 2, sm: 3, md: 4 }, px: { xs: 1, sm: 2, md: 3 } }}>
       <Stack spacing={3}>
         {/* Breadcrumbs */}
         <PageBreadcrumbs
@@ -421,29 +421,31 @@ export default function JournalEntriesPage() {
         />
 
         {/* Header */}
-        <Box>
-          <Typography level="h2" sx={{ mb: 0.5 }}>
-            Journal Entries
-          </Typography>
-          <Typography level="body-md" sx={{ color: 'text.secondary' }}>
-            Manage your journal entries for double-entry bookkeeping.
-          </Typography>
-        </Box>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" sx={{ mb: 0 }}>
+          <Box>
+            <Typography level="h2" sx={{ mb: 0.5 }}>
+              Journal Entries
+            </Typography>
+            <Typography level="body-md" sx={{ color: 'text.secondary' }}>
+              Manage your journal entries for double-entry bookkeeping.
+            </Typography>
+          </Box>
+        </Stack>
 
         {/* Stats Cards */}
         <AccordionGroup>
           <Accordion defaultExpanded={false}>
             <AccordionSummary>
-              <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%' }}>
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ width: '100%', flexWrap: 'wrap' }}>
                 <BarChart3 size={18} />
                 <Typography level="body-sm" fontWeight={500}>
                   Total Entries: {loading ? '...' : entries.length}
                 </Typography>
-                <Typography level="body-sm" sx={{ color: 'text.secondary' }}>|</Typography>
+                <Typography level="body-sm" sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>|</Typography>
                 <Typography level="body-sm" fontWeight={500} sx={{ color: 'primary.600' }}>
                   Balanced: {loading ? '...' : balancedCount}
                 </Typography>
-                <Typography level="body-sm" sx={{ color: 'text.secondary' }}>|</Typography>
+                <Typography level="body-sm" sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>|</Typography>
                 <Typography level="body-sm" fontWeight={500} sx={{ color: 'danger.600' }}>
                   Unbalanced: {loading ? '...' : entries.length - balancedCount}
                 </Typography>
@@ -893,9 +895,9 @@ export default function JournalEntriesPage() {
           layout="center"
           sx={{
             width: '100%',
-            maxWidth: 900,
+            maxWidth: { xs: '95vw', sm: 700 },
             maxHeight: '90vh',
-            overflow: 'hidden',
+            overflowY: 'auto',
             p: 0,
           }}
         >

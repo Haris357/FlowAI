@@ -269,7 +269,7 @@ export default function AdminBlogsPage() {
 
       {/* Delete Confirmation Modal */}
       <Modal open={deleteModalOpen} onClose={() => setDeleteModalOpen(false)}>
-        <ModalDialog variant="outlined" role="alertdialog" sx={{ maxWidth: 400 }}>
+        <ModalDialog variant="outlined" role="alertdialog" sx={{ maxWidth: { xs: '95vw', sm: 400 }, width: '100%' }}>
           <Typography level="title-lg" fontWeight={700}>
             Delete Post
           </Typography>
@@ -277,7 +277,7 @@ export default function AdminBlogsPage() {
             Are you sure you want to delete &quot;{postToDelete?.title}&quot;? This action
             cannot be undone.
           </Typography>
-          <Stack direction="row" spacing={1.5} justifyContent="flex-end" sx={{ mt: 2 }}>
+          <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1.5} justifyContent="flex-end" sx={{ mt: 2 }}>
             <Button
               variant="plain"
               color="neutral"

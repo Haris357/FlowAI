@@ -234,7 +234,16 @@ export default function ChatInput({
 
   const handleSelectQuickAction = (prompt: string) => {
     if (onSelectAction) onSelectAction(prompt);
-    setValue(prompt);
+    // If prompt is a template (ends with space) and user has typed something,
+    // treat the typed text as the completion — e.g. "John Smith" + "Create Invoice" → "Help me create an invoice for John Smith"
+    if (value.trim() && prompt.endsWith(' ')) {
+      setValue(prompt + value.trim());
+    } else if (value.trim()) {
+      // Complete prompt: append user's existing text so nothing is lost
+      setValue(value.trim() + ' ' + prompt);
+    } else {
+      setValue(prompt);
+    }
   };
 
   const handleFileSelect = (accept?: string) => {

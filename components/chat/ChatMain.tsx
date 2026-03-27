@@ -55,14 +55,24 @@ export default function ChatMain({
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [showWelcome, setShowWelcome] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  const [dismissedQuestionId, setDismissedQuestionId] = useState<string | null>(null);
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+
+  // Only show the panel for actions that require a real decision — not just "View Details"
+  const ACTIONABLE_TYPES = new Set(['send', 'pay', 'cancel', 'approve', 'confirm']);
 
   // Detect last AI message with standalone question-type actions — memoized to prevent re-renders
   const { lastAiMessage, panelActions, panelQuestion } = useMemo(() => {
     const visible = messages.filter(m => !m.hidden);
     const last = [...visible].reverse().find(m => m.role === 'assistant') ?? null;
-    const actions = (last?.actions?.length && !isAITyping && dismissedQuestionId !== last.id)
-      ? last.actions : null;
+
+    // Only surface actions that actually require a user decision (send, pay, cancel, etc.)
+    // "view" and "navigate" actions are passive — showing them as a question is unnecessary
+    const meaningfulActions = last?.actions?.filter(
+      a => ACTIONABLE_TYPES.has(a.type) || a.toolCall || a.prompt
+    ) ?? [];
+
+    const actions = (meaningfulActions.length > 0 && !isAITyping && !dismissedIds.has(last?.id ?? ''))
+      ? meaningfulActions : null;
 
     let question = 'What would you like to do?';
     if (actions && last?.content) {
@@ -70,7 +80,8 @@ export default function ChatMain({
       question = [...sentences].reverse().find(s => s.trim().endsWith('?'))?.trim() || question;
     }
     return { lastAiMessage: last, panelActions: actions, panelQuestion: question };
-  }, [messages, isAITyping, dismissedQuestionId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, isAITyping, dismissedIds]);
 
   // Handle smooth transition from welcome to messages
   useEffect(() => {
@@ -339,7 +350,7 @@ export default function ChatMain({
             question: panelQuestion,
             actions: panelActions,
             onAction: (action) => {
-              setDismissedQuestionId(lastAiMessage.id);
+              setDismissedIds(prev => new Set([...prev, lastAiMessage.id]));
               if (action.toolCall && action.entityId && onExecuteToolAction) {
                 const toolArgs: Record<string, Record<string, any>> = {
                   send_invoice: { invoiceId: action.entityId },
@@ -361,7 +372,7 @@ export default function ChatMain({
                 onSendMessage(action.prompt);
               }
             },
-            onDismiss: () => setDismissedQuestionId(lastAiMessage.id),
+            onDismiss: () => setDismissedIds(prev => new Set([...prev, lastAiMessage.id])),
           } : undefined}
         />
       </Box>
