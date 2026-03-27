@@ -6,6 +6,12 @@ service firebase.storage {
       allow read, write: if request.auth != null;
     }
 
+    // Bug report screenshots: authenticated users can upload their own
+    match /reports/{userId}/{fileName} {
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null;
+    }
+
     // Default: deny all
     match /{allPaths=**} {
       allow read, write: if false;

@@ -69,7 +69,9 @@ import {
   RefreshCw,
   MessageCircle,
   ArrowLeft,
+  Flag,
 } from 'lucide-react';
+import ReportModal from '@/components/modals/ReportModal';
 
 const SIDEBAR_WIDTH = 260;
 const SIDEBAR_COLLAPSED_WIDTH = 70;
@@ -152,7 +154,20 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportScreenshot, setReportScreenshot] = useState<string | null>(null);
   const { isOpen: settingsModalOpen, section: settingsSection, openSettings, closeSettings } = useSettingsModal();
+
+  const handleOpenReport = async () => {
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const canvas = await html2canvas(document.body, { scale: 0.5, useCORS: true, logging: false });
+      setReportScreenshot(canvas.toDataURL('image/png'));
+    } catch {
+      setReportScreenshot(null);
+    }
+    setShowReportModal(true);
+  };
 
   // Get companyId from URL params
   const companyId = params?.companyId as string | undefined;
@@ -417,6 +432,29 @@ export default function Layout({ children }: LayoutProps) {
       {navItems.map((item) => (
         <NavItemComponent key={item.label} item={item} collapsed={collapsed} />
       ))}
+      <Divider sx={{ my: 0.5 }} />
+      <ListItem>
+        {collapsed ? (
+          <Tooltip title="Report an Issue" placement="right">
+            <ListItemButton
+              onClick={handleOpenReport}
+              sx={{ borderRadius: 'sm', justifyContent: 'center', color: 'text.secondary', '&:hover': { bgcolor: 'neutral.100' } }}
+            >
+              <Flag size={18} />
+            </ListItemButton>
+          </Tooltip>
+        ) : (
+          <ListItemButton
+            onClick={handleOpenReport}
+            sx={{ borderRadius: 'sm', color: 'text.secondary', '&:hover': { bgcolor: 'neutral.100' } }}
+          >
+            <ListItemDecorator><Flag size={18} /></ListItemDecorator>
+            <ListItemContent>
+              <Typography level="body-sm">Report an Issue</Typography>
+            </ListItemContent>
+          </ListItemButton>
+        )}
+      </ListItem>
     </List>
   );
 
@@ -895,11 +933,21 @@ export default function Layout({ children }: LayoutProps) {
       <UpgradeModal />
       <NotificationPanel open={notificationPanelOpen} onClose={() => setNotificationPanelOpen(false)} />
       <SettingsModal open={settingsModalOpen} onClose={closeSettings} initialSection={settingsSection} />
-      <WelcomeTutorialModal />
+      <WelcomeTutorialModal onReportIssue={handleOpenReport} />
       <FeedbackPromptModal />
       <PremiumModal />
       <SubscriptionSuccessModal />
       <TrialWelcomeModal />
+      <ReportModal
+        open={showReportModal}
+        onClose={() => { setShowReportModal(false); setReportScreenshot(null); }}
+        screenshotDataUrl={reportScreenshot}
+        userId={user?.uid || ''}
+        userEmail={user?.email || ''}
+        userName={user?.displayName || user?.email?.split('@')[0] || ''}
+        companyId={companyId || ''}
+        pageUrl={typeof window !== 'undefined' ? window.location.href : ''}
+      />
 
       <Toaster
         position="top-right"

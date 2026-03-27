@@ -6,7 +6,7 @@ import {
 import {
   Rocket, LayoutDashboard, MessageCircle, ShoppingCart, Receipt,
   Landmark, Briefcase, Calculator, BarChart3, PartyPopper,
-  ArrowRight, ArrowLeft, X, Check, Lightbulb,
+  ArrowRight, ArrowLeft, X, Check, Lightbulb, Flag,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePathname } from 'next/navigation';
@@ -35,7 +35,7 @@ interface SpotlightRect {
   height: number;
 }
 
-export default function WelcomeTutorialModal() {
+export default function WelcomeTutorialModal({ onReportIssue }: { onReportIssue?: () => void }) {
   const { user } = useAuth();
   const { mode } = useColorScheme();
   const pathname = usePathname();
@@ -292,6 +292,24 @@ export default function WelcomeTutorialModal() {
             <Typography sx={{ fontSize: '0.68rem', color: isDark ? '#3D3A37' : '#D6D3D1', textAlign: 'center', mt: 1.25 }}>
               Step {step + 1} of {TUTORIAL_STEPS.length}
             </Typography>
+
+            {onReportIssue && (
+              <Stack alignItems="center" sx={{ mt: 1 }}>
+                <Button
+                  variant="plain"
+                  size="sm"
+                  startDecorator={<Flag size={11} />}
+                  onClick={onReportIssue}
+                  sx={{
+                    fontSize: '0.7rem',
+                    color: isDark ? '#5C5752' : '#C2BEBC',
+                    '&:hover': { color: isDark ? '#A8A29E' : '#78736D', bgcolor: 'transparent' },
+                  }}
+                >
+                  Report an issue
+                </Button>
+              </Stack>
+            )}
           </Box>
         </ModalDialog>
       </Modal>

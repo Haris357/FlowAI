@@ -56,6 +56,7 @@ interface ChatMessageProps {
   onSendMessage?: (content: string) => void;
   onExecuteToolAction?: (toolName: string, args: Record<string, any>, sourceMessageId?: string, actionKey?: string) => void;
   showSuggestions?: boolean;
+  precedingUserMessage?: string;
 }
 
 // Parse {{BUTTONS:...}} tags from message content
@@ -831,6 +832,7 @@ export default function ChatMessage({
   onSendMessage,
   onExecuteToolAction,
   showSuggestions = true,
+  precedingUserMessage = '',
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
   const [clickedToolActions, setClickedToolActions] = useState<Set<string>>(
@@ -842,6 +844,7 @@ export default function ChatMessage({
     entity: Record<string, any> | null;
   }>({ open: false, entityType: '', entity: null });
   const [feedback, setFeedback] = useState<'like' | 'dislike' | null>(null);
+  const [feedbackLocked, setFeedbackLocked] = useState(false);
   const [showComplaintModal, setShowComplaintModal] = useState(false);
   const [complaint, setComplaint] = useState('');
   const [submittingFeedback, setSubmittingFeedback] = useState(false);
@@ -859,7 +862,7 @@ export default function ChatMessage({
   };
 
   const handleFeedback = async (rating: 'like' | 'dislike') => {
-    if (feedback === rating) return; // Already selected
+    if (feedbackLocked || feedback === rating) return;
     setFeedback(rating);
 
     if (rating === 'dislike') {
@@ -867,7 +870,7 @@ export default function ChatMessage({
       return;
     }
 
-    // Like — submit immediately
+    // Like — submit immediately and lock
     try {
       await fetch('/api/chat/feedback', {
         method: 'POST',
@@ -877,12 +880,13 @@ export default function ChatMessage({
           companyId: company?.id || '',
           chatId: currentSessionId || '',
           messageId: message.id,
-          userMessage: '',
+          userMessage: precedingUserMessage,
           aiResponse: message.content,
           rating: 'like',
           complaint: '',
         }),
       });
+      setFeedbackLocked(true);
     } catch (err) {
       console.error('Failed to submit feedback:', err);
     }
@@ -899,7 +903,7 @@ export default function ChatMessage({
           companyId: company?.id || '',
           chatId: currentSessionId || '',
           messageId: message.id,
-          userMessage: '',
+          userMessage: precedingUserMessage,
           aiResponse: message.content,
           rating: 'dislike',
           complaint: complaint.trim(),
@@ -907,6 +911,7 @@ export default function ChatMessage({
       });
       setShowComplaintModal(false);
       setComplaint('');
+      setFeedbackLocked(true);
     } catch (err) {
       console.error('Failed to submit complaint:', err);
     } finally {
@@ -916,7 +921,7 @@ export default function ChatMessage({
 
   const handleCloseComplaint = () => {
     setShowComplaintModal(false);
-    // If they close without submitting, still record the dislike
+    // If they close without submitting, still record the dislike and lock
     fetch('/api/chat/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -931,6 +936,7 @@ export default function ChatMessage({
         complaint: '',
       }),
     }).catch(() => {});
+    setFeedbackLocked(true);
   };
 
   const handleAction = (action: ActionButton) => {

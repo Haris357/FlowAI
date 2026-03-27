@@ -118,6 +118,10 @@ function buildContextReminder(
     }];
   }
 
+  // Don't hijack greetings / small talk as answers to pending tasks
+  const isGreeting = /^(hi+|hey+|hello|howdy|hiya|sup|yo+|what'?s up|how (are|r) (u|you)|how (r|are) (u|you) do+in|how u do+in|greetings|good (morning|afternoon|evening|day)|hru|how'?s it going|how you doing|how are you|what'?s good)\b/i.test(currentMessage.trim());
+  if (isGreeting) return [];
+
   if (isShortReply && !isUserAskingQuestion) {
     return [{
       role: 'system' as const,

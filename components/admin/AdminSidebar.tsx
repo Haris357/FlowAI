@@ -7,7 +7,7 @@ import {
   LayoutDashboard, Users, CreditCard, Zap, HelpCircle,
   MessageSquare, Settings, ArrowLeft, ShieldCheck,
   PanelLeftClose, PanelLeftOpen, FileText, Star, LogOut,
-  Mail, Bell, Activity, Megaphone, Newspaper, BarChart3,
+  Mail, Bell, Activity, Megaphone, Newspaper, BarChart3, Flag,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import NextLink from 'next/link';
@@ -28,6 +28,7 @@ const NAV_ITEMS = [
   { label: 'Testimonials', path: '/admin/testimonials', icon: Star },
   { label: 'Support', path: '/admin/support', icon: HelpCircle },
   { label: 'Feedback', path: '/admin/feedback', icon: MessageSquare },
+  { label: 'Bug Reports', path: '/admin/reports', icon: Flag },
   { label: 'Activity Log', path: '/admin/activity', icon: Activity },
   { label: 'System', path: '/admin/system', icon: Settings },
 ];

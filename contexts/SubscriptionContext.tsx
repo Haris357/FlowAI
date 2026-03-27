@@ -1,7 +1,7 @@
 'use client';
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { doc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db, auth } from '@/lib/firebase';
 import { useAuth } from './AuthContext';
 import { getUserSubscription, getRemainingUsage } from '@/services/subscription';
 import { getPlan, getCurrentWeekStart, getNextWeekStart, formatDuration, DEFAULT_SUBSCRIPTION, PLANS, isTrialExpired } from '@/lib/plans';
@@ -234,7 +234,13 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     let attempts = 0;
     let cancelled = false;
 
-    const start = () => {
+    const start = async () => {
+      if (cancelled) return;
+      // Force a fresh auth token before starting the listener to avoid
+      // transient permission errors during token refresh cycles
+      try {
+        if (auth.currentUser) await auth.currentUser.getIdToken(false);
+      } catch { /* ignore — onSnapshot will retry if needed */ }
       if (cancelled) return;
       unsubscribeFn = onSnapshot(
         doc(db, 'users', user.uid),
@@ -247,11 +253,12 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         },
         (err) => {
           if (cancelled) return;
-          console.error('Subscription listener error:', err);
-          setLoading(false);
-          // Retry on permission errors — Firestore auth token may not have propagated yet
-          if (attempts < 3) {
+          // Retry on permission errors — auth token may not have propagated yet
+          if (attempts < 5) {
             retryTimer = setTimeout(start, 1000 * ++attempts);
+          } else {
+            console.warn('Subscription listener failed after retries:', err.message);
+            setLoading(false);
           }
         }
       );
@@ -275,7 +282,11 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     let attempts = 0;
     let cancelled = false;
 
-    const start = () => {
+    const start = async () => {
+      if (cancelled) return;
+      try {
+        if (auth.currentUser) await auth.currentUser.getIdToken(false);
+      } catch { /* ignore */ }
       if (cancelled) return;
       unsubscribeFn = onSnapshot(
         doc(db, 'users', user.uid, 'usage', 'current'),
@@ -293,9 +304,10 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         },
         (err) => {
           if (cancelled) return;
-          console.error('Usage listener error:', err);
-          if (attempts < 3) {
+          if (attempts < 5) {
             retryTimer = setTimeout(start, 1000 * ++attempts);
+          } else {
+            console.warn('Usage listener failed after retries:', err.message);
           }
         }
       );

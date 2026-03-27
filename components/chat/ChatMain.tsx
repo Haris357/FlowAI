@@ -263,31 +263,38 @@ export default function ChatMain({
             for (let i = visible.length - 1; i >= 0; i--) {
               if (visible[i].role === 'assistant') { lastAiIndex = i; break; }
             }
-            return visible.map((message, index) => (
-              <Box
-                key={message.id}
-                sx={{
-                  animation: `messageSlideIn 0.3s ease-out ${index * 0.05}s both`,
-                  '@keyframes messageSlideIn': {
-                    '0%': { opacity: 0, transform: 'translateY(10px)' },
-                    '100%': { opacity: 1, transform: 'translateY(0)' },
-                  },
-                }}
-              >
-                <ChatMessage
-                  message={message}
-                  showTimestamp={showTimestamps}
-                  userPhotoUrl={userPhotoUrl}
-                  userName={userName}
-                  richData={message.richData}
-                  actions={panelActions && message.id === lastAiMessage?.id ? [] : message.actions}
-                  followUp={message.followUp}
-                  onSendMessage={onSendMessage}
-                  onExecuteToolAction={onExecuteToolAction}
-                  showSuggestions={index === lastAiIndex && !isAITyping}
-                />
-              </Box>
-            ));
+            return visible.map((message, index) => {
+              // Find the nearest preceding user message for feedback context
+              const precedingUserMessage = message.role === 'assistant'
+                ? [...visible].slice(0, index).reverse().find(m => m.role === 'user')?.content || ''
+                : '';
+              return (
+                <Box
+                  key={message.id}
+                  sx={{
+                    animation: `messageSlideIn 0.3s ease-out ${index * 0.05}s both`,
+                    '@keyframes messageSlideIn': {
+                      '0%': { opacity: 0, transform: 'translateY(10px)' },
+                      '100%': { opacity: 1, transform: 'translateY(0)' },
+                    },
+                  }}
+                >
+                  <ChatMessage
+                    message={message}
+                    showTimestamp={showTimestamps}
+                    userPhotoUrl={userPhotoUrl}
+                    userName={userName}
+                    richData={message.richData}
+                    actions={panelActions && message.id === lastAiMessage?.id ? [] : message.actions}
+                    followUp={message.followUp}
+                    onSendMessage={onSendMessage}
+                    onExecuteToolAction={onExecuteToolAction}
+                    showSuggestions={index === lastAiIndex && !isAITyping}
+                    precedingUserMessage={precedingUserMessage}
+                  />
+                </Box>
+              );
+            });
           })()}
 
           {/* Typing indicator or thinking steps accordion (when tools are running) */}
