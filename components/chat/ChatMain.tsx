@@ -357,7 +357,7 @@ export default function ChatMain({
             question: panelQuestion,
             actions: panelActions,
             onAction: (action) => {
-              setDismissedIds(prev => new Set([...prev, lastAiMessage.id]));
+              setDismissedIds(prev => { const next = new Set(prev); next.add(lastAiMessage.id); return next; });
               if (action.toolCall && action.entityId && onExecuteToolAction) {
                 const toolArgs: Record<string, Record<string, any>> = {
                   send_invoice: { invoiceId: action.entityId },
@@ -379,7 +379,7 @@ export default function ChatMain({
                 onSendMessage(action.prompt);
               }
             },
-            onDismiss: () => setDismissedIds(prev => new Set([...prev, lastAiMessage.id])),
+            onDismiss: () => setDismissedIds(prev => { const next = new Set(prev); next.add(lastAiMessage.id); return next; }),
           } : undefined}
         />
       </Box>

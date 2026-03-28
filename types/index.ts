@@ -443,11 +443,13 @@ export interface ChatMessageRichData {
 }
 
 export interface ChatMessageAction {
-  type: 'view' | 'edit' | 'delete' | 'download' | 'navigate';
+  type: 'view' | 'edit' | 'delete' | 'download' | 'navigate' | 'send' | 'pay' | 'cancel' | 'approve' | 'confirm';
   label: string;
-  entityType: 'customer' | 'vendor' | 'employee' | 'invoice' | 'bill' | 'transaction' | 'account' | 'report';
+  entityType?: 'customer' | 'vendor' | 'employee' | 'invoice' | 'bill' | 'transaction' | 'account' | 'report';
   entityId?: string;
   data?: Record<string, any>;
+  toolCall?: string;
+  prompt?: string;
 }
 
 export interface ChatAttachment {
