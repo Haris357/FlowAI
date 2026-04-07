@@ -295,6 +295,7 @@ export default function JournalEntriesPage() {
       newLines[index] = { ...newLines[index], [field]: value };
     }
     setLines(newLines);
+    if (formErrors.lines) setFormErrors(prev => ({ ...prev, lines: undefined }));
   };
 
   // Handle account selection
@@ -316,6 +317,7 @@ export default function JournalEntriesPage() {
       };
     }
     setLines(newLines);
+    if (formErrors.lines) setFormErrors(prev => ({ ...prev, lines: undefined }));
   };
 
   // Add new line
@@ -360,7 +362,7 @@ export default function JournalEntriesPage() {
           date: new Date(entryDate),
           description: description.trim(),
           lines: entryLines,
-          reference: reference.trim() || undefined,
+          reference: reference.trim() || '',
           referenceType: 'manual',
           createdBy: user.uid,
         });
@@ -915,7 +917,10 @@ export default function JournalEntriesPage() {
                     <Input
                       type="date"
                       value={entryDate}
-                      onChange={(e) => setEntryDate(e.target.value)}
+                      onChange={(e) => {
+                        setEntryDate(e.target.value);
+                        if (formErrors.date) setFormErrors(prev => ({ ...prev, date: undefined }));
+                      }}
                     />
                     {formErrors.date && <FormHelperText>{formErrors.date}</FormHelperText>}
                   </FormControl>
@@ -937,7 +942,10 @@ export default function JournalEntriesPage() {
                 <Input
                   placeholder="Enter description..."
                   value={description}
-                  onChange={(e) => setDescription(e.target.value)}
+                  onChange={(e) => {
+                    setDescription(e.target.value);
+                    if (formErrors.description) setFormErrors(prev => ({ ...prev, description: undefined }));
+                  }}
                 />
                 {formErrors.description && <FormHelperText>{formErrors.description}</FormHelperText>}
               </FormControl>

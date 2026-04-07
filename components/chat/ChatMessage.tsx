@@ -954,6 +954,10 @@ export default function ChatMessage({
         mark_invoice_paid: { invoiceId: action.entityId, newStatus: 'paid' },
         cancel_invoice: { invoiceId: action.entityId, newStatus: 'cancelled' },
         change_bill_status: { billId: action.entityId, newStatus: 'paid' },
+        send_salary_slip: { slipId: action.entityId },
+        send_bill_email: { billId: action.entityId, type: 'created' },
+        send_quote_email: { quoteId: action.entityId, type: 'sent' },
+        send_purchase_order_email: { poId: action.entityId, type: 'sent' },
       };
       const args = toolArgs[action.toolCall] || { id: action.entityId };
 
@@ -996,6 +1000,21 @@ export default function ChatMessage({
       const companyId = company?.id;
       if (companyId) {
         window.open(`/api/payroll/pdf?companyId=${companyId}&slipId=${action.entityId}`, '_blank');
+      }
+    } else if (action.type === 'download' && action.entityType === 'bill' && action.entityId) {
+      const companyId = company?.id;
+      if (companyId) {
+        window.open(`/api/bills/pdf?companyId=${companyId}&billId=${action.entityId}`, '_blank');
+      }
+    } else if (action.type === 'download' && action.entityType === 'quote' && action.entityId) {
+      const companyId = company?.id;
+      if (companyId) {
+        window.open(`/api/quotes/pdf?companyId=${companyId}&quoteId=${action.entityId}`, '_blank');
+      }
+    } else if (action.type === 'download' && action.entityType === 'purchaseOrder' && action.entityId) {
+      const companyId = company?.id;
+      if (companyId) {
+        window.open(`/api/purchase-orders/pdf?companyId=${companyId}&poId=${action.entityId}`, '_blank');
       }
     }
   };

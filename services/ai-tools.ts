@@ -136,6 +136,21 @@ async function getCachedPreferences(companyId: string): Promise<AccountPreferenc
   return prefs;
 }
 
+// Cache company currency per request
+let _currencyCache: { companyId: string; currency: string } | null = null;
+
+async function getCachedCurrency(companyId: string): Promise<string> {
+  if (_currencyCache && _currencyCache.companyId === companyId) return _currencyCache.currency;
+  try {
+    const companySnap = await getDoc(doc(db, 'companies', companyId));
+    const currency = (companySnap.data() as any)?.currency || 'USD';
+    _currencyCache = { companyId, currency };
+    return currency;
+  } catch {
+    return 'USD';
+  }
+}
+
 /**
  * Resolve preferred account from preferences, with fallback to type/subtype matching
  */
@@ -269,11 +284,24 @@ function parseAmount(value: any): number {
   return parseFloat(str) || 0;
 }
 
+// Module-level currency for the current request — set at the start of executeAITool
+let _requestCurrency = 'USD';
+
 /**
- * Format currency for display
+ * Format currency for display using the current company's currency
  */
-function formatCurrency(amount: number): string {
-  return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+function formatCurrency(amount: number, currency?: string): string {
+  const cur = currency || _requestCurrency;
+  try {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: cur,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch {
+    return `${cur} ${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
 }
 
 /**
@@ -296,8 +324,12 @@ export async function executeAITool(
 ): Promise<ToolResult> {
   const { companyId, userId } = context;
 
-  // Clear preferences cache for fresh data each tool execution
+  // Clear caches for fresh data each tool execution
   _prefCache = null;
+  _currencyCache = null;
+
+  // Pre-fetch company currency so all formatCurrency() calls in this request use the right symbol
+  _requestCurrency = await getCachedCurrency(companyId);
 
   try {
     switch (toolName) {
@@ -464,6 +496,16 @@ export async function executeAITool(
       // Send Invoice via Email
       case 'send_invoice':
         return await sendInvoiceViaEmail(args, companyId);
+
+      // Send other documents via Email
+      case 'send_salary_slip':
+        return await sendSalarySlipEmail(args, companyId);
+      case 'send_bill_email':
+        return await sendBillEmail(args, companyId);
+      case 'send_quote_email':
+        return await sendQuoteEmail(args, companyId);
+      case 'send_purchase_order_email':
+        return await sendPurchaseOrderEmail(args, companyId);
 
       // Status Management Operations
       case 'change_invoice_status':
@@ -1278,7 +1320,7 @@ async function recordExpense(args: Record<string, any>, companyId: string): Prom
 
     return {
       success: true,
-      message: `I've recorded an expense of **$${amount.toLocaleString()}** for "${args.description}" and created the corresponding journal entry.`,
+      message: `I've recorded an expense of **${formatCurrency(amount)}** for "${args.description}" and created the corresponding journal entry.`,
       data: { type: 'entity', entityType: 'transaction', entity: entityData },
       actions: [
         { type: 'view', label: 'View Transaction', entityType: 'transaction', entityId: transactionId, data: entityData },
@@ -1357,7 +1399,7 @@ async function recordPaymentReceived(args: Record<string, any>, companyId: strin
 
     return {
       success: true,
-      message: `I've recorded a payment of **$${amount.toLocaleString()}** received from **${args.customerName}** and created the corresponding journal entry.`,
+      message: `I've recorded a payment of **${formatCurrency(amount)}** received from **${args.customerName}** and created the corresponding journal entry.`,
       data: { type: 'entity', entityType: 'transaction', entity: entityData },
       actions: [
         { type: 'view', label: 'View Transaction', entityType: 'transaction', entityId: transactionId, data: entityData },
@@ -1417,7 +1459,7 @@ async function recordPaymentMade(args: Record<string, any>, companyId: string): 
 
     return {
       success: true,
-      message: `I've recorded a payment of **$${amount.toLocaleString()}** made to **${args.vendorName}** and created the corresponding journal entry.`,
+      message: `I've recorded a payment of **${formatCurrency(amount)}** made to **${args.vendorName}** and created the corresponding journal entry.`,
       data: { type: 'entity', entityType: 'transaction', entity: entityData },
       actions: [
         { type: 'view', label: 'View Transaction', entityType: 'transaction', entityId: transactionId, data: entityData },
@@ -1528,13 +1570,40 @@ async function deleteTransaction(args: Record<string, any>, companyId: string): 
 // ==========================================
 
 async function createAccount(args: Record<string, any>, companyId: string): Promise<ToolResult> {
-  const accountsRef = collection(db, `companies/${companyId}/chartOfAccounts`);
-  const accountCode = args.code || `ACC-${Date.now().toString().slice(-6)}`;
+  // Look up the subtype to get typeCode, typeId, typeName — required for correct report classification
+  const subtypesSnap = await getDocs(collection(db, `companies/${companyId}/accountSubtypes`));
+  const subtypes = subtypesSnap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+
+  const subtype = subtypes.find((s: any) =>
+    s.code === args.subtypeCode ||
+    s.name?.toLowerCase() === args.subtypeCode?.toLowerCase()
+  );
+
+  if (!subtype) {
+    return {
+      success: false,
+      message: `Invalid subtype "${args.subtypeCode}". Valid subtypes: ${subtypes.map((s: any) => s.code).join(', ')}`,
+    };
+  }
+
+  // Auto-generate account code if not provided
+  let accountCode = args.code;
+  if (!accountCode) {
+    const existingSnap = await getDocs(collection(db, `companies/${companyId}/chartOfAccounts`));
+    const existing = existingSnap.docs.map(d => d.data() as any).filter(a => a.typeCode === subtype.typeCode);
+    const maxCode = Math.max(0, ...existing.map((a: any) => parseInt(a.code) || 0));
+    accountCode = String(maxCode + 10).padStart(4, '0');
+  }
 
   const accountData = {
     code: accountCode,
     name: args.name,
-    subtypeCode: args.subtypeCode,
+    typeId: subtype.typeId,
+    typeName: subtype.typeName,
+    typeCode: subtype.typeCode,
+    subtypeId: subtype.id,
+    subtypeName: subtype.name,
+    subtypeCode: subtype.code,
     description: args.description || '',
     isActive: true,
     isSystem: false,
@@ -1542,11 +1611,12 @@ async function createAccount(args: Record<string, any>, companyId: string): Prom
     createdAt: serverTimestamp(),
   };
 
+  const accountsRef = collection(db, `companies/${companyId}/chartOfAccounts`);
   const docRef = await addDoc(accountsRef, accountData);
 
   return {
     success: true,
-    message: `I've created the account **${args.name}** (${accountCode}).`,
+    message: `I've created the account **${args.name}** (${accountCode}) under **${subtype.typeName} → ${subtype.name}**.`,
     data: { type: 'entity', entityType: 'account', entity: { id: docRef.id, ...accountData } },
     actions: [
       { type: 'view', label: 'View Account', entityType: 'account', entityId: docRef.id, data: { id: docRef.id, ...accountData } },
@@ -1594,7 +1664,7 @@ async function createJournalEntry(args: Record<string, any>, companyId: string):
   if (Math.abs(totalDebit - totalCredit) > 0.01) {
     return {
       success: false,
-      message: `The journal entry doesn't balance. Debits ($${totalDebit.toFixed(2)}) must equal credits ($${totalCredit.toFixed(2)}).`,
+      message: `The journal entry doesn't balance. Debits (${formatCurrency(totalDebit)}) must equal credits (${formatCurrency(totalCredit)}).`,
     };
   }
 
@@ -1620,7 +1690,7 @@ async function createJournalEntry(args: Record<string, any>, companyId: string):
 
   return {
     success: true,
-    message: `I've created journal entry **${entryNumber}**: "${args.description}" (Total: $${totalDebit.toFixed(2)}).`,
+    message: `I've created journal entry **${entryNumber}**: "${args.description}" (Total: ${formatCurrency(totalDebit)}).`,
     data: { type: 'entity', entityType: 'journal_entry', entity: { id: docRef.id, ...journalData } },
   };
 }
@@ -1643,7 +1713,7 @@ async function getAccountBalance(args: Record<string, any>, companyId: string): 
   if (accountName.includes('cash') || accountName.includes('bank')) {
     return {
       success: true,
-      message: `**Cash/Bank Summary:**\n- Total Income: $${income.toLocaleString()}\n- Total Expenses: $${expenses.toLocaleString()}\n- Net Balance: $${(income - expenses).toLocaleString()}`,
+      message: `**Cash/Bank Summary:**\n- Total Income: ${formatCurrency(income)}\n- Total Expenses: ${formatCurrency(expenses)}\n- Net Balance: ${formatCurrency(income - expenses)}`,
       data: {
         type: 'summary',
         summary: { income, expenses, net: income - expenses },
@@ -1658,14 +1728,14 @@ async function getAccountBalance(args: Record<string, any>, companyId: string): 
 
     return {
       success: true,
-      message: `**Accounts Receivable:** $${totalReceivable.toLocaleString()}`,
+      message: `**Accounts Receivable:** ${formatCurrency(totalReceivable)}`,
       data: { type: 'summary', summary: { receivables: totalReceivable } },
     };
   }
 
   return {
     success: true,
-    message: `**Financial Summary:**\n- Total Income: $${income.toLocaleString()}\n- Total Expenses: $${expenses.toLocaleString()}\n- Net: $${(income - expenses).toLocaleString()}`,
+    message: `**Financial Summary:**\n- Total Income: ${formatCurrency(income)}\n- Total Expenses: ${formatCurrency(expenses)}\n- Net: ${formatCurrency(income - expenses)}`,
   };
 }
 
@@ -1880,7 +1950,7 @@ async function createBill(args: Record<string, any>, companyId: string): Promise
     const accounts = await getAccounts(companyId);
 
     // Use preferred payable account, fallback to liability/accounts_payable, then any liability
-    const payableAccount = await resolvePreferredAccount(companyId, accounts, 'defaultPayableAccountId', 'liability', 'accounts_payable');
+    const payableAccount = await resolvePreferredAccount(companyId, accounts, 'defaultPayableAccountId', 'liability', undefined, 'payable');
     if (!payableAccount) {
       return {
         success: false,
@@ -1940,10 +2010,12 @@ async function createBill(args: Record<string, any>, companyId: string): Promise
 
     return {
       success: true,
-      message: `I've recorded a bill from **${args.vendorName}** for **$${total.toLocaleString()}** and created the corresponding journal entry.`,
+      message: `I've recorded a bill from **${args.vendorName}** for **${formatCurrency(total)}** and created the corresponding journal entry.`,
       data: { type: 'entity', entityType: 'bill', entity: { id: billId, ...billData } },
       actions: [
         { type: 'view', label: 'View Bill', entityType: 'bill', entityId: billId, data: { id: billId, ...billData } },
+        { type: 'download', label: 'Download PDF', entityType: 'bill', entityId: billId },
+        { type: 'send', label: 'Send to Vendor', entityType: 'bill', entityId: billId, toolCall: 'send_bill_email' },
       ],
     };
   } catch (error: any) {
@@ -2138,9 +2210,13 @@ async function createQuoteAI(args: Record<string, any>, companyId: string): Prom
 
     return {
       success: true,
-      message: `Quote created for **${customer.name}** — **$${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}**`,
+      message: `Quote created for **${customer.name}** — **${formatCurrency(total)}**`,
       data: { type: 'entity', entityType: 'quote' as any, entity },
-      actions: [{ type: 'view', label: 'View Details', entityType: 'quote' as any, entityId: quoteId, data: entity }],
+      actions: [
+        { type: 'view', label: 'View Details', entityType: 'quote' as any, entityId: quoteId, data: entity },
+        { type: 'download', label: 'Download PDF', entityType: 'quote' as any, entityId: quoteId },
+        { type: 'send', label: 'Send Quote', entityType: 'quote' as any, entityId: quoteId, toolCall: 'send_quote_email' },
+      ],
     };
   } catch (error: any) {
     return { success: false, message: `Failed to create quote: ${error.message}`, error: error.message };
@@ -2256,7 +2332,11 @@ async function createPurchaseOrderAI(args: Record<string, any>, companyId: strin
       success: true,
       message: `Purchase order created for **${vendor.name}**`,
       data: { type: 'entity', entityType: 'purchaseOrder' as any, entity: { id: poId, vendorName: vendor.name } },
-      actions: [{ type: 'view', label: 'View PO', entityType: 'purchaseOrder' as any, entityId: poId }],
+      actions: [
+        { type: 'view', label: 'View PO', entityType: 'purchaseOrder' as any, entityId: poId },
+        { type: 'download', label: 'Download PDF', entityType: 'purchaseOrder' as any, entityId: poId },
+        { type: 'send', label: 'Send to Vendor', entityType: 'purchaseOrder' as any, entityId: poId, toolCall: 'send_purchase_order_email' },
+      ],
     };
   } catch (error: any) {
     return { success: false, message: `Failed to create purchase order: ${error.message}`, error: error.message };
@@ -2685,7 +2765,7 @@ async function createBankAccountAI(args: Record<string, any>, companyId: string)
 
     return {
       success: true,
-      message: `Bank account **${entity.accountName}** at **${args.bankName}** created with opening balance of **$${openingBalance.toLocaleString()}**.`,
+      message: `Bank account **${entity.accountName}** at **${args.bankName}** created with opening balance of **${formatCurrency(openingBalance)}**.`,
       data: { type: 'entity', entityType: 'bank_account' as any, entity },
     };
   } catch (error: any) {
@@ -2835,7 +2915,7 @@ async function generateSalarySlipAI(args: Record<string, any>, companyId: string
 
     return {
       success: true,
-      message: `Salary slip generated for **${entity.employeeName}** — ${monthName} ${year}\n\nBasic: $${basicSalary.toLocaleString()} | Allowances: +$${(allowances.hra + allowances.da + allowances.ta + allowances.other).toLocaleString()} | Deductions: -$${totalDeductions.toLocaleString()} | **Net Pay: $${netPay.toLocaleString()}**`,
+      message: `Salary slip generated for **${entity.employeeName}** — ${monthName} ${year}\n\nBasic: ${formatCurrency(basicSalary)} | Allowances: +${formatCurrency(allowances.hra + allowances.da + allowances.ta + allowances.other)} | Deductions: -${formatCurrency(totalDeductions)} | **Net Pay: ${formatCurrency(netPay)}**`,
       data: { type: 'entity', entityType: 'salary_slip' as any, entity },
       actions: [
         {
@@ -2850,6 +2930,13 @@ async function generateSalarySlipAI(args: Record<string, any>, companyId: string
           label: 'Download PDF',
           entityType: 'salary_slip' as any,
           entityId: slipId,
+        },
+        {
+          type: 'send' as const,
+          label: 'Send to Employee',
+          entityType: 'salary_slip' as any,
+          entityId: slipId,
+          toolCall: 'send_salary_slip',
         },
       ],
     };
@@ -2982,6 +3069,114 @@ async function sendInvoiceViaEmail(args: Record<string, any>, companyId: string)
     };
   } catch (error: any) {
     return handleError(error, 'Send invoice');
+  }
+}
+
+// ==========================================
+// SEND EMAIL FUNCTIONS — SALARY SLIP, BILL, QUOTE, PO
+// ==========================================
+
+async function sendSalarySlipEmail(args: Record<string, any>, companyId: string): Promise<ToolResult> {
+  try {
+    const { slipId } = args;
+    if (!slipId) return { success: false, message: 'Salary slip ID is required.' };
+
+    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    const response = await fetch(`${baseUrl}/api/payroll/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId, slipId }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      return { success: false, message: result.error || 'Failed to send salary slip email.' };
+    }
+
+    return {
+      success: true,
+      message: `✓ Salary slip sent to **${result.recipient}** with PDF attached.`,
+    };
+  } catch (error: any) {
+    return handleError(error, 'Send salary slip');
+  }
+}
+
+async function sendBillEmail(args: Record<string, any>, companyId: string): Promise<ToolResult> {
+  try {
+    const { billId, type = 'created' } = args;
+    if (!billId) return { success: false, message: 'Bill ID is required.' };
+
+    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    const response = await fetch(`${baseUrl}/api/bills/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId, billId, type }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      return { success: false, message: result.error || 'Failed to send bill email.' };
+    }
+
+    return {
+      success: true,
+      message: `✓ Bill email sent to vendor **${result.recipient}** with PDF attached.`,
+    };
+  } catch (error: any) {
+    return handleError(error, 'Send bill email');
+  }
+}
+
+async function sendQuoteEmail(args: Record<string, any>, companyId: string): Promise<ToolResult> {
+  try {
+    const { quoteId, type = 'sent' } = args;
+    if (!quoteId) return { success: false, message: 'Quote ID is required.' };
+
+    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    const response = await fetch(`${baseUrl}/api/quotes/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId, quoteId, type }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      return { success: false, message: result.error || 'Failed to send quote email.' };
+    }
+
+    return {
+      success: true,
+      message: `✓ Quote sent to customer with PDF attached. Status updated to **Sent**.`,
+    };
+  } catch (error: any) {
+    return handleError(error, 'Send quote email');
+  }
+}
+
+async function sendPurchaseOrderEmail(args: Record<string, any>, companyId: string): Promise<ToolResult> {
+  try {
+    const { poId, type = 'sent' } = args;
+    if (!poId) return { success: false, message: 'Purchase order ID is required.' };
+
+    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    const response = await fetch(`${baseUrl}/api/purchase-orders/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId, poId, type }),
+    });
+
+    const result = await response.json();
+    if (!response.ok) {
+      return { success: false, message: result.error || 'Failed to send purchase order email.' };
+    }
+
+    return {
+      success: true,
+      message: `✓ Purchase order sent to vendor with PDF attached. Status updated to **Sent**.`,
+    };
+  } catch (error: any) {
+    return handleError(error, 'Send purchase order email');
   }
 }
 

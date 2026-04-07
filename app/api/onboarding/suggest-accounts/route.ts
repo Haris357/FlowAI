@@ -33,7 +33,7 @@ Business description: "${description}"
 
 Suggest 3-8 additional accounts. Output as JSON array:
 [
-  { "code": "4xxx or 5xxx", "name": "Account Name", "type": "asset|liability|equity|revenue|expense", "subType": "current_asset|fixed_asset|current_liability|long_term_liability|equity|operating_revenue|other_revenue|operating_expense|cost_of_goods_sold" }
+  { "code": "4xxx or 5xxx", "name": "Account Name", "type": "asset|liability|equity|revenue|expense", "subType": "current_asset|fixed_asset|current_liability|long_term_liability|owner_equity|retained_earnings|operating_revenue|other_revenue|operating_expense|cost_of_goods_sold|payroll_expense|other_expense" }
 ]
 
 Use codes 4100-4199 for custom revenue, 5200-5299 for COGS, 5300-5399 for custom expenses, 1300-1399 for custom assets, 2300-2399 for custom liabilities.

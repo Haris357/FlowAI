@@ -210,6 +210,16 @@ export default function SettingsPage() {
   const [invoiceShowFooter, setInvoiceShowFooter] = useState(true);
   const [invoiceShowPoweredBy, setInvoiceShowPoweredBy] = useState(true);
 
+  // ─── Other documents appearance state (Bills, Quotes, POs, Salary Slips) ───
+  const [docTemplate, setDocTemplate] = useState<'classic' | 'modern' | 'minimal'>('classic');
+  const [docColorTheme, setDocColorTheme] = useState('#D97757');
+  const [docShowCompanyName, setDocShowCompanyName] = useState(true);
+  const [docShowCompanyAddress, setDocShowCompanyAddress] = useState(true);
+  const [docShowCompanyEmail, setDocShowCompanyEmail] = useState(true);
+  const [docShowCompanyPhone, setDocShowCompanyPhone] = useState(true);
+  const [docShowTaxId, setDocShowTaxId] = useState(true);
+  const [docShowPoweredBy, setDocShowPoweredBy] = useState(true);
+
   // ─── Custom options state ───
   const [customSettings, setCustomSettings] = useState<CompanySetting[]>([]);
   const [loadingSettings, setLoadingSettings] = useState(true);
@@ -287,6 +297,14 @@ export default function SettingsPage() {
       setInvoiceShowTaxId(company.invoiceShowTaxId ?? true);
       setInvoiceShowFooter(company.invoiceShowFooter ?? true);
       setInvoiceShowPoweredBy(company.invoiceShowPoweredBy ?? true);
+      setDocTemplate((company as any).docTemplate || 'classic');
+      setDocColorTheme((company as any).docColorTheme || '#D97757');
+      setDocShowCompanyName((company as any).docShowCompanyName ?? true);
+      setDocShowCompanyAddress((company as any).docShowCompanyAddress ?? true);
+      setDocShowCompanyEmail((company as any).docShowCompanyEmail ?? true);
+      setDocShowCompanyPhone((company as any).docShowCompanyPhone ?? true);
+      setDocShowTaxId((company as any).docShowTaxId ?? true);
+      setDocShowPoweredBy((company as any).docShowPoweredBy ?? true);
     }
   }, [company]);
 
@@ -383,7 +401,7 @@ export default function SettingsPage() {
     try {
       await addSettingOption(company.id, selectedCategory, {
         code: newOptionCode, label: newOptionLabel.trim(),
-        color: newOptionColor || undefined, isActive: true, isDefault: false,
+        color: newOptionColor || '', isActive: true, isDefault: false,
       });
       toast.success('Option added successfully');
       setAddModalOpen(false);
@@ -514,6 +532,10 @@ export default function SettingsPage() {
         invoiceShowCompanyEmail, invoiceShowCompanyPhone,
         invoiceShowTaxId, invoiceShowFooter, invoiceShowPoweredBy,
         billPrefix, billNextNumber, billDefaultTerms,
+        docTemplate, docColorTheme,
+        docShowCompanyName, docShowCompanyAddress,
+        docShowCompanyEmail, docShowCompanyPhone,
+        docShowTaxId, docShowPoweredBy,
         updatedAt: new Date(),
       });
       toast.success('Document settings saved');
@@ -544,8 +566,8 @@ export default function SettingsPage() {
     const nameKey = key.replace('Id', 'Name');
     setAccountPreferences(prev => ({
       ...prev,
-      [key]: accountId || undefined,
-      [nameKey]: account?.name || undefined,
+      [key]: accountId || '',
+      [nameKey]: account?.name || '',
     }));
   };
 
@@ -1162,6 +1184,99 @@ export default function SettingsPage() {
                           <Stack direction="row" justifyContent="space-between" alignItems="center">
                             <Typography level="body-sm">Show &quot;Powered by Flowbooks&quot;</Typography>
                             <Switch size="sm" checked={invoiceShowPoweredBy} onChange={(e) => setInvoiceShowPoweredBy(e.target.checked)} />
+                          </Stack>
+                        </Stack>
+                      </Grid>
+                    </Grid>
+                  </Stack>
+                </SectionCard>
+
+                {/* Other Documents Appearance */}
+                <SectionCard icon={<Palette size={18} />} title="Bills, Quotes & Other Documents" description="Customize how bills, quotes, purchase orders, and salary slips look when exported as PDF">
+                  <Stack spacing={2.5}>
+                    <Grid container spacing={2}>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Template</FormLabel>
+                          <Select value={docTemplate} onChange={(_, v) => setDocTemplate(v as any || 'classic')} size="sm">
+                            <Option value="classic">Classic — Accent bars, grid table</Option>
+                            <Option value="modern">Modern — Color stripe, card-style totals</Option>
+                            <Option value="minimal">Minimal — Black & white, clean lines</Option>
+                          </Select>
+                          <FormHelperText>Layout style for bills, quotes, POs, and salary slips</FormHelperText>
+                        </FormControl>
+                      </Grid>
+                      <Grid xs={12} md={6}>
+                        <FormControl>
+                          <FormLabel>Color Theme</FormLabel>
+                          <Select
+                            value={docColorTheme}
+                            onChange={(_, v) => setDocColorTheme(v || '#D97757')}
+                            size="sm"
+                            renderValue={(option) => {
+                              if (!option) return null;
+                              return (
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                  <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: option.value, border: '1px solid', borderColor: 'divider' }} />
+                                  <Typography level="body-sm">{option.label}</Typography>
+                                </Stack>
+                              );
+                            }}
+                          >
+                            {[
+                              { color: '#D97757', label: 'Terracotta' },
+                              { color: '#4A90D9', label: 'Ocean Blue' },
+                              { color: '#4AA86E', label: 'Forest Green' },
+                              { color: '#7B68D9', label: 'Royal Purple' },
+                              { color: '#5C6B7A', label: 'Slate Gray' },
+                              { color: '#2D2D2D', label: 'Midnight Black' },
+                            ].map(c => (
+                              <Option key={c.color} value={c.color}>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                  <Box sx={{ width: 14, height: 14, borderRadius: '50%', bgcolor: c.color, flexShrink: 0 }} />
+                                  <span>{c.label}</span>
+                                </Stack>
+                              </Option>
+                            ))}
+                          </Select>
+                          <FormHelperText>Primary color used across all other document PDFs</FormHelperText>
+                        </FormControl>
+                      </Grid>
+                    </Grid>
+
+                    <Divider />
+                    <Typography level="body-sm" fontWeight={600}>Visibility Options</Typography>
+
+                    <Grid container spacing={2}>
+                      <Grid xs={12} md={6}>
+                        <Stack spacing={1.5}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm">Show Company Name</Typography>
+                            <Switch size="sm" checked={docShowCompanyName} onChange={(e) => setDocShowCompanyName(e.target.checked)} />
+                          </Stack>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm">Show Company Address</Typography>
+                            <Switch size="sm" checked={docShowCompanyAddress} onChange={(e) => setDocShowCompanyAddress(e.target.checked)} />
+                          </Stack>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm">Show Company Email</Typography>
+                            <Switch size="sm" checked={docShowCompanyEmail} onChange={(e) => setDocShowCompanyEmail(e.target.checked)} />
+                          </Stack>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm">Show Company Phone</Typography>
+                            <Switch size="sm" checked={docShowCompanyPhone} onChange={(e) => setDocShowCompanyPhone(e.target.checked)} />
+                          </Stack>
+                        </Stack>
+                      </Grid>
+                      <Grid xs={12} md={6}>
+                        <Stack spacing={1.5}>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm">Show Tax ID</Typography>
+                            <Switch size="sm" checked={docShowTaxId} onChange={(e) => setDocShowTaxId(e.target.checked)} />
+                          </Stack>
+                          <Stack direction="row" justifyContent="space-between" alignItems="center">
+                            <Typography level="body-sm">Show &quot;Powered by Flowbooks&quot;</Typography>
+                            <Switch size="sm" checked={docShowPoweredBy} onChange={(e) => setDocShowPoweredBy(e.target.checked)} />
                           </Stack>
                         </Stack>
                       </Grid>

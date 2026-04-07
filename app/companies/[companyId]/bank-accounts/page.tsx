@@ -191,6 +191,8 @@ export default function BankAccountsPage() {
   useEffect(() => {
     if (company?.id) {
       loadData();
+      // Default new bank accounts to the company's currency
+      setAccountFormData(prev => ({ ...prev, currency: company.currency || 'USD' }));
     }
   }, [company?.id]);
 
@@ -210,6 +212,7 @@ export default function BankAccountsPage() {
         linkedAccountCode: account.code,
         linkedAccountName: account.name,
       }));
+      setAccountFormErrors(prev => ({ ...prev, linkedAccountId: '' }));
     } else {
       setAccountFormData((prev) => ({
         ...prev,
@@ -297,6 +300,7 @@ export default function BankAccountsPage() {
       notes: '',
     });
     setEditingAccount(null);
+    setAccountFormErrors({});
   };
 
   const resetTxnForm = () => {
@@ -344,7 +348,6 @@ export default function BankAccountsPage() {
     if (!company?.id || !user) return;
 
     if (!validateAccountForm()) {
-      toast.error('Please fill in all required fields');
       return;
     }
 
@@ -483,6 +486,7 @@ export default function BankAccountsPage() {
       isDefault: account.isDefault,
       notes: account.notes || '',
     });
+    setAccountFormErrors({});
     setAccountModalOpen(true);
   };
 
@@ -921,7 +925,10 @@ export default function BankAccountsPage() {
                 <FormLabel>Account Name</FormLabel>
                 <Input
                   value={accountFormData.name}
-                  onChange={(e) => handleAccountFieldChange('name', e.target.value)}
+                  onChange={(e) => {
+                    handleAccountFieldChange('name', e.target.value);
+                    setAccountFormErrors(prev => ({ ...prev, name: '' }));
+                  }}
                   placeholder="e.g., Business Checking"
                 />
                 {accountFormErrors.name && (
@@ -931,16 +938,20 @@ export default function BankAccountsPage() {
 
               <Grid container spacing={2}>
                 <Grid xs={12} md={6}>
-                  <FormControl required>
+                  <FormControl required error={!!accountFormErrors.accountType}>
                     <FormLabel>Account Type</FormLabel>
                     <Select
                       value={accountFormData.accountType}
-                      onChange={(_, value) => handleAccountFieldChange('accountType', value)}
+                      onChange={(_, value) => {
+                        handleAccountFieldChange('accountType', value);
+                        setAccountFormErrors(prev => ({ ...prev, accountType: '' }));
+                      }}
                     >
                       {ACCOUNT_TYPES.map((type) => (
                         <Option key={type.value} value={type.value}>{type.label}</Option>
                       ))}
                     </Select>
+                    {accountFormErrors.accountType && <FormHelperText>{accountFormErrors.accountType}</FormHelperText>}
                   </FormControl>
                 </Grid>
                 <Grid xs={12} md={6}>

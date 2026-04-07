@@ -1,7 +1,7 @@
 /**
  * Salary Slip PDF Generator
  * Server-side PDF generation using jsPDF + jspdf-autotable
- * Theme: Terracotta (#D97757) / Warm Brown (#C4694D)
+ * Supports dynamic color themes and visibility toggles via company.doc* fields
  */
 
 import jsPDF from 'jspdf';
@@ -40,21 +40,75 @@ interface CompanyData {
   address?: string;
   taxId?: string;
   currency: string;
+  docTemplate?: 'classic' | 'modern' | 'minimal';
+  docColorTheme?: string;
+  docShowCompanyName?: boolean;
+  docShowCompanyAddress?: boolean;
+  docShowCompanyEmail?: boolean;
+  docShowCompanyPhone?: boolean;
+  docShowTaxId?: boolean;
+  docShowPoweredBy?: boolean;
 }
 
-// Color palette (same as invoice)
-const C = {
-  brand:     [217, 119, 87] as const,
-  brandDark: [196, 105, 77] as const,
-  brandBg:   [254, 244, 240] as const,
-  text:      [30, 30, 30] as const,
-  textMid:   [100, 100, 100] as const,
-  textLight: [140, 140, 140] as const,
-  border:    [220, 220, 220] as const,
-  rowAlt:    [248, 248, 248] as const,
-  white:     [255, 255, 255] as const,
-  green:     [34, 139, 34] as const,
-};
+type RGB = readonly [number, number, number];
+
+interface ColorPalette {
+  brand: RGB;
+  brandDark: RGB;
+  brandBg: RGB;
+  text: RGB;
+  textMid: RGB;
+  textLight: RGB;
+  border: RGB;
+  rowAlt: RGB;
+  white: RGB;
+}
+
+// ══════════════════════════════════════════
+//  COLOR UTILITIES
+// ══════════════════════════════════════════
+
+function hexToRgb(hex: string): RGB {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.substring(0, 2), 16);
+  const g = parseInt(h.substring(2, 4), 16);
+  const b = parseInt(h.substring(4, 6), 16);
+  return [r, g, b] as const;
+}
+
+function lighten(rgb: RGB, amount: number): RGB {
+  return [
+    Math.min(255, Math.round(rgb[0] + (255 - rgb[0]) * amount)),
+    Math.min(255, Math.round(rgb[1] + (255 - rgb[1]) * amount)),
+    Math.min(255, Math.round(rgb[2] + (255 - rgb[2]) * amount)),
+  ] as const;
+}
+
+function darken(rgb: RGB, amount: number): RGB {
+  return [
+    Math.max(0, Math.round(rgb[0] * (1 - amount))),
+    Math.max(0, Math.round(rgb[1] * (1 - amount))),
+    Math.max(0, Math.round(rgb[2] * (1 - amount))),
+  ] as const;
+}
+
+function buildPalette(hex: string): ColorPalette {
+  const brand = hexToRgb(hex);
+  return {
+    brand,
+    brandDark: darken(brand, 0.15),
+    brandBg: lighten(brand, 0.88),
+    text: [30, 30, 30] as const,
+    textMid: [100, 100, 100] as const,
+    textLight: [140, 140, 140] as const,
+    border: [220, 220, 220] as const,
+    rowAlt: [248, 248, 248] as const,
+    white: [255, 255, 255] as const,
+  };
+}
+
+// Status/fixed colors (not part of brand palette)
+const GREEN: RGB = [34, 139, 34] as const;
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
@@ -88,9 +142,10 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
   let y = 0;
 
   const fmt = (n: number) => formatCurrency(n, company.currency);
+  const palette = buildPalette(company.docColorTheme || '#D97757');
 
   // ── Top accent bar ──
-  doc.setFillColor(...C.brand);
+  doc.setFillColor(...palette.brand);
   doc.rect(0, 0, pw, 3, 'F');
   y = 18;
 
@@ -99,11 +154,13 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
   // ══════════════════════════════════════════
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(20);
-  doc.setTextColor(...C.text);
-  doc.text(company.name || 'Company', ml, y);
+  doc.setTextColor(...palette.text);
+  if (company.docShowCompanyName !== false) {
+    doc.text(company.name || 'Company', ml, y);
+  }
 
   doc.setFontSize(24);
-  doc.setTextColor(...C.brand);
+  doc.setTextColor(...palette.brand);
   doc.text('SALARY SLIP', pw - mr, y, { align: 'right' });
 
   y += 6;
@@ -111,12 +168,12 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
   // Company details
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(8);
-  doc.setTextColor(...C.textLight);
+  doc.setTextColor(...palette.textLight);
   const details: string[] = [];
-  if (company.address) details.push(company.address);
-  if (company.email) details.push(company.email);
-  if (company.phone) details.push(company.phone);
-  if (company.taxId) details.push(`Tax ID: ${company.taxId}`);
+  if (company.docShowCompanyAddress !== false && company.address) details.push(company.address);
+  if (company.docShowCompanyEmail !== false && company.email) details.push(company.email);
+  if (company.docShowCompanyPhone !== false && company.phone) details.push(company.phone);
+  if (company.docShowTaxId !== false && company.taxId) details.push(`Tax ID: ${company.taxId}`);
 
   details.forEach(line => {
     doc.text(line, ml, y);
@@ -126,7 +183,7 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
   y = Math.max(y, 32) + 6;
 
   // Divider
-  doc.setDrawColor(...C.border);
+  doc.setDrawColor(...palette.border);
   doc.setLineWidth(0.3);
   doc.line(ml, y, pw - mr, y);
   y += 10;
@@ -139,13 +196,13 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
   // Left: Employee details
   doc.setFontSize(7.5);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...C.brand);
+  doc.setTextColor(...palette.brand);
   doc.text('EMPLOYEE', ml, y);
   y += 5;
 
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...C.text);
+  doc.setTextColor(...palette.text);
   doc.text(slip.employeeName || employee.name || '-', ml, y);
   y += 4.5;
 
@@ -156,7 +213,7 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
 
   doc.setFontSize(8.5);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...C.textMid);
+  doc.setTextColor(...palette.textMid);
   empDetails.forEach(line => {
     doc.text(line, ml, y);
     y += 4;
@@ -183,12 +240,12 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
   metaRows.forEach(([label, value, highlight]) => {
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...C.textLight);
+    doc.setTextColor(...palette.textLight);
     doc.text(`${label}:`, metaLabelX, metaY, { align: 'right' });
 
     doc.setFontSize(8.5);
     doc.setFont('helvetica', 'bold');
-    const metaColor = highlight ? C.brand : C.text;
+    const metaColor = highlight ? palette.brand : palette.text;
     doc.setTextColor(metaColor[0], metaColor[1], metaColor[2]);
     doc.text(value, metaRightEdge, metaY, { align: 'right' });
     metaY += 5.5;
@@ -217,7 +274,7 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
     foot: [['Total Earnings', fmt(slip.totalEarnings)]],
     margin: { left: ml, right: pw - ml - halfW },
     headStyles: {
-      fillColor: [C.brand[0], C.brand[1], C.brand[2]],
+      fillColor: [palette.brand[0], palette.brand[1], palette.brand[2]],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       fontSize: 9,
@@ -225,27 +282,27 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
     },
     bodyStyles: {
       fontSize: 9,
-      textColor: [C.text[0], C.text[1], C.text[2]],
+      textColor: [palette.text[0], palette.text[1], palette.text[2]],
       cellPadding: { top: 2.5, bottom: 2.5, left: 4, right: 4 },
-      lineColor: [C.border[0], C.border[1], C.border[2]],
+      lineColor: [palette.border[0], palette.border[1], palette.border[2]],
       lineWidth: 0.2,
     },
     footStyles: {
-      fillColor: [C.brandBg[0], C.brandBg[1], C.brandBg[2]],
-      textColor: [C.text[0], C.text[1], C.text[2]],
+      fillColor: [palette.brandBg[0], palette.brandBg[1], palette.brandBg[2]],
+      textColor: [palette.text[0], palette.text[1], palette.text[2]],
       fontStyle: 'bold',
       fontSize: 9,
       cellPadding: { top: 3, bottom: 3, left: 4, right: 4 },
     },
     alternateRowStyles: {
-      fillColor: [C.rowAlt[0], C.rowAlt[1], C.rowAlt[2]],
+      fillColor: [palette.rowAlt[0], palette.rowAlt[1], palette.rowAlt[2]],
     },
     columnStyles: {
       0: { cellWidth: 'auto', halign: 'left' },
       1: { cellWidth: 30, halign: 'right' },
     },
     theme: 'grid',
-    tableLineColor: [C.border[0], C.border[1], C.border[2]],
+    tableLineColor: [palette.border[0], palette.border[1], palette.border[2]],
     tableLineWidth: 0.2,
   });
 
@@ -266,7 +323,7 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
     foot: [['Total Deductions', fmt(slip.totalDeductions)]],
     margin: { left: ml + halfW + 6, right: mr },
     headStyles: {
-      fillColor: [C.textMid[0], C.textMid[1], C.textMid[2]],
+      fillColor: [palette.textMid[0], palette.textMid[1], palette.textMid[2]],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
       fontSize: 9,
@@ -274,27 +331,27 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
     },
     bodyStyles: {
       fontSize: 9,
-      textColor: [C.text[0], C.text[1], C.text[2]],
+      textColor: [palette.text[0], palette.text[1], palette.text[2]],
       cellPadding: { top: 2.5, bottom: 2.5, left: 4, right: 4 },
-      lineColor: [C.border[0], C.border[1], C.border[2]],
+      lineColor: [palette.border[0], palette.border[1], palette.border[2]],
       lineWidth: 0.2,
     },
     footStyles: {
-      fillColor: [C.rowAlt[0], C.rowAlt[1], C.rowAlt[2]],
-      textColor: [C.text[0], C.text[1], C.text[2]],
+      fillColor: [palette.rowAlt[0], palette.rowAlt[1], palette.rowAlt[2]],
+      textColor: [palette.text[0], palette.text[1], palette.text[2]],
       fontStyle: 'bold',
       fontSize: 9,
       cellPadding: { top: 3, bottom: 3, left: 4, right: 4 },
     },
     alternateRowStyles: {
-      fillColor: [C.rowAlt[0], C.rowAlt[1], C.rowAlt[2]],
+      fillColor: [palette.rowAlt[0], palette.rowAlt[1], palette.rowAlt[2]],
     },
     columnStyles: {
       0: { cellWidth: 'auto', halign: 'left' },
       1: { cellWidth: 30, halign: 'right' },
     },
     theme: 'grid',
-    tableLineColor: [C.border[0], C.border[1], C.border[2]],
+    tableLineColor: [palette.border[0], palette.border[1], palette.border[2]],
     tableLineWidth: 0.2,
   });
 
@@ -305,12 +362,12 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
   //  NET PAY — highlight box
   // ══════════════════════════════════════════
   const netBoxH = 14;
-  doc.setFillColor(...C.brand);
+  doc.setFillColor(...palette.brand);
   doc.roundedRect(ml, y, contentW, netBoxH, 2, 2, 'F');
 
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...C.white);
+  doc.setTextColor(...palette.white);
   doc.text('NET PAY', ml + 6, y + 9);
 
   doc.setFontSize(16);
@@ -324,13 +381,13 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
   if (employee.bankName || employee.bankAccount) {
     doc.setFontSize(7.5);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...C.brand);
+    doc.setTextColor(...palette.brand);
     doc.text('BANK DETAILS', ml, y);
     y += 5;
 
     doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...C.textMid);
+    doc.setTextColor(...palette.textMid);
     if (employee.bankName) {
       doc.text(`Bank: ${employee.bankName}`, ml, y);
       y += 4;
@@ -350,21 +407,23 @@ export function generateSalarySlipPDF(slip: SalarySlipData, employee: EmployeeDa
   // ══════════════════════════════════════════
   const footerY = ph - 14;
 
-  doc.setDrawColor(...C.border);
+  doc.setDrawColor(...palette.border);
   doc.setLineWidth(0.2);
   doc.line(ml, footerY - 4, pw - mr, footerY - 4);
 
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...C.textLight);
+  doc.setTextColor(...palette.textLight);
   doc.text('This is a system-generated salary slip.', pw / 2, footerY + 1, { align: 'center' });
 
-  doc.setFontSize(6.5);
-  doc.setTextColor(...C.textLight);
-  doc.text('Powered by Flowbooks', pw / 2, footerY + 5, { align: 'center' });
+  if (company.docShowPoweredBy !== false) {
+    doc.setFontSize(6.5);
+    doc.setTextColor(...palette.textLight);
+    doc.text('Powered by Flowbooks', pw / 2, footerY + 5, { align: 'center' });
+  }
 
   // Bottom accent bar
-  doc.setFillColor(...C.brand);
+  doc.setFillColor(...palette.brand);
   doc.rect(0, ph - 3, pw, 3, 'F');
 
   // Return as Buffer

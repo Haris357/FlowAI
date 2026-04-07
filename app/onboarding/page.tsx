@@ -4,9 +4,10 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { db } from '@/lib/firebase';
-import { collection, doc, setDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { getDefaultChartOfAccounts, type ChartAccount } from '@/lib/chart-of-accounts';
+import { collection, doc, setDoc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { type ChartAccount } from '@/lib/chart-of-accounts';
 import { initializeCompanySettings } from '@/services/settings';
+import { initializeCompanyAccounts, getCompanySubtypes, getCompanyAccounts } from '@/services/account-init';
 import { countries } from '@/lib/countries';
 import toast from 'react-hot-toast';
 import {
@@ -27,7 +28,7 @@ import {
   Chip,
 } from '@mui/joy';
 import {
-  Building2, CheckCircle2, ArrowRight, Moon, Sun, Sparkles, Loader2,
+  Building2, CheckCircle2, ArrowRight, Moon, Sun, Sparkles,
 } from 'lucide-react';
 import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
 
@@ -98,8 +99,6 @@ export default function OnboardingPage() {
   const { mode, toggleMode } = useTheme();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiAccounts, setAiAccounts] = useState<ChartAccount[]>([]);
   const [draftLoaded, setDraftLoaded] = useState(false);
 
   const [formData, setFormData] = useState<OnboardingData>({
@@ -164,38 +163,6 @@ export default function OnboardingPage() {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  // AI account suggestion
-  const generateAiAccounts = async () => {
-    if (!formData.description.trim()) return;
-    setAiLoading(true);
-    try {
-      const res = await fetch('/api/onboarding/suggest-accounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          description: formData.description,
-          businessType: formData.businessType,
-        }),
-      });
-      const data = await res.json();
-      if (data.accounts?.length) {
-        setAiAccounts(data.accounts.map((a: any) => ({
-          ...a,
-          isActive: true,
-          isSystem: false,
-          balance: 0,
-        })));
-        toast.success(`${data.accounts.length} custom accounts suggested!`);
-      } else {
-        toast.success('Default accounts will work great for your business.');
-      }
-    } catch {
-      toast.error('Could not generate suggestions. Default accounts will be used.');
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
   const handleSubmit = async () => {
     if (!user) return;
     if (!formData.companyName.trim()) {
@@ -224,30 +191,64 @@ export default function OnboardingPage() {
         tracksInventory: false,
         invoicePrefix: 'INV',
         invoiceNextNumber: 1000,
+        accountsCreated: true,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
 
-      // Create chart of accounts: base + business-specific + AI-suggested
-      const baseAccounts = getDefaultChartOfAccounts(formData.businessType.toLowerCase());
-      const allAccounts = [...baseAccounts, ...aiAccounts];
+      // Create chart of accounts in chartOfAccounts collection with correct schema
+      await initializeCompanyAccounts(companyId, formData.businessType.toLowerCase());
 
-      // Deduplicate by code
-      const seen = new Set<string>();
-      const uniqueAccounts = allAccounts.filter(a => {
-        if (seen.has(a.code)) return false;
-        seen.add(a.code);
-        return true;
-      });
-
-      await Promise.all(
-        uniqueAccounts.map(account =>
-          setDoc(doc(db, 'companies', companyId, 'accounts', account.code), {
-            ...account,
-            createdAt: serverTimestamp(),
-          })
-        )
-      );
+      // Auto-generate AI accounts from description if provided
+      if (formData.description.trim().length > 20) {
+        try {
+          const res = await fetch('/api/onboarding/suggest-accounts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              description: formData.description,
+              businessType: formData.businessType,
+            }),
+          });
+          const data = await res.json();
+          const suggested: ChartAccount[] = (data.accounts || []).map((a: any) => ({
+            ...a, isActive: true, isSystem: false, balance: 0,
+          }));
+          if (suggested.length > 0) {
+            const subtypes = await getCompanySubtypes(companyId);
+            const subtypeMap = new Map(subtypes.map(s => [s.code, s]));
+            const existingAccounts = await getCompanyAccounts(companyId);
+            const existingCodes = new Set(existingAccounts.map(a => a.code));
+            const accountsRef = collection(db, `companies/${companyId}/chartOfAccounts`);
+            await Promise.all(
+              suggested
+                .filter(a => !existingCodes.has(a.code))
+                .map(a => {
+                  const subtypeInfo = subtypeMap.get(a.subType) || subtypeMap.get('operating_expense');
+                  if (!subtypeInfo) return Promise.resolve(null);
+                  return addDoc(accountsRef, {
+                    code: a.code,
+                    name: a.name,
+                    typeId: subtypeInfo.typeId,
+                    typeName: subtypeInfo.typeName,
+                    typeCode: subtypeInfo.typeCode,
+                    subtypeId: subtypeInfo.id,
+                    subtypeName: subtypeInfo.name,
+                    subtypeCode: subtypeInfo.code,
+                    description: '',
+                    isActive: true,
+                    isSystem: false,
+                    balance: 0,
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp(),
+                  });
+                })
+            );
+          }
+        } catch {
+          // AI suggestion failed — base accounts are still created, continue
+        }
+      }
 
       // Initialize company settings
       await initializeCompanySettings(companyId);
@@ -398,40 +399,6 @@ export default function OnboardingPage() {
                   </FormControl>
                 </Grid>
 
-                {/* AI Suggested Accounts */}
-                {formData.description.trim().length > 20 && (
-                  <Grid xs={12}>
-                    <Button
-                      variant="soft"
-                      color="primary"
-                      size="sm"
-                      fullWidth
-                      onClick={generateAiAccounts}
-                      loading={aiLoading}
-                      startDecorator={aiLoading ? <Loader2 size={14} /> : <Sparkles size={14} />}
-                      sx={{ borderRadius: 'md' }}
-                    >
-                      {aiLoading ? 'Generating Custom Accounts...' : 'Generate Custom Accounts'}
-                    </Button>
-                  </Grid>
-                )}
-
-                {aiAccounts.length > 0 && (
-                  <Grid xs={12}>
-                    <Card variant="soft" color="primary" sx={{ p: 1.5 }}>
-                      <Typography level="body-xs" fontWeight={600} sx={{ mb: 0.75, color: 'primary.700' }}>
-                        AI-Suggested Accounts ({aiAccounts.length})
-                      </Typography>
-                      <Stack direction="row" flexWrap="wrap" useFlexGap spacing={0.5}>
-                        {aiAccounts.map((a, i) => (
-                          <Chip key={i} size="sm" variant="outlined" color="primary" sx={{ fontSize: '0.7rem' }}>
-                            {a.name}
-                          </Chip>
-                        ))}
-                      </Stack>
-                    </Card>
-                  </Grid>
-                )}
               </Grid>
             </Stack>
           </CardContent>

@@ -271,13 +271,13 @@ export default function CustomersPage() {
     try {
       await createCustomer(company.id, {
         name: formData.name.trim(),
-        email: formData.email.trim() || undefined,
-        phone: formData.phone.trim() || undefined,
-        address: formData.address.trim() || undefined,
-        city: formData.city.trim() || undefined,
-        country: formData.country || undefined,
-        taxId: formData.taxId.trim() || undefined,
-        notes: formData.notes.trim() || undefined,
+        email: formData.email.trim() || '',
+        phone: formData.phone.trim() || '',
+        address: formData.address.trim() || '',
+        city: formData.city.trim() || '',
+        country: formData.country || '',
+        taxId: formData.taxId.trim() || '',
+        notes: formData.notes.trim() || '',
       });
 
       await fetchCustomers();
@@ -317,13 +317,13 @@ export default function CustomersPage() {
     try {
       await updateCustomer(company.id, editingCustomer.id, {
         name: formData.name.trim(),
-        email: formData.email.trim() || undefined,
-        phone: formData.phone.trim() || undefined,
-        address: formData.address.trim() || undefined,
-        city: formData.city.trim() || undefined,
-        country: formData.country || undefined,
-        taxId: formData.taxId.trim() || undefined,
-        notes: formData.notes.trim() || undefined,
+        email: formData.email.trim() || '',
+        phone: formData.phone.trim() || '',
+        address: formData.address.trim() || '',
+        city: formData.city.trim() || '',
+        country: formData.country || '',
+        taxId: formData.taxId.trim() || '',
+        notes: formData.notes.trim() || '',
       });
 
       await fetchCustomers();

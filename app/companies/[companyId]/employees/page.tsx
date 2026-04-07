@@ -65,7 +65,7 @@ const isValidEmail = (email: string) => {
 
 const isValidPhone = (phone: string) => {
   if (!phone) return true;
-  return /^[\d\s\-+()]{7,20}$/.test(phone);
+  return /^[\+]?[\d\s\-\(\)]{7,15}$/.test(phone);
 };
 
 export default function EmployeesPage() {
@@ -119,13 +119,7 @@ export default function EmployeesPage() {
   });
 
   // Validation errors
-  const [errors, setErrors] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    salary: '',
-    joiningDate: '',
-  });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -224,46 +218,35 @@ export default function EmployeesPage() {
 
   // Validation functions
   const validateForm = (data: typeof formData): boolean => {
-    const newErrors = { name: '', email: '', phone: '', salary: '', joiningDate: '' };
-    let isValid = true;
+    const errors: Record<string, string> = {};
 
     if (!data.name.trim()) {
-      newErrors.name = 'Employee name is required';
-      isValid = false;
-    } else if (data.name.trim().length < 2) {
-      newErrors.name = 'Name must be at least 2 characters';
-      isValid = false;
-    } else if (data.name.trim().length > 100) {
-      newErrors.name = 'Name must be less than 100 characters';
-      isValid = false;
+      errors.name = 'Name is required';
     }
 
     if (data.email && !isValidEmail(data.email)) {
-      newErrors.email = 'Please enter a valid email address';
-      isValid = false;
+      errors.email = 'Please enter a valid email';
     }
 
     if (data.phone && !isValidPhone(data.phone)) {
-      newErrors.phone = 'Please enter a valid phone number';
-      isValid = false;
+      errors.phone = 'Please enter a valid phone number';
+    }
+
+    if (!data.designation.trim()) {
+      errors.designation = 'Designation is required';
     }
 
     const salaryNum = parseFloat(data.salary);
-    if (!data.salary || isNaN(salaryNum)) {
-      newErrors.salary = 'Salary is required';
-      isValid = false;
-    } else if (salaryNum <= 0) {
-      newErrors.salary = 'Salary must be a positive number';
-      isValid = false;
+    if (!data.salary || isNaN(salaryNum) || salaryNum <= 0) {
+      errors.salary = 'Salary must be greater than 0';
     }
 
     if (!data.joiningDate) {
-      newErrors.joiningDate = 'Joining date is required';
-      isValid = false;
+      errors.joiningDate = 'Joining date is required';
     }
 
-    setErrors(newErrors);
-    return isValid;
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   // Reset form
@@ -285,7 +268,7 @@ export default function EmployeesPage() {
       taxId: '',
       isActive: true,
     });
-    setErrors({ name: '', email: '', phone: '', salary: '', joiningDate: '' });
+    setFormErrors({});
   };
 
   // Handle Add
@@ -298,17 +281,17 @@ export default function EmployeesPage() {
       await createEmployee(company.id, {
         employeeId: formData.employeeId || await generateEmployeeId(company.id),
         name: formData.name.trim(),
-        email: formData.email.trim() || undefined,
-        phone: formData.phone.trim() || undefined,
-        address: formData.address.trim() || undefined,
-        designation: formData.designation.trim() || undefined,
-        department: formData.department.trim() || undefined,
+        email: formData.email.trim() || '',
+        phone: formData.phone.trim() || '',
+        address: formData.address.trim() || '',
+        designation: formData.designation.trim() || '',
+        department: formData.department.trim() || '',
         salary: parseFloat(formData.salary),
         salaryType: formData.salaryType,
         joiningDate: Timestamp.fromDate(new Date(formData.joiningDate)),
-        bankName: formData.bankName.trim() || undefined,
-        bankAccount: formData.bankAccount.trim() || undefined,
-        taxId: formData.taxId.trim() || undefined,
+        bankName: formData.bankName.trim() || '',
+        bankAccount: formData.bankAccount.trim() || '',
+        taxId: formData.taxId.trim() || '',
         isActive: formData.isActive,
       });
 
@@ -345,7 +328,7 @@ export default function EmployeesPage() {
       taxId: employee.taxId || '',
       isActive: employee.isActive,
     });
-    setErrors({ name: '', email: '', phone: '', salary: '', joiningDate: '' });
+    setFormErrors({});
     setEditModalOpen(true);
   };
 
@@ -358,17 +341,17 @@ export default function EmployeesPage() {
     try {
       await updateEmployee(company.id, editingEmployee.id, {
         name: formData.name.trim(),
-        email: formData.email.trim() || undefined,
-        phone: formData.phone.trim() || undefined,
-        address: formData.address.trim() || undefined,
-        designation: formData.designation.trim() || undefined,
-        department: formData.department.trim() || undefined,
+        email: formData.email.trim() || '',
+        phone: formData.phone.trim() || '',
+        address: formData.address.trim() || '',
+        designation: formData.designation.trim() || '',
+        department: formData.department.trim() || '',
         salary: parseFloat(formData.salary),
         salaryType: formData.salaryType,
         joiningDate: Timestamp.fromDate(new Date(formData.joiningDate)),
-        bankName: formData.bankName.trim() || undefined,
-        bankAccount: formData.bankAccount.trim() || undefined,
-        taxId: formData.taxId.trim() || undefined,
+        bankName: formData.bankName.trim() || '',
+        bankAccount: formData.bankAccount.trim() || '',
+        taxId: formData.taxId.trim() || '',
         isActive: formData.isActive,
       });
 
@@ -410,8 +393,8 @@ export default function EmployeesPage() {
   // Form field change handler
   const handleFieldChange = (field: keyof typeof formData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
-    if (errors[field as keyof typeof errors]) {
-      setErrors(prev => ({ ...prev, [field]: '' }));
+    if (formErrors[field]) {
+      setFormErrors(prev => { const next = { ...prev }; delete next[field]; return next; });
     }
   };
 
@@ -434,56 +417,58 @@ export default function EmployeesPage() {
       </Grid>
 
       <Grid xs={12} sm={8}>
-        <FormControl required error={!!errors.name}>
+        <FormControl required error={!!formErrors.name}>
           <FormLabel>Full Name</FormLabel>
           <Input
             placeholder="e.g. Full Name"
             value={formData.name}
             onChange={(e) => handleFieldChange('name', e.target.value)}
-            color={errors.name ? 'danger' : undefined}
+            color={formErrors.name ? 'danger' : undefined}
           />
-          {errors.name && <FormHelperText sx={{ color: 'danger.500' }}>{errors.name}</FormHelperText>}
+          {formErrors.name && <FormHelperText sx={{ color: 'danger.500' }}>{formErrors.name}</FormHelperText>}
         </FormControl>
       </Grid>
 
       <Grid xs={12} sm={6}>
-        <FormControl error={!!errors.email}>
+        <FormControl error={!!formErrors.email}>
           <FormLabel>Email</FormLabel>
           <Input
             type="email"
             placeholder="email@example.com"
             value={formData.email}
             onChange={(e) => handleFieldChange('email', e.target.value)}
-            color={errors.email ? 'danger' : undefined}
+            color={formErrors.email ? 'danger' : undefined}
             startDecorator={<Mail size={16} />}
           />
-          {errors.email && <FormHelperText sx={{ color: 'danger.500' }}>{errors.email}</FormHelperText>}
+          {formErrors.email && <FormHelperText sx={{ color: 'danger.500' }}>{formErrors.email}</FormHelperText>}
         </FormControl>
       </Grid>
 
       <Grid xs={12} sm={6}>
-        <FormControl error={!!errors.phone}>
+        <FormControl error={!!formErrors.phone}>
           <FormLabel>Phone</FormLabel>
           <Input
             placeholder="+1 234 567 8900"
             value={formData.phone}
             onChange={(e) => handleFieldChange('phone', e.target.value)}
-            color={errors.phone ? 'danger' : undefined}
+            color={formErrors.phone ? 'danger' : undefined}
             startDecorator={<Phone size={16} />}
           />
-          {errors.phone && <FormHelperText sx={{ color: 'danger.500' }}>{errors.phone}</FormHelperText>}
+          {formErrors.phone && <FormHelperText sx={{ color: 'danger.500' }}>{formErrors.phone}</FormHelperText>}
         </FormControl>
       </Grid>
 
       <Grid xs={12} sm={6}>
-        <FormControl>
+        <FormControl required error={!!formErrors.designation}>
           <FormLabel>Designation</FormLabel>
           <Input
             placeholder="e.g., Software Engineer"
             value={formData.designation}
             onChange={(e) => handleFieldChange('designation', e.target.value)}
+            color={formErrors.designation ? 'danger' : undefined}
             startDecorator={<Briefcase size={16} />}
           />
+          {formErrors.designation && <FormHelperText sx={{ color: 'danger.500' }}>{formErrors.designation}</FormHelperText>}
         </FormControl>
       </Grid>
 
@@ -499,17 +484,17 @@ export default function EmployeesPage() {
       </Grid>
 
       <Grid xs={12} sm={4}>
-        <FormControl required error={!!errors.salary}>
+        <FormControl required error={!!formErrors.salary}>
           <FormLabel>Salary</FormLabel>
           <Input
             type="number"
             placeholder="e.g., 5000"
             value={formData.salary}
             onChange={(e) => handleFieldChange('salary', e.target.value)}
-            color={errors.salary ? 'danger' : undefined}
+            color={formErrors.salary ? 'danger' : undefined}
             startDecorator={<DollarSign size={16} />}
           />
-          {errors.salary && <FormHelperText sx={{ color: 'danger.500' }}>{errors.salary}</FormHelperText>}
+          {formErrors.salary && <FormHelperText sx={{ color: 'danger.500' }}>{formErrors.salary}</FormHelperText>}
         </FormControl>
       </Grid>
 
@@ -527,16 +512,16 @@ export default function EmployeesPage() {
       </Grid>
 
       <Grid xs={12} sm={4}>
-        <FormControl required error={!!errors.joiningDate}>
+        <FormControl required error={!!formErrors.joiningDate}>
           <FormLabel>Joining Date</FormLabel>
           <Input
             type="date"
             value={formData.joiningDate}
             onChange={(e) => handleFieldChange('joiningDate', e.target.value)}
-            color={errors.joiningDate ? 'danger' : undefined}
+            color={formErrors.joiningDate ? 'danger' : undefined}
             startDecorator={<Calendar size={16} />}
           />
-          {errors.joiningDate && <FormHelperText sx={{ color: 'danger.500' }}>{errors.joiningDate}</FormHelperText>}
+          {formErrors.joiningDate && <FormHelperText sx={{ color: 'danger.500' }}>{formErrors.joiningDate}</FormHelperText>}
         </FormControl>
       </Grid>
 

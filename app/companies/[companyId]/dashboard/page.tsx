@@ -83,10 +83,12 @@ const DATE_RANGE_LABELS: Record<string, string> = {
 // HELPERS
 // ==========================================
 
-function formatCompactCurrency(value: number): string {
-  if (Math.abs(value) >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`;
-  if (Math.abs(value) >= 1_000) return `$${(value / 1_000).toFixed(0)}K`;
-  return `$${value}`;
+function makeCompactFormatter(symbol: string) {
+  return function formatCompactCurrency(value: number): string {
+    if (Math.abs(value) >= 1_000_000) return `${symbol}${(value / 1_000_000).toFixed(1)}M`;
+    if (Math.abs(value) >= 1_000) return `${symbol}${(value / 1_000).toFixed(0)}K`;
+    return `${symbol}${value}`;
+  };
 }
 
 function calcTrend(current: number, previous: number): string | null {
@@ -129,7 +131,8 @@ export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
   const { company, loading: companyLoading, refreshData } = useCompany();
   const router = useRouter();
-  const { formatCurrency, formatDate } = useFormatting();
+  const { formatCurrency, formatDate, currencySymbol } = useFormatting();
+  const formatCompactCurrency = makeCompactFormatter(currencySymbol);
 
   // Preferences (persisted)
   const [prefs, setPrefs] = useState<DashboardPreferences>(DEFAULT_PREFERENCES);
@@ -201,10 +204,10 @@ export default function DashboardPage() {
     try {
       const [txns, invs, outInvs, overInvs, bls, outBls, overBls, custs, vnds, pay, aging] = await Promise.all([
         getTransactions(company.id, 200),
-        getInvoices(company.id, 20),
+        getInvoices(company.id, 500),
         getOutstandingInvoices(company.id),
         getOverdueInvoices(company.id),
-        getBills(company.id, 20),
+        getBills(company.id, 500),
         getOutstandingBills(company.id),
         getOverdueBills(company.id),
         getCustomers(company.id),
@@ -251,12 +254,73 @@ export default function DashboardPage() {
     });
   }, [allTransactions, prefs.dateRange]);
 
+  // ── Filtered invoices by date range ──
+  const filteredInvoices = useMemo(() => {
+    if (!invoices.length) return [];
+    const { start, end } = getDateRange(prefs.dateRange);
+    return invoices.filter(inv => {
+      const d = toDate(inv.issueDate || inv.createdAt);
+      return isWithinInterval(d, { start, end });
+    });
+  }, [invoices, prefs.dateRange]);
+
+  const prevFilteredInvoices = useMemo(() => {
+    if (!invoices.length) return [];
+    const { start, end } = getPrevDateRange(prefs.dateRange);
+    return invoices.filter(inv => {
+      const d = toDate(inv.issueDate || inv.createdAt);
+      return isWithinInterval(d, { start, end });
+    });
+  }, [invoices, prefs.dateRange]);
+
+  // ── Filtered bills by date range ──
+  const filteredBills = useMemo(() => {
+    if (!bills.length) return [];
+    const { start, end } = getDateRange(prefs.dateRange);
+    return bills.filter(bill => {
+      const d = toDate(bill.issueDate || bill.createdAt);
+      return isWithinInterval(d, { start, end });
+    });
+  }, [bills, prefs.dateRange]);
+
+  const prevFilteredBills = useMemo(() => {
+    if (!bills.length) return [];
+    const { start, end } = getPrevDateRange(prefs.dateRange);
+    return bills.filter(bill => {
+      const d = toDate(bill.issueDate || bill.createdAt);
+      return isWithinInterval(d, { start, end });
+    });
+  }, [bills, prefs.dateRange]);
+
   // ── Stats ──
   const stats = useMemo(() => {
-    const revenue = filteredTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    const expenses = filteredTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    const prevRevenue = prevFilteredTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-    const prevExpenses = prevFilteredTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    // Revenue: invoices (sent/viewed/partial/overdue/paid) + transaction income
+    const invoiceRevenue = filteredInvoices
+      .filter(inv => ['sent', 'viewed', 'partial', 'overdue', 'paid'].includes(inv.status))
+      .reduce((s, inv) => s + (inv.total || 0), 0);
+    const txnIncome = filteredTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const revenue = invoiceRevenue + txnIncome;
+
+    // Expenses: bills (not cancelled) + transaction expenses
+    const billExpenses = filteredBills
+      .filter(bill => bill.status !== 'cancelled')
+      .reduce((s, bill) => s + (bill.total || 0), 0);
+    const txnExpenses = filteredTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const expenses = billExpenses + txnExpenses;
+
+    // Previous period for trends
+    const prevInvoiceRevenue = prevFilteredInvoices
+      .filter(inv => ['sent', 'viewed', 'partial', 'overdue', 'paid'].includes(inv.status))
+      .reduce((s, inv) => s + (inv.total || 0), 0);
+    const prevTxnIncome = prevFilteredTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+    const prevRevenue = prevInvoiceRevenue + prevTxnIncome;
+
+    const prevBillExpenses = prevFilteredBills
+      .filter(bill => bill.status !== 'cancelled')
+      .reduce((s, bill) => s + (bill.total || 0), 0);
+    const prevTxnExpenses = prevFilteredTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+    const prevExpenses = prevBillExpenses + prevTxnExpenses;
+
     const receivables = outstandingInvoices.reduce((s, i) => s + (i.amountDue || 0), 0);
     const payables = outstandingBills.reduce((s, b) => s + (b.amountDue || 0), 0);
     const overdueAmt = overdueInvoicesList.reduce((s, i) => s + (i.amountDue || 0), 0);
@@ -271,43 +335,91 @@ export default function DashboardPage() {
       trendExpenses: calcTrend(expenses, prevExpenses),
       trendProfit: calcTrend(revenue - expenses, prevRevenue - prevExpenses),
     };
-  }, [filteredTransactions, prevFilteredTransactions, outstandingInvoices, outstandingBills, overdueInvoicesList]);
+  }, [filteredTransactions, prevFilteredTransactions, filteredInvoices, prevFilteredInvoices, filteredBills, prevFilteredBills, outstandingInvoices, outstandingBills, overdueInvoicesList]);
 
   // ── Chart data: Revenue vs Expenses trend ──
   const trendData = useMemo(() => {
-    if (!filteredTransactions.length) return [];
     const grouped: Record<string, { date: string; revenue: number; expenses: number }> = {};
+
+    // Invoice revenue by date
+    filteredInvoices
+      .filter(inv => ['sent', 'viewed', 'partial', 'overdue', 'paid'].includes(inv.status))
+      .forEach(inv => {
+        const key = format(toDate(inv.issueDate || inv.createdAt), 'MMM dd');
+        if (!grouped[key]) grouped[key] = { date: key, revenue: 0, expenses: 0 };
+        grouped[key].revenue += inv.total || 0;
+      });
+
+    // Transaction income/expense by date
     filteredTransactions.forEach(t => {
       const key = format(toDate(t.date), 'MMM dd');
       if (!grouped[key]) grouped[key] = { date: key, revenue: 0, expenses: 0 };
       if (t.type === 'income') grouped[key].revenue += t.amount;
       if (t.type === 'expense') grouped[key].expenses += t.amount;
     });
-    return Object.values(grouped).slice(-30);
-  }, [filteredTransactions]);
+
+    // Bill expenses by date
+    filteredBills
+      .filter(bill => bill.status !== 'cancelled')
+      .forEach(bill => {
+        const key = format(toDate(bill.issueDate || bill.createdAt), 'MMM dd');
+        if (!grouped[key]) grouped[key] = { date: key, revenue: 0, expenses: 0 };
+        grouped[key].expenses += bill.total || 0;
+      });
+
+    return Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date)).slice(-30);
+  }, [filteredTransactions, filteredInvoices, filteredBills]);
 
   // ── Chart data: Cash flow ──
   const cashFlowData = useMemo(() => {
-    if (!filteredTransactions.length) return [];
     const grouped: Record<string, { date: string; inflow: number; outflow: number; net: number }> = {};
+
+    // Invoice revenue as inflow
+    filteredInvoices
+      .filter(inv => ['sent', 'viewed', 'partial', 'overdue', 'paid'].includes(inv.status))
+      .forEach(inv => {
+        const key = format(toDate(inv.issueDate || inv.createdAt), 'MMM dd');
+        if (!grouped[key]) grouped[key] = { date: key, inflow: 0, outflow: 0, net: 0 };
+        grouped[key].inflow += inv.total || 0;
+        grouped[key].net += inv.total || 0;
+      });
+
+    // Transaction income/expense
     filteredTransactions.forEach(t => {
       const key = format(toDate(t.date), 'MMM dd');
       if (!grouped[key]) grouped[key] = { date: key, inflow: 0, outflow: 0, net: 0 };
       if (t.type === 'income') { grouped[key].inflow += t.amount; grouped[key].net += t.amount; }
       if (t.type === 'expense') { grouped[key].outflow += t.amount; grouped[key].net -= t.amount; }
     });
-    return Object.values(grouped).slice(-30);
-  }, [filteredTransactions]);
+
+    // Bill expenses as outflow
+    filteredBills
+      .filter(bill => bill.status !== 'cancelled')
+      .forEach(bill => {
+        const key = format(toDate(bill.issueDate || bill.createdAt), 'MMM dd');
+        if (!grouped[key]) grouped[key] = { date: key, inflow: 0, outflow: 0, net: 0 };
+        grouped[key].outflow += bill.total || 0;
+        grouped[key].net -= bill.total || 0;
+      });
+
+    return Object.values(grouped).sort((a, b) => a.date.localeCompare(b.date)).slice(-30);
+  }, [filteredTransactions, filteredInvoices, filteredBills]);
 
   // ── Chart data: Expense breakdown ──
   const expenseBreakdown = useMemo(() => {
     const cats: Record<string, number> = {};
+    // Transaction expenses by category
     filteredTransactions.filter(t => t.type === 'expense').forEach(t => {
       const cat = t.category || 'Other';
       cats[cat] = (cats[cat] || 0) + t.amount;
     });
+    // Bill expenses by category
+    filteredBills.filter(bill => bill.status !== 'cancelled').forEach(bill => {
+      const cat = bill.category || 'Bills';
+      cats[cat] = (cats[cat] || 0) + (bill.total || 0);
+    });
     return Object.entries(cats).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 8);
-  }, [filteredTransactions]);
+  }, [filteredTransactions, filteredBills]);
 
   // ── Status change handler (used by StatusChangeModal) ──
   const handleModalStatusChange = useCallback(async (entityId: string, newStatus: string) => {
@@ -325,7 +437,7 @@ export default function DashboardPage() {
         if (!res.ok) { toast.error(result.error || 'Failed to update status'); return; }
         toast.success(`Status updated to ${formatStatus('invoice', newStatus)}`);
         if (result.emailSent) toast.success(`Notification sent to ${result.emailRecipient}`);
-        const refreshed = await getInvoices(company.id, 20);
+        const refreshed = await getInvoices(company.id, 500);
         setInvoices(refreshed);
         const refreshedOutstanding = await getOutstandingInvoices(company.id);
         setOutstandingInvoices(refreshedOutstanding);
@@ -334,7 +446,7 @@ export default function DashboardPage() {
       } else {
         await updateBillStatus(company.id, entityId, newStatus);
         toast.success(`Status updated to ${formatStatus('bill', newStatus)}`);
-        const refreshed = await getBills(company.id, 20);
+        const refreshed = await getBills(company.id, 500);
         setBills(refreshed);
         const refreshedOutstanding = await getOutstandingBills(company.id);
         setOutstandingBills(refreshedOutstanding);

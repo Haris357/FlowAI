@@ -46,7 +46,7 @@ import { createBill, updateBillStatus } from '@/services/bills';
 import { getCompanyAccounts } from '@/services/account-init';
 import { Bill, BillItem, Vendor, Account } from '@/types';
 import { LoadingSpinner, EmptyState, ConfirmDialog, PageBreadcrumbs, FormTableSkeleton } from '@/components/common';
-import { Search, FileText, Clock, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, X, Calculator, BarChart3, Eye, MoreVertical } from 'lucide-react';
+import { Search, FileText, Clock, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, X, Calculator, BarChart3, Eye, MoreVertical, Send } from 'lucide-react';
 import StatusChangeModal from '@/components/StatusChangeModal';
 import FormEntityDetailModal from '@/components/FormEntityDetailModal';
 import { useFormatting } from '@/hooks';
@@ -98,6 +98,9 @@ export default function BillsPage() {
   // Detail modal
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [detailBill, setDetailBill] = useState<Bill | null>(null);
+
+  // Send bill email
+  const [sendingBillId, setSendingBillId] = useState<string | null>(null);
 
   // Form state
   const [selectedVendor, setSelectedVendor] = useState<Vendor | null>(null);
@@ -188,6 +191,34 @@ export default function BillsPage() {
     return Array.from(vendorMap.values());
   }, [bills]);
 
+  // Build a map of vendorId -> email for quick lookup
+  const vendorEmailMap = useMemo<Record<string, string>>(() => {
+    return vendors.reduce((map, vendor) => {
+      if (vendor.email) map[vendor.id] = vendor.email;
+      return map;
+    }, {} as Record<string, string>);
+  }, [vendors]);
+
+  // Send bill email handler
+  const handleSendBill = async (bill: Bill) => {
+    if (!company?.id) return;
+    setSendingBillId(bill.id);
+    try {
+      const res = await fetch('/api/bills/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: company.id, billId: bill.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send email');
+      toast.success(`Bill sent to ${data.recipient}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send bill email');
+    } finally {
+      setSendingBillId(null);
+    }
+  };
+
   const getStatusIcon = (status: Bill['status']) => {
     switch (status) {
       case 'paid':
@@ -255,8 +286,22 @@ export default function BillsPage() {
       errors.issueDate = 'Bill date is required';
     }
 
-    const validItems = items.filter(item => item.description.trim() && item.quantity > 0 && item.rate > 0);
-    if (validItems.length === 0) {
+    let hasValidItem = false;
+    items.forEach((item, index) => {
+      if (!item.description.trim()) {
+        errors[`item_${index}_description`] = 'Description is required';
+      }
+      if (item.quantity <= 0) {
+        errors[`item_${index}_quantity`] = 'Qty must be > 0';
+      }
+      if (item.rate <= 0) {
+        errors[`item_${index}_rate`] = 'Rate must be > 0';
+      }
+      if (item.description.trim() && item.quantity > 0 && item.rate > 0) {
+        hasValidItem = true;
+      }
+    });
+    if (!hasValidItem) {
       errors.items = 'At least one valid line item is required';
     }
 
@@ -320,6 +365,10 @@ export default function BillsPage() {
       newItems[index] = { ...newItems[index], [field]: value };
     }
     setItems(newItems);
+    const errorKey = `item_${index}_${field}`;
+    if (formErrors[errorKey] || formErrors.items) {
+      setFormErrors(prev => ({ ...prev, [errorKey]: undefined, items: undefined }));
+    }
   };
 
   // Add new item
@@ -349,7 +398,7 @@ export default function BillsPage() {
           vendorId: selectedVendor?.id,
           vendorName: selectedVendor?.name || '',
           issueDate: Timestamp.fromDate(new Date(issueDate)),
-          dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : undefined,
+          dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
           items: validItems,
           subtotal,
           taxAmount: parseFloat(taxAmount) || 0,
@@ -366,7 +415,7 @@ export default function BillsPage() {
           vendorId: selectedVendor?.id,
           vendorName: selectedVendor?.name || '',
           issueDate: Timestamp.fromDate(new Date(issueDate)),
-          dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : undefined,
+          dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
           items: validItems,
           subtotal,
           taxAmount: parseFloat(taxAmount) || 0,
@@ -385,7 +434,7 @@ export default function BillsPage() {
         let payableAccount = accounts.find(a =>
           a.isActive &&
           a.typeCode === 'liability' &&
-          a.subtypeCode === 'accounts_payable'
+          (a.name.toLowerCase().includes('payable') || a.code === '2000')
         );
 
         if (!payableAccount) {
@@ -432,9 +481,9 @@ export default function BillsPage() {
         await createBill(company.id, {
           vendorId: selectedVendor?.id,
           vendorName: selectedVendor?.name || '',
-          billNumber: billNumber.trim() || undefined,
+          billNumber: billNumber.trim() || '',
           items: validItems,
-          dueDate: dueDate ? new Date(dueDate) : undefined,
+          dueDate: dueDate ? new Date(dueDate) : null,
           taxAmount: parseFloat(taxAmount) || 0,
           category,
           notes,
@@ -776,6 +825,15 @@ export default function BillsPage() {
                                 <ListItemDecorator><Eye size={16} /></ListItemDecorator>
                                 View Details
                               </MenuItem>
+                              {bill.vendorId && vendorEmailMap[bill.vendorId] && (
+                                <MenuItem
+                                  onClick={() => handleSendBill(bill)}
+                                  disabled={sendingBillId === bill.id}
+                                >
+                                  <ListItemDecorator><Send size={16} /></ListItemDecorator>
+                                  {sendingBillId === bill.id ? 'Sending...' : 'Send to Vendor'}
+                                </MenuItem>
+                              )}
                               {canEditStatus('bill', bill.status).allowed && (
                                 <MenuItem onClick={() => handleEdit(bill)}>
                                   <ListItemDecorator><Edit2 size={16} /></ListItemDecorator>
@@ -883,7 +941,10 @@ export default function BillsPage() {
                       options={vendors}
                       getOptionLabel={(option) => option.name}
                       value={selectedVendor}
-                      onChange={(_, value) => setSelectedVendor(value)}
+                      onChange={(_, value) => {
+                        setSelectedVendor(value);
+                        if (formErrors.vendor) setFormErrors(prev => ({ ...prev, vendor: undefined }));
+                      }}
                       isOptionEqualToValue={(option, value) => option.id === value?.id}
                       disabled={!!editingBill}
                       slotProps={{
@@ -916,7 +977,10 @@ export default function BillsPage() {
                     <Input
                       type="date"
                       value={issueDate}
-                      onChange={(e) => setIssueDate(e.target.value)}
+                      onChange={(e) => {
+                        setIssueDate(e.target.value);
+                        if (formErrors.issueDate) setFormErrors(prev => ({ ...prev, issueDate: undefined }));
+                      }}
                     />
                     {formErrors.issueDate && <FormHelperText>{formErrors.issueDate}</FormHelperText>}
                   </FormControl>
@@ -955,35 +1019,44 @@ export default function BillsPage() {
                 )}
                 <Stack spacing={1.5}>
                   {items.map((item, index) => (
-                    <Grid container spacing={1} key={index} alignItems="flex-end">
+                    <Grid container spacing={1} key={index} alignItems="flex-start">
                       <Grid xs={12} sm={5}>
-                        <FormControl>
+                        <FormControl error={!!formErrors[`item_${index}_description`]}>
                           <FormLabel>Description</FormLabel>
                           <Input
                             value={item.description}
                             onChange={(e) => handleItemChange(index, 'description', e.target.value)}
                             placeholder="Item description"
                           />
+                          {formErrors[`item_${index}_description`] && (
+                            <FormHelperText>{formErrors[`item_${index}_description`]}</FormHelperText>
+                          )}
                         </FormControl>
                       </Grid>
                       <Grid xs={4} sm={2}>
-                        <FormControl>
+                        <FormControl error={!!formErrors[`item_${index}_quantity`]}>
                           <FormLabel>Qty</FormLabel>
                           <Input
                             type="number"
                             value={item.quantity}
                             onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                           />
+                          {formErrors[`item_${index}_quantity`] && (
+                            <FormHelperText>{formErrors[`item_${index}_quantity`]}</FormHelperText>
+                          )}
                         </FormControl>
                       </Grid>
                       <Grid xs={4} sm={2}>
-                        <FormControl>
+                        <FormControl error={!!formErrors[`item_${index}_rate`]}>
                           <FormLabel>Rate</FormLabel>
                           <Input
                             type="number"
                             value={item.rate}
                             onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
                           />
+                          {formErrors[`item_${index}_rate`] && (
+                            <FormHelperText>{formErrors[`item_${index}_rate`]}</FormHelperText>
+                          )}
                         </FormControl>
                       </Grid>
                       <Grid xs={3} sm={2}>
@@ -999,6 +1072,7 @@ export default function BillsPage() {
                           color="danger"
                           onClick={() => handleRemoveItem(index)}
                           disabled={items.length === 1}
+                          sx={{ mt: 3 }}
                         >
                           <X size={16} />
                         </IconButton>

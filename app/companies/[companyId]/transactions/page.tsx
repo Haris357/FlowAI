@@ -280,11 +280,11 @@ export default function TransactionsPage() {
         amount: parseFloat(formData.amount),
         date: Timestamp.fromDate(new Date(formData.date)),
         description: formData.description.trim(),
-        category: formData.category.trim() || undefined,
+        category: formData.category.trim() || '',
         accountId: selectedAccount.id,
         accountName: selectedAccount.name,
-        paymentMethod: formData.paymentMethod.trim() || undefined,
-        reference: formData.reference.trim() || undefined,
+        paymentMethod: formData.paymentMethod.trim() || '',
+        reference: formData.reference.trim() || '',
         journalEntryId: editingTransaction?.journalEntryId || '',
       };
 
@@ -773,7 +773,10 @@ export default function TransactionsPage() {
                 <FormLabel required>Transaction Type</FormLabel>
                 <Select
                   value={formData.type}
-                  onChange={(_, value) => setFormData({ ...formData, type: value || 'expense' })}
+                  onChange={(_, value) => {
+                    setFormData({ ...formData, type: value || 'expense' });
+                    if (formErrors.type) setFormErrors(prev => ({ ...prev, type: undefined }));
+                  }}
                 >
                   <Option value="income">Income</Option>
                   <Option value="expense">Expense</Option>
@@ -791,7 +794,10 @@ export default function TransactionsPage() {
                       type="number"
                       slotProps={{ input: { min: 0, step: 0.01 } }}
                       value={formData.amount}
-                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, amount: e.target.value });
+                        if (formErrors.amount) setFormErrors(prev => ({ ...prev, amount: undefined }));
+                      }}
                       startDecorator={company?.currency || '$'}
                     />
                     {formErrors.amount && <FormHelperText>{formErrors.amount}</FormHelperText>}
@@ -803,7 +809,10 @@ export default function TransactionsPage() {
                     <Input
                       type="date"
                       value={formData.date}
-                      onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+                      onChange={(e) => {
+                        setFormData({ ...formData, date: e.target.value });
+                        if (formErrors.date) setFormErrors(prev => ({ ...prev, date: undefined }));
+                      }}
                     />
                     {formErrors.date && <FormHelperText>{formErrors.date}</FormHelperText>}
                   </FormControl>
@@ -816,7 +825,10 @@ export default function TransactionsPage() {
                 <Input
                   placeholder="Enter description..."
                   value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, description: e.target.value });
+                    if (formErrors.description) setFormErrors(prev => ({ ...prev, description: undefined }));
+                  }}
                 />
                 {formErrors.description && <FormHelperText>{formErrors.description}</FormHelperText>}
               </FormControl>
@@ -829,7 +841,10 @@ export default function TransactionsPage() {
                   options={accounts}
                   getOptionLabel={(option) => `${option.code} - ${option.name}`}
                   value={selectedAccount}
-                  onChange={(_, value) => setSelectedAccount(value)}
+                  onChange={(_, value) => {
+                    setSelectedAccount(value);
+                    if (formErrors.account) setFormErrors(prev => ({ ...prev, account: undefined }));
+                  }}
                   isOptionEqualToValue={(option, value) => option.id === value?.id}
                   groupBy={(option) => option.typeName}
                   slotProps={{

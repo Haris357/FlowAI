@@ -17,6 +17,8 @@ import { db } from '@/lib/firebase';
 import { SalarySlip, SalaryAllowances, SalaryDeductions, Employee, JournalEntryLine } from '@/types';
 import { getActiveEmployees, getEmployeeById } from './employees';
 import { createJournalEntry } from './journalEntries';
+import { getAccounts } from './accounts';
+import { getAccountPreferences } from './preferences';
 import {
   isValidTransition,
   canDelete as canDeleteCheck,
@@ -130,7 +132,88 @@ export async function updateSalarySlipStatus(
   const slipRef = doc(db, `companies/${companyId}/salarySlips`, slipId);
   await updateDoc(slipRef, {
     status: newStatus,
+    ...(newStatus === 'paid' ? { paidDate: Timestamp.now() } : {}),
   });
+
+  // When marking paid, auto-create the journal entry using available accounts
+  if (newStatus === 'paid') {
+    try {
+      const [accounts, prefs] = await Promise.all([getAccounts(companyId), getAccountPreferences(companyId)]);
+
+      const salaryExpenseAccount =
+        (prefs.defaultSalaryExpenseAccountId ? accounts.find(a => a.id === prefs.defaultSalaryExpenseAccountId && a.isActive !== false) : undefined) ||
+        accounts.find(a => a.isActive && a.typeCode === 'expense' &&
+          (a.name.toLowerCase().includes('salary') || a.name.toLowerCase().includes('wage') || a.name.toLowerCase().includes('payroll'))
+        ) || accounts.find(a => a.isActive && a.typeCode === 'expense');
+
+      const bankAccount =
+        (prefs.defaultSalaryBankAccountId ? accounts.find(a => a.id === prefs.defaultSalaryBankAccountId && a.isActive !== false) : undefined) ||
+        (prefs.defaultCashAccountId ? accounts.find(a => a.id === prefs.defaultCashAccountId && a.isActive !== false) : undefined) ||
+        accounts.find(a =>
+          a.isActive && a.typeCode === 'asset' &&
+          (a.name.toLowerCase().includes('bank') || a.name.toLowerCase().includes('cash') || a.name.toLowerCase().includes('checking'))
+        ) || accounts.find(a => a.isActive && a.typeCode === 'asset');
+
+      if (salaryExpenseAccount && bankAccount) {
+        const lines: JournalEntryLine[] = [
+          {
+            accountId: salaryExpenseAccount.id,
+            accountCode: salaryExpenseAccount.code,
+            accountName: salaryExpenseAccount.name,
+            description: `Salary - ${slip.employeeName} (${slip.month}/${slip.year})`,
+            debit: slip.totalEarnings,
+            credit: 0,
+          },
+          {
+            accountId: bankAccount.id,
+            accountCode: bankAccount.code,
+            accountName: bankAccount.name,
+            description: `Net salary - ${slip.employeeName}`,
+            debit: 0,
+            credit: slip.netSalary,
+          },
+        ];
+
+        // If there's a difference (deductions), credit a payable account or split
+        const deductionTotal = slip.totalEarnings - slip.netSalary;
+        if (deductionTotal > 0) {
+          const taxPayable =
+            (prefs.defaultTaxPayableAccountId ? accounts.find(a => a.id === prefs.defaultTaxPayableAccountId && a.isActive !== false) : undefined) ||
+            accounts.find(a =>
+              a.isActive && a.typeCode === 'liability' &&
+              (a.name.toLowerCase().includes('tax') || a.name.toLowerCase().includes('payable'))
+            ) || accounts.find(a => a.isActive && a.typeCode === 'liability');
+
+          if (taxPayable) {
+            lines.push({
+              accountId: taxPayable.id,
+              accountCode: taxPayable.code,
+              accountName: taxPayable.name,
+              description: `Deductions withheld - ${slip.employeeName}`,
+              debit: 0,
+              credit: deductionTotal,
+            });
+          } else {
+            // No liability account — just credit full gross to bank (simplified)
+            lines[1].credit = slip.totalEarnings;
+          }
+        }
+
+        await createJournalEntry(companyId, {
+          date: new Date(),
+          description: `Salary Payment - ${slip.employeeName} (${slip.month}/${slip.year})`,
+          lines,
+          reference: `SAL-${slip.employeeName}-${slip.month}/${slip.year}`,
+          referenceType: 'salary',
+          referenceId: slipId,
+          createdBy: 'system',
+        });
+      }
+    } catch (jeError) {
+      // JE creation is non-blocking — log but don't fail the status update
+      console.warn('[Payroll] Failed to create journal entry for salary payment:', jeError);
+    }
+  }
 }
 
 export async function generateSalarySlip(

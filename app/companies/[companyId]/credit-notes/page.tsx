@@ -19,6 +19,7 @@ import {
   DialogActions,
   FormControl,
   FormLabel,
+  FormHelperText,
   Input,
   Textarea,
   Select,
@@ -143,6 +144,8 @@ export default function CreditNotesPage() {
   const [detailEntity, setDetailEntity] = useState<any>(null);
   const [detailEntityType, setDetailEntityType] = useState<EntityType>('creditNote');
 
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
   const [formData, setFormData] = useState({
     customerId: '',
     customerName: '',
@@ -150,6 +153,7 @@ export default function CreditNotesPage() {
     vendorId: '',
     vendorName: '',
     vendorEmail: '',
+    date: format(new Date(), 'yyyy-MM-dd'),
     items: [{ description: '', quantity: 1, rate: 0, amount: 0 }] as CreditNoteItem[],
     taxRate: 0,
     reason: 'return' as 'return' | 'discount' | 'error' | 'other',
@@ -202,6 +206,9 @@ export default function CreditNotesPage() {
 
   const handleFieldChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (formErrors[field]) {
+      setFormErrors((prev) => { const next = { ...prev }; delete next[field]; return next; });
+    }
   };
 
   const handleCustomerChange = (customer: Customer | null) => {
@@ -212,6 +219,9 @@ export default function CreditNotesPage() {
         customerName: customer.name,
         customerEmail: customer.email || '',
       }));
+      if (formErrors.customerId) {
+        setFormErrors((prev) => { const next = { ...prev }; delete next.customerId; return next; });
+      }
     }
   };
 
@@ -223,6 +233,9 @@ export default function CreditNotesPage() {
         vendorName: vendor.name,
         vendorEmail: vendor.email || '',
       }));
+      if (formErrors.vendorId) {
+        setFormErrors((prev) => { const next = { ...prev }; delete next.vendorId; return next; });
+      }
     }
   };
 
@@ -258,6 +271,9 @@ export default function CreditNotesPage() {
       newItems[index].amount = newItems[index].quantity * newItems[index].rate;
     }
     setFormData((prev) => ({ ...prev, items: newItems }));
+    if (formErrors.items) {
+      setFormErrors((prev) => { const next = { ...prev }; delete next.items; return next; });
+    }
   };
 
   const addItem = () => {
@@ -291,6 +307,7 @@ export default function CreditNotesPage() {
       vendorId: '',
       vendorName: '',
       vendorEmail: '',
+      date: format(new Date(), 'yyyy-MM-dd'),
       items: [{ description: '', quantity: 1, rate: 0, amount: 0 }],
       taxRate: 0,
       reason: 'return',
@@ -301,6 +318,7 @@ export default function CreditNotesPage() {
       originalBillNumber: '',
       notes: '',
     });
+    setFormErrors({});
     setEditingNote(null);
   };
 
@@ -310,12 +328,34 @@ export default function CreditNotesPage() {
     setModalOpen(true);
   };
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+
+    if (modalType === 'credit') {
+      if (!formData.customerId) errors.customerId = 'Please select a customer';
+    } else {
+      if (!formData.vendorId) errors.vendorId = 'Please select a vendor';
+    }
+
+    if (!formData.date) errors.date = 'Date is required';
+
+    if (!formData.reason) errors.reason = 'Please select a reason';
+
+    const validItems = formData.items.filter(
+      (item) => item.description.trim() && item.rate > 0
+    );
+    if (validItems.length === 0) errors.items = 'Add at least one line item';
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmit = async () => {
     if (!company?.id) return;
+    if (!validateForm()) return;
     setSaving(true);
     try {
       if (modalType === 'credit') {
-        if (!formData.customerId) return;
         if (editingNote) {
           await updateCreditNote(company.id, editingNote.id, {
             customerId: formData.customerId,
@@ -344,7 +384,6 @@ export default function CreditNotesPage() {
           });
         }
       } else {
-        if (!formData.vendorId) return;
         if (editingNote) {
           await updateDebitNote(company.id, editingNote.id, {
             vendorId: formData.vendorId,
@@ -393,6 +432,7 @@ export default function CreditNotesPage() {
       vendorId: '',
       vendorName: '',
       vendorEmail: '',
+      date: cn.date?.toDate ? format(cn.date.toDate(), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       items: cn.items,
       taxRate: cn.taxRate,
       reason: cn.reason,
@@ -403,6 +443,7 @@ export default function CreditNotesPage() {
       originalBillNumber: '',
       notes: cn.notes || '',
     });
+    setFormErrors({});
     setModalOpen(true);
   };
 
@@ -416,6 +457,7 @@ export default function CreditNotesPage() {
       vendorId: dn.vendorId,
       vendorName: dn.vendorName,
       vendorEmail: dn.vendorEmail || '',
+      date: dn.date?.toDate ? format(dn.date.toDate(), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
       items: dn.items,
       taxRate: dn.taxRate,
       reason: dn.reason,
@@ -426,6 +468,7 @@ export default function CreditNotesPage() {
       originalBillNumber: dn.originalBillNumber || '',
       notes: dn.notes || '',
     });
+    setFormErrors({});
     setModalOpen(true);
   };
 
@@ -906,7 +949,7 @@ export default function CreditNotesPage() {
               {modalType === 'credit' ? (
                 <Grid container spacing={2}>
                   <Grid xs={12} md={6}>
-                    <FormControl required>
+                    <FormControl required error={!!formErrors.customerId}>
                       <FormLabel>Customer</FormLabel>
                       <Autocomplete
                         placeholder="Select customer"
@@ -915,6 +958,7 @@ export default function CreditNotesPage() {
                         value={customers.find((c) => c.id === formData.customerId) || null}
                         onChange={(_, value) => handleCustomerChange(value)}
                       />
+                      {formErrors.customerId && <FormHelperText>{formErrors.customerId}</FormHelperText>}
                     </FormControl>
                   </Grid>
                   <Grid xs={12} md={6}>
@@ -933,7 +977,7 @@ export default function CreditNotesPage() {
               ) : (
                 <Grid container spacing={2}>
                   <Grid xs={12} md={6}>
-                    <FormControl required>
+                    <FormControl required error={!!formErrors.vendorId}>
                       <FormLabel>Vendor</FormLabel>
                       <Autocomplete
                         placeholder="Select vendor"
@@ -942,6 +986,7 @@ export default function CreditNotesPage() {
                         value={vendors.find((v) => v.id === formData.vendorId) || null}
                         onChange={(_, value) => handleVendorChange(value)}
                       />
+                      {formErrors.vendorId && <FormHelperText>{formErrors.vendorId}</FormHelperText>}
                     </FormControl>
                   </Grid>
                   <Grid xs={12} md={6}>
@@ -960,20 +1005,34 @@ export default function CreditNotesPage() {
               )}
 
               <Grid container spacing={2}>
-                <Grid xs={12} md={6}>
-                  <FormControl required>
+                <Grid xs={12} md={4}>
+                  <FormControl required error={!!formErrors.date}>
+                    <FormLabel>Date</FormLabel>
+                    <Input
+                      type="date"
+                      value={formData.date}
+                      onChange={(e) => handleFieldChange('date', e.target.value)}
+                      color={formErrors.date ? 'danger' : undefined}
+                    />
+                    {formErrors.date && <FormHelperText>{formErrors.date}</FormHelperText>}
+                  </FormControl>
+                </Grid>
+                <Grid xs={12} md={4}>
+                  <FormControl required error={!!formErrors.reason}>
                     <FormLabel>Reason</FormLabel>
                     <Select
                       value={formData.reason}
                       onChange={(_, value) => handleFieldChange('reason', value)}
+                      color={formErrors.reason ? 'danger' : undefined}
                     >
                       {REASONS.map((r) => (
                         <Option key={r.value} value={r.value}>{r.label}</Option>
                       ))}
                     </Select>
+                    {formErrors.reason && <FormHelperText>{formErrors.reason}</FormHelperText>}
                   </FormControl>
                 </Grid>
-                <Grid xs={12} md={6}>
+                <Grid xs={12} md={4}>
                   <FormControl>
                     <FormLabel>Reason Description</FormLabel>
                     <Input
@@ -988,7 +1047,10 @@ export default function CreditNotesPage() {
               <Divider />
 
               <Box>
-                <Typography level="title-sm" sx={{ mb: 1.5 }}>Line Items</Typography>
+                <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 1.5 }}>
+                  <Typography level="title-sm">Line Items</Typography>
+                  {formErrors.items && <FormHelperText sx={{ color: 'danger.500', m: 0 }}>{formErrors.items}</FormHelperText>}
+                </Stack>
                 <Stack spacing={1.5}>
                   {formData.items.map((item, index) => (
                     <Grid container spacing={1} key={index} alignItems="flex-end">
@@ -1113,7 +1175,6 @@ export default function CreditNotesPage() {
               color="primary"
               onClick={handleSubmit}
               loading={saving}
-              disabled={(modalType === 'credit' && !formData.customerId) || (modalType === 'debit' && !formData.vendorId)}
             >
               {editingNote ? 'Update' : 'Create'}
             </Button>

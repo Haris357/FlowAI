@@ -19,6 +19,7 @@ import {
   DialogActions,
   FormControl,
   FormLabel,
+  FormHelperText,
   Input,
   Textarea,
   Select,
@@ -111,6 +112,9 @@ export default function PurchaseOrdersPage() {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [detailPO, setDetailPO] = useState<PurchaseOrder | null>(null);
 
+  // Send PO email
+  const [sendingPoId, setSendingPoId] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     vendorId: '',
     vendorName: '',
@@ -123,6 +127,7 @@ export default function PurchaseOrdersPage() {
     notes: '',
     terms: '',
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -155,8 +160,29 @@ export default function PurchaseOrdersPage() {
     }
   }, [company?.id]);
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!formData.vendorId) {
+      errors.vendorId = 'Vendor is required';
+    }
+    const validItems = formData.items.filter((item) => item.description.trim() !== '' && item.rate > 0);
+    if (validItems.length === 0) {
+      errors.items = 'Add at least one line item with description and rate';
+    } else {
+      const itemWithMissingRate = formData.items.find((item) => item.description.trim() !== '' && item.rate === 0);
+      if (itemWithMissingRate) {
+        errors.items = 'Rate is required for all items';
+      }
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleFieldChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (formErrors[field]) {
+      setFormErrors((prev) => { const next = { ...prev }; delete next[field]; return next; });
+    }
   };
 
   const handleVendorChange = (vendor: Vendor | null) => {
@@ -167,6 +193,9 @@ export default function PurchaseOrdersPage() {
         vendorName: vendor.name,
         vendorEmail: vendor.email || '',
       }));
+      if (formErrors.vendorId) {
+        setFormErrors((prev) => { const next = { ...prev }; delete next.vendorId; return next; });
+      }
     }
   };
 
@@ -177,6 +206,9 @@ export default function PurchaseOrdersPage() {
       newItems[index].amount = newItems[index].quantity * newItems[index].rate;
     }
     setFormData((prev) => ({ ...prev, items: newItems }));
+    if (formErrors.items) {
+      setFormErrors((prev) => { const next = { ...prev }; delete next.items; return next; });
+    }
   };
 
   const addItem = () => {
@@ -215,11 +247,13 @@ export default function PurchaseOrdersPage() {
       notes: '',
       terms: '',
     });
+    setFormErrors({});
     setEditingPO(null);
   };
 
   const handleSubmit = async () => {
-    if (!company?.id || !formData.vendorId || formData.items.length === 0) return;
+    if (!company?.id) return;
+    if (!validateForm()) return;
     setSaving(true);
     try {
       if (editingPO) {
@@ -228,7 +262,7 @@ export default function PurchaseOrdersPage() {
           vendorId: formData.vendorId,
           vendorName: formData.vendorName,
           vendorEmail: formData.vendorEmail,
-          expectedDate: formData.expectedDate ? { toDate: () => new Date(formData.expectedDate) } as any : undefined,
+          expectedDate: formData.expectedDate ? { toDate: () => new Date(formData.expectedDate) } as any : null,
           items: formData.items,
           subtotal,
           taxRate: formData.taxRate,
@@ -245,7 +279,7 @@ export default function PurchaseOrdersPage() {
           vendorName: formData.vendorName,
           vendorEmail: formData.vendorEmail,
           items: formData.items,
-          expectedDate: formData.expectedDate ? new Date(formData.expectedDate) : undefined,
+          expectedDate: formData.expectedDate ? new Date(formData.expectedDate) : null,
           taxRate: formData.taxRate,
           discount: formData.discount,
           shippingAddress: formData.shippingAddress,
@@ -297,6 +331,26 @@ export default function PurchaseOrdersPage() {
       loadData();
     } catch (error) {
       console.error('Error sending PO:', error);
+    }
+  };
+
+  const handleSendPOEmail = async (po: PurchaseOrder) => {
+    if (!company?.id) return;
+    setSendingPoId(po.id);
+    try {
+      const res = await fetch('/api/purchase-orders/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: company.id, poId: po.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send email');
+      toast.success('Purchase order sent to vendor');
+      loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send purchase order email');
+    } finally {
+      setSendingPoId(null);
     }
   };
 
@@ -387,6 +441,12 @@ export default function PurchaseOrdersPage() {
   const handleDeleteClick = (po: PurchaseOrder) => {
     handleDelete(po);
   };
+
+  // Build a map of vendorId -> email for quick lookup
+  const vendorEmailMap = vendors.reduce((map, vendor) => {
+    if (vendor.email) map[vendor.id] = vendor.email;
+    return map;
+  }, {} as Record<string, string>);
 
   const filteredPOs = purchaseOrders.filter((po) => {
     const matchesSearch =
@@ -623,6 +683,15 @@ export default function PurchaseOrdersPage() {
                               <ListItemDecorator><Eye size={16} /></ListItemDecorator>
                               View Details
                             </MenuItem>
+                            {(po.status === 'draft' || po.status === 'sent') && (po.vendorEmail || vendorEmailMap[po.vendorId]) && (
+                              <MenuItem
+                                onClick={() => handleSendPOEmail(po)}
+                                disabled={sendingPoId === po.id}
+                              >
+                                <ListItemDecorator><Send size={16} /></ListItemDecorator>
+                                {sendingPoId === po.id ? 'Sending...' : 'Send PO'}
+                              </MenuItem>
+                            )}
                             {po.status === 'received' && (
                               <MenuItem onClick={() => handleConvertToBill(po)}>
                                 <ListItemDecorator><ArrowRight size={16} /></ListItemDecorator>
@@ -671,7 +740,7 @@ export default function PurchaseOrdersPage() {
             <Stack spacing={2.5}>
               <Grid container spacing={2}>
                 <Grid xs={12} md={6}>
-                  <FormControl required>
+                  <FormControl required error={!!formErrors.vendorId}>
                     <FormLabel>Vendor</FormLabel>
                     <Autocomplete
                       placeholder="Select vendor"
@@ -680,6 +749,7 @@ export default function PurchaseOrdersPage() {
                       value={vendors.find((v) => v.id === formData.vendorId) || null}
                       onChange={(_, value) => handleVendorChange(value)}
                     />
+                    {formErrors.vendorId && <FormHelperText>{formErrors.vendorId}</FormHelperText>}
                   </FormControl>
                 </Grid>
                 <Grid xs={12} md={6}>
@@ -763,6 +833,11 @@ export default function PurchaseOrdersPage() {
                   <Button variant="outlined" color="neutral" size="sm" onClick={addItem} startDecorator={<Plus size={16} />}>
                     Add Item
                   </Button>
+                  {formErrors.items && (
+                    <Typography level="body-sm" sx={{ color: 'danger.500', mt: 0.5 }}>
+                      {formErrors.items}
+                    </Typography>
+                  )}
                 </Stack>
               </Box>
 
@@ -864,7 +939,6 @@ export default function PurchaseOrdersPage() {
               color="primary"
               onClick={handleSubmit}
               loading={saving}
-              disabled={!formData.vendorId || formData.items.length === 0}
             >
               {editingPO ? 'Update PO' : 'Create PO'}
             </Button>

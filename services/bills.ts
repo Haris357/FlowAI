@@ -17,7 +17,8 @@ import {
 import { db } from '@/lib/firebase';
 import { Bill, BillItem, BillStatus, JournalEntryLine } from '@/types';
 import { createJournalEntry } from './journalEntries';
-import { updateAccountBalance } from './accounts';
+import { updateAccountBalance, getAccounts } from './accounts';
+import { getAccountPreferences } from './preferences';
 import {
   isValidTransition,
   canDelete,
@@ -95,6 +96,71 @@ export async function updateBillStatus(
   await updateBill(companyId, billId, {
     status: newStatus as BillStatus,
   });
+
+  // When marking paid, auto-create the payment journal entry
+  if (newStatus === 'paid') {
+    try {
+      const [accounts, prefs] = await Promise.all([getAccounts(companyId), getAccountPreferences(companyId)]);
+      const remainingDue = bill.amountDue ?? (bill.total - (bill.amountPaid || 0));
+
+      if (remainingDue > 0) {
+        const payableAccount =
+          (prefs.defaultPayableAccountId ? accounts.find(a => a.id === prefs.defaultPayableAccountId && a.isActive !== false) : undefined) ||
+          accounts.find(a =>
+            a.isActive && a.typeCode === 'liability' &&
+            (a.name.toLowerCase().includes('payable') || a.code === '2000')
+          ) || accounts.find(a => a.isActive && a.typeCode === 'liability');
+
+        const bankAccount =
+          (prefs.defaultCashAccountId ? accounts.find(a => a.id === prefs.defaultCashAccountId && a.isActive !== false) : undefined) ||
+          accounts.find(a =>
+            a.isActive && a.typeCode === 'asset' &&
+            (a.name.toLowerCase().includes('bank') || a.name.toLowerCase().includes('cash') || a.name.toLowerCase().includes('checking'))
+          ) || accounts.find(a => a.isActive && a.typeCode === 'asset');
+
+        if (payableAccount && bankAccount) {
+          await createJournalEntry(companyId, {
+            date: new Date(),
+            description: `Bill payment - ${bill.billNumber} - ${bill.vendorName}`,
+            lines: [
+              {
+                accountId: payableAccount.id,
+                accountCode: payableAccount.code,
+                accountName: payableAccount.name,
+                description: `Payment made - Bill ${bill.billNumber}`,
+                debit: remainingDue,
+                credit: 0,
+              },
+              {
+                accountId: bankAccount.id,
+                accountCode: bankAccount.code,
+                accountName: bankAccount.name,
+                description: `Payment made - Bill ${bill.billNumber}`,
+                debit: 0,
+                credit: remainingDue,
+              },
+            ],
+            reference: `PMT-${bill.billNumber}`,
+            referenceType: 'payment',
+            referenceId: billId,
+            createdBy: 'system',
+          });
+
+          // Update account balances
+          await updateAccountBalance(companyId, payableAccount.id, remainingDue, 'subtract');
+          await updateAccountBalance(companyId, bankAccount.id, remainingDue, 'subtract');
+
+          // Mark the amounts as fully paid on the bill
+          await updateBill(companyId, billId, {
+            amountPaid: bill.total,
+            amountDue: 0,
+          });
+        }
+      }
+    } catch (jeError) {
+      console.warn('[Bills] Failed to create payment journal entry:', jeError);
+    }
+  }
 }
 
 /**

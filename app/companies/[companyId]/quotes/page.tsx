@@ -19,6 +19,7 @@ import {
   DialogActions,
   FormControl,
   FormLabel,
+  FormHelperText,
   Input,
   Textarea,
   Select,
@@ -110,6 +111,9 @@ export default function QuotesPage() {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [detailQuote, setDetailQuote] = useState<Quote | null>(null);
 
+  // Send quote email
+  const [sendingQuoteId, setSendingQuoteId] = useState<string | null>(null);
+
   const [formData, setFormData] = useState({
     customerId: '',
     customerName: '',
@@ -121,6 +125,7 @@ export default function QuotesPage() {
     notes: '',
     terms: '',
   });
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -153,8 +158,32 @@ export default function QuotesPage() {
     }
   }, [company?.id]);
 
+  const validateForm = (): boolean => {
+    const errors: Record<string, string> = {};
+    if (!formData.customerId) {
+      errors.customerId = 'Customer is required';
+    }
+    if (!formData.expiryDate) {
+      errors.expiryDate = 'Expiry date is required';
+    }
+    const validItems = formData.items.filter((item) => item.description.trim() !== '' && item.rate > 0);
+    if (validItems.length === 0) {
+      errors.items = 'Add at least one line item with description and rate';
+    } else {
+      const itemWithMissingRate = formData.items.find((item) => item.description.trim() !== '' && item.rate === 0);
+      if (itemWithMissingRate) {
+        errors.items = 'Rate is required for all items';
+      }
+    }
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleFieldChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
+    if (formErrors[field]) {
+      setFormErrors((prev) => { const next = { ...prev }; delete next[field]; return next; });
+    }
   };
 
   const handleCustomerChange = (customer: Customer | null) => {
@@ -165,6 +194,9 @@ export default function QuotesPage() {
         customerName: customer.name,
         customerEmail: customer.email || '',
       }));
+      if (formErrors.customerId) {
+        setFormErrors((prev) => { const next = { ...prev }; delete next.customerId; return next; });
+      }
     }
   };
 
@@ -175,6 +207,9 @@ export default function QuotesPage() {
       newItems[index].amount = newItems[index].quantity * newItems[index].rate;
     }
     setFormData((prev) => ({ ...prev, items: newItems }));
+    if (formErrors.items) {
+      setFormErrors((prev) => { const next = { ...prev }; delete next.items; return next; });
+    }
   };
 
   const addItem = () => {
@@ -212,11 +247,13 @@ export default function QuotesPage() {
       notes: '',
       terms: '',
     });
+    setFormErrors({});
     setEditingQuote(null);
   };
 
   const handleSubmit = async () => {
-    if (!company?.id || !formData.customerId || formData.items.length === 0) return;
+    if (!company?.id) return;
+    if (!validateForm()) return;
     setSaving(true);
     try {
       if (editingQuote) {
@@ -291,6 +328,26 @@ export default function QuotesPage() {
       loadData();
     } catch (error) {
       console.error('Error sending quote:', error);
+    }
+  };
+
+  const handleSendQuoteEmail = async (quote: Quote) => {
+    if (!company?.id) return;
+    setSendingQuoteId(quote.id);
+    try {
+      const res = await fetch('/api/quotes/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: company.id, quoteId: quote.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send email');
+      toast.success('Quote sent to customer');
+      loadData();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send quote email');
+    } finally {
+      setSendingQuoteId(null);
     }
   };
 
@@ -596,6 +653,15 @@ export default function QuotesPage() {
                               <ListItemDecorator><Eye size={16} /></ListItemDecorator>
                               View Details
                             </MenuItem>
+                            {(quote.status === 'draft' || quote.status === 'sent') && quote.customerEmail && (
+                              <MenuItem
+                                onClick={() => handleSendQuoteEmail(quote)}
+                                disabled={sendingQuoteId === quote.id}
+                              >
+                                <ListItemDecorator><Send size={16} /></ListItemDecorator>
+                                {sendingQuoteId === quote.id ? 'Sending...' : 'Send Quote'}
+                              </MenuItem>
+                            )}
                             {quote.status === 'accepted' && !quote.convertedToInvoiceId && (
                               <MenuItem onClick={() => handleConvertToInvoice(quote)}>
                                 <ListItemDecorator><ArrowRight size={16} /></ListItemDecorator>
@@ -644,7 +710,7 @@ export default function QuotesPage() {
             <Stack spacing={2.5}>
               <Grid container spacing={2}>
                 <Grid xs={12} md={6}>
-                  <FormControl required>
+                  <FormControl required error={!!formErrors.customerId}>
                     <FormLabel>Customer</FormLabel>
                     <Autocomplete
                       placeholder="Select customer"
@@ -653,16 +719,18 @@ export default function QuotesPage() {
                       value={customers.find((c) => c.id === formData.customerId) || null}
                       onChange={(_, value) => handleCustomerChange(value)}
                     />
+                    {formErrors.customerId && <FormHelperText>{formErrors.customerId}</FormHelperText>}
                   </FormControl>
                 </Grid>
                 <Grid xs={12} md={6}>
-                  <FormControl required>
+                  <FormControl required error={!!formErrors.expiryDate}>
                     <FormLabel>Expiry Date</FormLabel>
                     <Input
                       type="date"
                       value={formData.expiryDate}
                       onChange={(e) => handleFieldChange('expiryDate', e.target.value)}
                     />
+                    {formErrors.expiryDate && <FormHelperText>{formErrors.expiryDate}</FormHelperText>}
                   </FormControl>
                 </Grid>
               </Grid>
@@ -727,6 +795,11 @@ export default function QuotesPage() {
                   <Button variant="outlined" color="neutral" size="sm" onClick={addItem} startDecorator={<Plus size={16} />}>
                     Add Item
                   </Button>
+                  {formErrors.items && (
+                    <Typography level="body-sm" sx={{ color: 'danger.500', mt: 0.5 }}>
+                      {formErrors.items}
+                    </Typography>
+                  )}
                 </Stack>
               </Box>
 
@@ -828,7 +901,6 @@ export default function QuotesPage() {
               color="primary"
               onClick={handleSubmit}
               loading={saving}
-              disabled={!formData.customerId || formData.items.length === 0}
             >
               {editingQuote ? 'Update Quote' : 'Create Quote'}
             </Button>

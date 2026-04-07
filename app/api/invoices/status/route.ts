@@ -27,14 +27,30 @@ const EMAIL_STATUSES: InvoiceEmailType[] = ['sent', 'partial', 'paid', 'overdue'
 // Statuses that include PDF attachment in the email
 const ATTACH_PDF_STATUSES: InvoiceEmailType[] = ['sent', 'overdue'];
 
-// Helper: find an account by query
+// Helper: get account preferences from Firestore (admin)
+async function getPreferences(companyId: string): Promise<Record<string, string>> {
+  const prefSnap = await adminDb.doc(`companies/${companyId}/settings/account_preferences`).get();
+  return prefSnap.exists ? (prefSnap.data() as Record<string, string>) : {};
+}
+
+// Helper: find an account by query with optional preferred ID
 async function findAccount(
   companyId: string,
   typeField: string,
   typeValue: string,
-  nameHints: string[]
+  nameHints: string[],
+  preferredId?: string
 ): Promise<{ id: string; data: any } | null> {
   const accountsRef = adminDb.collection(`companies/${companyId}/chartOfAccounts`);
+
+  // If a preferred account ID is set, try that first
+  if (preferredId) {
+    const prefSnap = await accountsRef.doc(preferredId).get();
+    if (prefSnap.exists && prefSnap.data()?.isActive !== false) {
+      return { id: prefSnap.id, data: prefSnap.data() };
+    }
+  }
+
   const q = accountsRef.where(typeField, '==', typeValue);
   const snapshot = await q.get();
   if (snapshot.empty) return null;
@@ -83,6 +99,9 @@ export async function POST(request: NextRequest) {
     }
     const company = companySnap.data() as any;
 
+    // Load account preferences once for all transitions
+    const prefs = await getPreferences(companyId);
+
     // Track what accounting was done
     const accountingActions: string[] = [];
 
@@ -92,8 +111,8 @@ export async function POST(request: NextRequest) {
 
     if (newStatus === 'sent' && currentStatus === 'draft') {
       // ---- SENT: Recognize revenue (Debit AR, Credit Revenue) ----
-      const arAccount = await findAccount(companyId, 'subtypeCode', 'current_asset', ['receivable', 'ar']);
-      const revAccount = await findAccount(companyId, 'typeCode', 'revenue', ['revenue', 'sales', 'income']);
+      const arAccount = await findAccount(companyId, 'subtypeCode', 'current_asset', ['receivable', 'ar'], prefs.defaultReceivableAccountId);
+      const revAccount = await findAccount(companyId, 'typeCode', 'revenue', ['revenue', 'sales', 'income'], prefs.defaultRevenueAccountId);
 
       if (arAccount && revAccount) {
         await adminDb.collection(`companies/${companyId}/journalEntries`).add({
@@ -167,8 +186,8 @@ export async function POST(request: NextRequest) {
       const pAmount = paymentAmount || remainingDue;
 
       if (pAmount > 0) {
-        const bankAccount = await findAccount(companyId, 'subtypeCode', 'cash', ['cash', 'bank', 'checking']);
-        const arAccount = await findAccount(companyId, 'subtypeCode', 'current_asset', ['receivable', 'ar']);
+        const bankAccount = await findAccount(companyId, 'typeCode', 'asset', ['cash', 'bank', 'checking'], prefs.defaultCashAccountId);
+        const arAccount = await findAccount(companyId, 'subtypeCode', 'current_asset', ['receivable', 'ar'], prefs.defaultReceivableAccountId);
 
         if (bankAccount && arAccount) {
           await adminDb.collection(`companies/${companyId}/journalEntries`).add({
@@ -245,8 +264,8 @@ export async function POST(request: NextRequest) {
       const pAmount = paymentAmount || 0;
 
       if (pAmount > 0) {
-        const bankAccount = await findAccount(companyId, 'subtypeCode', 'cash', ['cash', 'bank', 'checking']);
-        const arAccount = await findAccount(companyId, 'subtypeCode', 'current_asset', ['receivable', 'ar']);
+        const bankAccount = await findAccount(companyId, 'typeCode', 'asset', ['cash', 'bank', 'checking'], prefs.defaultCashAccountId);
+        const arAccount = await findAccount(companyId, 'subtypeCode', 'current_asset', ['receivable', 'ar'], prefs.defaultReceivableAccountId);
 
         if (bankAccount && arAccount) {
           await adminDb.collection(`companies/${companyId}/journalEntries`).add({
@@ -327,8 +346,8 @@ export async function POST(request: NextRequest) {
         const remainingDue = invoice.amountDue ?? (invoice.total - (invoice.amountPaid || 0));
 
         if (remainingDue > 0) {
-          const arAccount = await findAccount(companyId, 'subtypeCode', 'current_asset', ['receivable', 'ar']);
-          const revAccount = await findAccount(companyId, 'typeCode', 'revenue', ['revenue', 'sales', 'income']);
+          const arAccount = await findAccount(companyId, 'subtypeCode', 'current_asset', ['receivable', 'ar'], prefs.defaultReceivableAccountId);
+          const revAccount = await findAccount(companyId, 'typeCode', 'revenue', ['revenue', 'sales', 'income'], prefs.defaultRevenueAccountId);
 
           if (arAccount && revAccount) {
             // Reverse remaining: Debit Revenue, Credit AR
@@ -403,8 +422,8 @@ export async function POST(request: NextRequest) {
       const refundAmount = invoice.amountPaid || invoice.total;
 
       if (refundAmount > 0) {
-        const bankAccount = await findAccount(companyId, 'subtypeCode', 'cash', ['cash', 'bank', 'checking']);
-        const revAccount = await findAccount(companyId, 'typeCode', 'revenue', ['revenue', 'sales', 'income']);
+        const bankAccount = await findAccount(companyId, 'typeCode', 'asset', ['cash', 'bank', 'checking'], prefs.defaultCashAccountId);
+        const revAccount = await findAccount(companyId, 'typeCode', 'revenue', ['revenue', 'sales', 'income'], prefs.defaultRevenueAccountId);
 
         if (bankAccount && revAccount) {
           await adminDb.collection(`companies/${companyId}/journalEntries`).add({

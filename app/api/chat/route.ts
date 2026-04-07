@@ -21,6 +21,7 @@ import { checkUsageBudgetAdmin, trackUsageAdmin, type UsageBudgetResult } from '
 import { getCompanySnapshot, invalidateCompanySnapshot, buildSnapshotPrompt, FIRESTORE_SCHEMA } from '@/services/company-snapshot';
 import { formatDuration } from '@/lib/plans';
 import { trackServer } from '@/lib/analytics-server';
+import { rateLimit, rateLimitHeaders } from '@/lib/rate-limit';
 
 // ==========================================
 // CONFIGURATION
@@ -54,8 +55,9 @@ interface ConversationMessage {
 }
 
 /**
- * Detect if the assistant was waiting for user input and inject a context reminder.
- * This helps the AI connect short follow-up answers to pending questions.
+ * Inject a context reminder only when the user is explicitly telling the AI to retry a failed task.
+ * (e.g. "he's there check again", "try again", "it exists")
+ * The model handles all other follow-up context naturally from conversation history.
  */
 function buildContextReminder(
   history: Array<{ role: 'user' | 'assistant'; content: string }>,
@@ -63,80 +65,12 @@ function buildContextReminder(
 ): Array<{ role: 'system'; content: string }> {
   if (history.length < 2) return [];
 
-  // Find the last assistant message
-  let lastAssistantMsg = '';
-  for (let i = history.length - 1; i >= 0; i--) {
-    if (history[i].role === 'assistant') {
-      lastAssistantMsg = history[i].content;
-      break;
-    }
-  }
-
-  if (!lastAssistantMsg) return [];
-
-  // Check if the assistant was asking a question or requesting info
-  const wasAsking = lastAssistantMsg.includes('?') ||
-    /please provide|could you|what('s| is| are)|who('s| is)|which|i need|tell me/i.test(lastAssistantMsg);
-
-  if (!wasAsking) return [];
-
-  // Detect "try again" / "check again" / correction patterns
   const isRetryRequest = /check again|try again|exists?|it'?s there|he'?s there|she'?s there|look again|search again|find (him|her|it|them)|bro .* exist/i.test(currentMessage);
-
-  // Short user messages are very likely direct answers to the question
-  const isShortReply = currentMessage.trim().split(/\s+/).length <= 10;
-
-  // If the user is asking a question back (contains "?"), don't treat it as an answer to execute on
-  const isUserAskingQuestion = currentMessage.includes('?');
-
-  if (isRetryRequest) {
-    return [{
-      role: 'system' as const,
-      content: `[CONTEXT REMINDER: The user is telling you to retry or that the entity exists. Look at the ORIGINAL task from earlier in the conversation (e.g., "create invoice", "create bill"). Do NOT just look up the entity — COMPLETE THE ORIGINAL TASK. For example, if the user originally asked "create invoice for X for $100" and you couldn't find customer X, and now the user says "X exists check again", you must call create_invoice with customerName=X and amount=100. Resume and finish the pending task.]`,
-    }];
-  }
-
-  // Detect "yes send it" / confirmation after invoice/bill creation
-  const isSendConfirmation = /^(yes[,.]?\s*)?(send it( now)?|send( the)? invoice|yes send|confirm send)/i.test(currentMessage.trim());
-  const lastCreatedInvoice = (() => {
-    for (let i = history.length - 1; i >= 0; i--) {
-      const msg = history[i];
-      if (msg.role === 'assistant') {
-        const idMatch = msg.content.match(/invoice[^a-z0-9]*id[^a-z0-9]*([a-z0-9]{10,})/i) ||
-                        msg.content.match(/invoiceId['":\s]+([a-z0-9]{10,})/i);
-        if (idMatch) return idMatch[1];
-        break;
-      }
-    }
-    return null;
-  })();
-
-  if (isSendConfirmation && lastCreatedInvoice) {
-    return [{
-      role: 'system' as const,
-      content: `[CONTEXT REMINDER: The user just confirmed they want to send the invoice. Call send_invoice immediately with invoiceId="${lastCreatedInvoice}". Do NOT call list_invoices. Do NOT ask any questions. Just call send_invoice now.]`,
-    }];
-  }
-
-  // Don't hijack greetings / small talk as answers to pending tasks
-  const isGreeting = /^(hi+|hey+|hello|howdy|hiya|sup|yo+|what'?s up|how (are|r) (u|you)|how (r|are) (u|you) do+in|how u do+in|greetings|good (morning|afternoon|evening|day)|hru|how'?s it going|how you doing|how are you|what'?s good)\b/i.test(currentMessage.trim());
-  if (isGreeting) return [];
-
-  if (isShortReply && !isUserAskingQuestion) {
-    return [{
-      role: 'system' as const,
-      content: `[CONTEXT REMINDER: The assistant just asked the user a question. The user's current message "${currentMessage}" is their answer to that question. Connect this answer to the pending task and proceed. Do NOT treat it as a new unrelated request. If you now have enough information, execute the action immediately — call the tool, don't just describe what you'll do.]`,
-    }];
-  }
-
-  if (isUserAskingQuestion) {
-    // User is confused or asking a clarifying question — answer it, don't blindly execute
-    return [];
-  }
+  if (!isRetryRequest) return [];
 
   return [{
     role: 'system' as const,
-    content: `[CONTEXT REMINDER: The assistant previously asked the user for information. The user's response likely contains answers to those questions. Extract the relevant details and combine them with previously gathered information to complete the pending task. Execute tool calls immediately.]`,
+    content: `[CONTEXT REMINDER: The user is telling you to retry or that the entity exists. Look at the ORIGINAL task from earlier in the conversation (e.g., "create invoice", "create bill"). Do NOT just look up the entity — COMPLETE THE ORIGINAL TASK. For example, if the user originally asked "create invoice for X for $100" and you couldn't find customer X, and now the user says "X exists check again", you must call create_invoice with customerName=X and amount=100. Resume and finish the pending task.]`,
   }];
 }
 
@@ -191,22 +125,108 @@ function calculateCost(promptTokens: number, completionTokens: number, model: st
   return (promptTokens * pricing.input + completionTokens * pricing.output) / 1_000_000;
 }
 
+// ==========================================
+// REQUEST VALIDATION
+// ==========================================
+
+const MAX_BODY_BYTES = 64 * 1024; // 64 KB — prevents huge payload attacks
+const MAX_MESSAGE_LENGTH = 8_000;  // characters
+const MAX_ID_LENGTH = 128;
+
+/** Safe alphanumeric + dash/underscore/dot ID validator (Firebase IDs, UUIDs, etc.) */
+const SAFE_ID_RE = /^[a-zA-Z0-9_\-\.]+$/;
+
+function validateId(value: unknown, field: string): string | null {
+  if (typeof value !== 'string' || value.length === 0) return `${field} is required`;
+  if (value.length > MAX_ID_LENGTH) return `${field} is too long`;
+  if (!SAFE_ID_RE.test(value)) return `${field} contains invalid characters`;
+  return null;
+}
+
+/** Extract real client IP from common proxy headers */
+function getClientIP(req: NextRequest): string {
+  return (
+    req.headers.get('cf-connecting-ip') ||
+    req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
+    req.headers.get('x-real-ip') ||
+    '127.0.0.1'
+  );
+}
+
+// ==========================================
+// RATE LIMIT CONFIGS
+// ==========================================
+
+// Per-IP: 30 requests / minute  (covers unauthenticated hammering)
+const IP_LIMIT = { max: 30, windowMs: 60_000 };
+// Per-user: 20 requests / minute  (fine-grained control per account)
+const USER_LIMIT = { max: 20, windowMs: 60_000 };
+// Follow-up tool rounds don't count against user quota (they're triggered by the app, not the human)
+const FOLLOWUP_LIMIT = { max: 60, windowMs: 60_000 };
+
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    // ── Body size guard (read raw before JSON parse) ──────────────────────
+    const contentLength = Number(request.headers.get('content-length') || 0);
+    if (contentLength > MAX_BODY_BYTES) {
+      return NextResponse.json(
+        { error: 'Request body too large' },
+        { status: 413 },
+      );
+    }
+
+    // Parse JSON — but don't trust the content-length alone; clone + measure
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
+    }
+
     const { message, companyId, userId, chatId, model: requestModel, toolResults, originalAssistant } = body;
     const isFollowUp = !!(toolResults && originalAssistant);
 
-    if (!isFollowUp && (!message || !companyId || !userId)) {
+    // ── IP-level rate limit (always enforced, before auth) ────────────────
+    const ip = getClientIP(request);
+    const ipResult = rateLimit(`chat:ip:${ip}`, IP_LIMIT.max, IP_LIMIT.windowMs);
+    if (!ipResult.allowed) {
       return NextResponse.json(
-        { error: 'Message, companyId, and userId are required' },
-        { status: 400 }
+        { error: 'Too many requests. Please slow down.' },
+        {
+          status: 429,
+          headers: rateLimitHeaders(ipResult),
+        },
       );
     }
-    if (isFollowUp && (!companyId || !userId || !chatId)) {
+
+    // ── Field validation ──────────────────────────────────────────────────
+    if (!isFollowUp) {
+      const idErr = validateId(companyId, 'companyId') || validateId(userId, 'userId');
+      if (idErr) return NextResponse.json({ error: idErr }, { status: 400 });
+      if (!message || typeof message !== 'string') {
+        return NextResponse.json({ error: 'message is required' }, { status: 400 });
+      }
+      if (message.length > MAX_MESSAGE_LENGTH) {
+        return NextResponse.json({ error: 'Message is too long' }, { status: 400 });
+      }
+    } else {
+      const idErr =
+        validateId(companyId, 'companyId') ||
+        validateId(userId, 'userId') ||
+        validateId(chatId, 'chatId');
+      if (idErr) return NextResponse.json({ error: idErr }, { status: 400 });
+    }
+
+    // ── Per-user rate limit (authenticated traffic) ───────────────────────
+    const userLimitCfg = isFollowUp ? FOLLOWUP_LIMIT : USER_LIMIT;
+    const userResult = rateLimit(`chat:user:${userId}`, userLimitCfg.max, userLimitCfg.windowMs);
+    if (!userResult.allowed) {
       return NextResponse.json(
-        { error: 'companyId, userId, and chatId are required for follow-up' },
-        { status: 400 }
+        { error: 'Too many requests. Please wait a moment before sending another message.' },
+        {
+          status: 429,
+          headers: rateLimitHeaders(userResult),
+        },
       );
     }
 
@@ -231,6 +251,7 @@ export async function POST(request: NextRequest) {
     // ==========================================
     if (!isFollowUp && message) {
       const trimmed = message.trim().toLowerCase().replace(/[!?.,']+$/g, '');
+      // Only pure greetings — never intercept words that could be confirmations (yes, no, ok, sure)
       const GREETING_RESPONSES: Record<string, string[]> = {
         'hi': ['Hi there! How can I help you with your accounting today?', 'Hello! What can I assist you with?', 'Hi! Ready to help with your finances.'],
         'hello': ['Hello! How can I assist you today?', 'Hi there! What would you like to do?', 'Hello! Ready to help with your accounting needs.'],
@@ -241,11 +262,6 @@ export async function POST(request: NextRequest) {
         'thanks': ['You\'re welcome! Let me know if you need anything else.', 'Happy to help! Anything else?'],
         'thank you': ['You\'re welcome! Is there anything else I can help with?', 'Glad I could help! Let me know if you need more.'],
         'bye': ['Goodbye! Feel free to come back anytime you need help.', 'See you later! Your data is all saved.'],
-        'ok': ['Great! Let me know if you need anything else.', 'Alright! What would you like to do next?'],
-        'okay': ['Sounds good! Anything else I can help with?', 'Got it! What\'s next?'],
-        'yes': ['Great! What would you like me to help with?', 'Sure! Go ahead and tell me what you need.'],
-        'no': ['Alright! Let me know if you change your mind or need help later.'],
-        'sure': ['Great! What would you like me to do?'],
       };
       const responses = GREETING_RESPONSES[trimmed];
       if (responses) {

@@ -52,7 +52,7 @@ import {
 import { getActiveEmployees } from '@/services/employees';
 import { SalarySlip, Employee } from '@/types';
 import { LoadingSpinner, EmptyState, ConfirmDialog, PageBreadcrumbs, FormTableSkeleton } from '@/components/common';
-import { Calendar, DollarSign, Users, CheckCircle, BarChart3, Plus, Edit2, Trash2, Eye, MoreVertical, Download } from 'lucide-react';
+import { Calendar, DollarSign, Users, CheckCircle, BarChart3, Plus, Edit2, Trash2, Eye, MoreVertical, Download, Mail } from 'lucide-react';
 import StatusChangeModal from '@/components/StatusChangeModal';
 import FormEntityDetailModal from '@/components/FormEntityDetailModal';
 import { canEdit as canEditStatus, canDelete as canDeleteStatus, getStatusColor as getStatusMgmtColor, formatStatus } from '@/lib/status-management';
@@ -134,6 +134,9 @@ export default function PayrollPage() {
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [detailSlip, setDetailSlip] = useState<SalarySlip | null>(null);
 
+  // Send slip email
+  const [sendingSlipId, setSendingSlipId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!authLoading && !user) {
       router.push('/login');
@@ -211,6 +214,34 @@ export default function PayrollPage() {
     };
   }, [salarySlips]);
 
+  // Build a map of employeeId -> email for quick lookup
+  const employeeEmailMap = useMemo<Record<string, string>>(() => {
+    return employees.reduce((map, emp) => {
+      if (emp.email) map[emp.id] = emp.email;
+      return map;
+    }, {} as Record<string, string>);
+  }, [employees]);
+
+  // Send salary slip email handler
+  const handleSendSlip = async (slip: SalarySlip) => {
+    if (!company?.id) return;
+    setSendingSlipId(slip.id);
+    try {
+      const res = await fetch('/api/payroll/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: company.id, slipId: slip.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to send email');
+      toast.success(`Salary slip sent to ${data.recipient}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to send salary slip email');
+    } finally {
+      setSendingSlipId(null);
+    }
+  };
+
   // Form handlers
   const resetForm = () => {
     setFormData({ ...emptyFormData, month: selectedMonth, year: selectedYear });
@@ -251,6 +282,8 @@ export default function PayrollPage() {
   const validateForm = (): boolean => {
     const errors: Record<string, string> = {};
     if (!formData.employeeId) errors.employee = 'Please select an employee';
+    if (!formData.month) errors.month = 'Month is required';
+    if (!formData.year || String(formData.year).length !== 4) errors.year = 'Year is required';
     if (formData.basicSalary <= 0) errors.basicSalary = 'Basic salary must be greater than 0';
     setFormErrors(errors);
     return Object.keys(errors).length === 0;
@@ -322,6 +355,7 @@ export default function PayrollPage() {
         employeeDesignation: emp.designation || '',
         basicSalary: emp.salary || 0,
       }));
+      setFormErrors(prev => ({ ...prev, employee: '' }));
     }
   };
 
@@ -601,6 +635,17 @@ export default function PayrollPage() {
                                   <ListItemDecorator><Download size={16} /></ListItemDecorator>
                                   Download PDF
                                 </MenuItem>
+                                {employeeEmailMap[slip.employeeId] && (
+                                  <MenuItem
+                                    onClick={() => handleSendSlip(slip)}
+                                    disabled={sendingSlipId === slip.id}
+                                  >
+                                    <ListItemDecorator>
+                                      <Mail size={16} />
+                                    </ListItemDecorator>
+                                    {sendingSlipId === slip.id ? 'Sending...' : 'Send Slip'}
+                                  </MenuItem>
+                                )}
                                 {canEditStatus('salarySlip', slip.status).allowed && (
                                   <MenuItem onClick={() => handleEdit(slip)}>
                                     <ListItemDecorator><Edit2 size={16} /></ListItemDecorator>
@@ -662,27 +707,35 @@ export default function PayrollPage() {
               {/* Period */}
               <Grid container spacing={2}>
                 <Grid xs={6}>
-                  <FormControl>
-                    <FormLabel>Month</FormLabel>
+                  <FormControl error={!!formErrors.month}>
+                    <FormLabel required>Month</FormLabel>
                     <Select
                       value={formData.month}
-                      onChange={(_, v) => setFormData(prev => ({ ...prev, month: v || 1 }))}
+                      onChange={(_, v) => {
+                        setFormData(prev => ({ ...prev, month: v || 1 }));
+                        setFormErrors(prev => ({ ...prev, month: '' }));
+                      }}
                       disabled={!!editingSlip}
                     >
                       {MONTHS.map((m, i) => <Option key={i + 1} value={i + 1}>{m}</Option>)}
                     </Select>
+                    {formErrors.month && <FormHelperText>{formErrors.month}</FormHelperText>}
                   </FormControl>
                 </Grid>
                 <Grid xs={6}>
-                  <FormControl>
-                    <FormLabel>Year</FormLabel>
+                  <FormControl error={!!formErrors.year}>
+                    <FormLabel required>Year</FormLabel>
                     <Select
                       value={formData.year}
-                      onChange={(_, v) => setFormData(prev => ({ ...prev, year: v || new Date().getFullYear() }))}
+                      onChange={(_, v) => {
+                        setFormData(prev => ({ ...prev, year: v || new Date().getFullYear() }));
+                        setFormErrors(prev => ({ ...prev, year: '' }));
+                      }}
                       disabled={!!editingSlip}
                     >
                       {years.map(y => <Option key={y} value={y}>{y}</Option>)}
                     </Select>
+                    {formErrors.year && <FormHelperText>{formErrors.year}</FormHelperText>}
                   </FormControl>
                 </Grid>
               </Grid>
@@ -699,7 +752,10 @@ export default function PayrollPage() {
                       <Input
                         type="number"
                         value={formData.basicSalary || ''}
-                        onChange={(e) => setFormData(prev => ({ ...prev, basicSalary: parseFloat(e.target.value) || 0 }))}
+                        onChange={(e) => {
+                          setFormData(prev => ({ ...prev, basicSalary: parseFloat(e.target.value) || 0 }));
+                          setFormErrors(prev => ({ ...prev, basicSalary: '' }));
+                        }}
                         slotProps={{ input: { min: 0, step: 0.01 } }}
                       />
                       {formErrors.basicSalary && <FormHelperText>{formErrors.basicSalary}</FormHelperText>}

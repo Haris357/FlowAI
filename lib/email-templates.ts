@@ -1366,3 +1366,867 @@ export function getEmailTemplate(
     }
   }
 }
+
+// ==========================================
+// SALARY SLIP EMAIL
+// ==========================================
+
+export type SalarySlipEmailData = {
+  employeeName: string;
+  month: number; // 1-12
+  year: number;
+  basicSalary: number;
+  totalEarnings: number;
+  totalDeductions: number;
+  netSalary: number;
+  paymentMethod?: string;
+  status: string; // 'generated' | 'paid'
+};
+
+const MONTHS_LONG = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+export function getSalarySlipEmailSubject(
+  slipMonth: number,
+  slipYear: number,
+  companyName: string,
+): string {
+  const monthName = MONTHS_LONG[(slipMonth || 1) - 1] || 'January';
+  return `Salary Slip - ${monthName} ${slipYear} | ${companyName}`;
+}
+
+export function salarySlipEmail(slip: SalarySlipEmailData, company: CompanyEmailData): string {
+  const isPaid = slip.status === 'paid';
+  const accent = isPaid ? C.green : C.brand;
+  const accentDark = isPaid ? C.greenDark : C.brandDark;
+  const accentBg = isPaid ? C.greenBg : C.brandBg;
+  const badge = isPaid ? 'Payment Confirmed' : 'Salary Slip';
+  const monthName = MONTHS_LONG[(slip.month || 1) - 1] || 'January';
+  const periodLabel = `${monthName} ${slip.year}`;
+
+  const fmtC = (n: number) => fmtCurrency(n, company.currency);
+
+  const contactParts = [company.email, company.phone].filter(Boolean);
+  const contactHtml = contactParts.length > 0
+    ? `<p style="margin:4px 0 0;font-size:12px;color:${C.textLight};">${contactParts.join(' &nbsp;·&nbsp; ')}</p>`
+    : '';
+  const addressHtml = company.address
+    ? `<p style="margin:2px 0 0;font-size:12px;color:${C.textLight};">${company.address}</p>`
+    : '';
+
+  const metaHtml = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
+      <tr>
+        <td style="padding:20px 24px;background:${C.borderLight};border-radius:10px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            ${metaRow('Pay Period', periodLabel)}
+            ${metaRow('Basic Salary', fmtC(slip.basicSalary))}
+            ${metaRow('Total Earnings', fmtC(slip.totalEarnings))}
+            ${metaRow('Total Deductions', fmtC(slip.totalDeductions))}
+            <tr>
+              <td style="padding:14px 0 4px;font-size:13px;color:${C.textLight};">Net Pay</td>
+              <td style="padding:14px 0 4px;font-size:20px;font-weight:700;color:${accent};text-align:right;">${fmtC(slip.netSalary)}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>`;
+
+  const netPayCardHtml = isPaid ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;">
+      <tr>
+        <td style="padding:28px 24px;text-align:center;background:${accentBg};border-radius:10px;border:1px solid ${C.border};">
+          <div style="width:48px;height:48px;margin:0 auto 12px;background:${accent};border-radius:50%;line-height:48px;text-align:center;">
+            <span style="font-size:22px;color:#fff;font-weight:700;">✓</span>
+          </div>
+          <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${C.textLight};font-weight:600;">Net Pay Received</p>
+          <p style="margin:6px 0 0;font-size:32px;font-weight:700;color:${accent};letter-spacing:-0.02em;">${fmtC(slip.netSalary)}</p>
+          <p style="margin:8px 0 0;font-size:13px;color:${C.textMid};">${periodLabel}${slip.paymentMethod ? ' &nbsp;·&nbsp; ' + slip.paymentMethod : ''}</p>
+        </td>
+      </tr>
+    </table>` : '';
+
+  const attachNote = `
+    <p style="margin:24px 0 0;font-size:12px;color:${C.textLight};line-height:1.5;text-align:center;">
+      📎 &nbsp;Your salary slip is attached as a PDF.
+    </p>`;
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>Salary Slip — ${periodLabel}</title>
+</head>
+<body style="margin:0;padding:0;background-color:${C.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${C.bg};padding:48px 16px;">
+    <tr>
+      <td align="center">
+
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background-color:${C.white};border-radius:16px;overflow:hidden;border:1px solid ${C.border};">
+
+          <!-- Accent bar -->
+          <tr><td style="height:4px;background:${accent};font-size:0;line-height:0;">&nbsp;</td></tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="padding:32px 36px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <h1 style="margin:0;font-size:20px;font-weight:700;color:${C.text};letter-spacing:-0.01em;">${company.name}</h1>
+                  </td>
+                  <td style="text-align:right;vertical-align:middle;">
+                    <span style="display:inline-block;padding:5px 12px;background:${accentBg};color:${accent};font-size:11px;font-weight:700;border-radius:20px;letter-spacing:0.04em;text-transform:uppercase;">${badge}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td style="padding:20px 36px 0;"><div style="height:1px;background:${C.borderLight};"></div></td></tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:24px 36px 36px;">
+              <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:${C.text};">Dear ${slip.employeeName},</p>
+              <p style="margin:0;font-size:14px;color:${C.textMid};line-height:1.7;">Please find your salary slip for <strong>${periodLabel}</strong> attached below.</p>
+              ${metaHtml}
+              ${netPayCardHtml}
+              ${attachNote}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 36px;border-top:1px solid ${C.borderLight};">
+              <p style="margin:0;font-size:13px;font-weight:600;color:${C.textMid};">${company.name}</p>
+              ${contactHtml}
+              ${addressHtml}
+            </td>
+          </tr>
+
+          <!-- Powered by -->
+          <tr>
+            <td style="padding:0 36px 20px;">
+              <p style="margin:0;font-size:11px;color:${C.textLight};text-align:center;">Powered by <span style="color:${C.brand};font-weight:600;">Flowbooks</span></p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>`.trim();
+}
+
+// ==========================================
+// BILL EMAIL (to vendor)
+// ==========================================
+
+export type BillEmailType = 'created' | 'payment_sent';
+
+export type BillEmailData = {
+  billNumber: string;
+  vendorName: string;
+  issueDate: any;
+  dueDate?: any;
+  total: number;
+  amountPaid: number;
+  amountDue: number;
+  items: Array<{ description: string; quantity: number; rate: number; amount: number }>;
+  notes?: string;
+};
+
+export function getBillEmailSubject(
+  type: BillEmailType,
+  billNumber: string,
+  companyName: string,
+): string {
+  switch (type) {
+    case 'created':
+      return `Bill ${billNumber} from ${companyName}`;
+    case 'payment_sent':
+      return `Payment Sent — Bill ${billNumber}`;
+  }
+}
+
+export function billEmail(
+  type: BillEmailType,
+  bill: BillEmailData,
+  company: CompanyEmailData,
+): string {
+  const isPayment = type === 'payment_sent';
+  const accent = isPayment ? C.green : C.brand;
+  const accentDark = isPayment ? C.greenDark : C.brandDark;
+  const accentBg = isPayment ? C.greenBg : C.brandBg;
+  const badge = isPayment ? 'Payment Sent' : 'Bill Received';
+
+  const fmtC = (n: number) => fmtCurrency(n, company.currency);
+
+  const contactParts = [company.email, company.phone].filter(Boolean);
+  const contactHtml = contactParts.length > 0
+    ? `<p style="margin:4px 0 0;font-size:12px;color:${C.textLight};">${contactParts.join(' &nbsp;·&nbsp; ')}</p>`
+    : '';
+  const addressHtml = company.address
+    ? `<p style="margin:2px 0 0;font-size:12px;color:${C.textLight};">${company.address}</p>`
+    : '';
+
+  const messageHtml = isPayment
+    ? `We have processed payment for bill <strong>${bill.billNumber}</strong>. Thank you for your service.`
+    : `Thank you for your invoice <strong>${bill.billNumber}</strong>. Please find the bill details below.`;
+
+  // Items table for 'created'
+  const itemsHtml = !isPayment ? (() => {
+    const rows = (bill.items || []).map(item => `
+      <tr>
+        <td style="padding:12px 16px;font-size:13px;color:${C.text};border-bottom:1px solid ${C.borderLight};">${item.description}</td>
+        <td style="padding:12px 16px;font-size:13px;color:${C.textMid};text-align:center;border-bottom:1px solid ${C.borderLight};">${item.quantity}</td>
+        <td style="padding:12px 16px;font-size:13px;color:${C.textMid};text-align:right;border-bottom:1px solid ${C.borderLight};">${fmtC(item.rate)}</td>
+        <td style="padding:12px 16px;font-size:13px;font-weight:600;color:${C.text};text-align:right;border-bottom:1px solid ${C.borderLight};">${fmtC(item.quantity * item.rate)}</td>
+      </tr>`).join('');
+
+    return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;border-radius:10px;overflow:hidden;border:1px solid ${C.border};">
+      <thead>
+        <tr>
+          <th style="padding:11px 16px;text-align:left;font-size:11px;font-weight:600;color:${C.textMid};text-transform:uppercase;letter-spacing:0.06em;background:${C.borderLight};border-bottom:1px solid ${C.border};">Description</th>
+          <th style="padding:11px 16px;text-align:center;font-size:11px;font-weight:600;color:${C.textMid};text-transform:uppercase;letter-spacing:0.06em;background:${C.borderLight};border-bottom:1px solid ${C.border};">Qty</th>
+          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:600;color:${C.textMid};text-transform:uppercase;letter-spacing:0.06em;background:${C.borderLight};border-bottom:1px solid ${C.border};">Rate</th>
+          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:600;color:${C.textMid};text-transform:uppercase;letter-spacing:0.06em;background:${C.borderLight};border-bottom:1px solid ${C.border};">Amount</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>
+        <tr>
+          <td colspan="3" style="padding:14px 16px;text-align:right;font-size:15px;font-weight:700;color:${C.text};border-top:2px solid ${C.border};">Total</td>
+          <td style="padding:14px 16px;text-align:right;font-size:15px;font-weight:700;color:${accent};border-top:2px solid ${C.border};">${fmtC(bill.total)}</td>
+        </tr>
+      </tfoot>
+    </table>`;
+  })() : '';
+
+  const metaHtml = !isPayment ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
+      <tr>
+        <td style="padding:20px 24px;background:${C.borderLight};border-radius:10px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            ${metaRow('Bill Number', bill.billNumber)}
+            ${metaRow('Issue Date', fmtDate(bill.issueDate))}
+            ${bill.dueDate ? metaRow('Due Date', fmtDate(bill.dueDate)) : ''}
+            <tr>
+              <td style="padding:14px 0 4px;font-size:13px;color:${C.textLight};">Amount Due</td>
+              <td style="padding:14px 0 4px;font-size:20px;font-weight:700;color:${accent};text-align:right;">${fmtC(bill.amountDue)}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>` : '';
+
+  const paymentCardHtml = isPayment ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
+      <tr>
+        <td style="padding:28px 24px;text-align:center;background:${accentBg};border-radius:10px;border:1px solid ${C.border};">
+          <div style="width:48px;height:48px;margin:0 auto 12px;background:${accent};border-radius:50%;line-height:48px;text-align:center;">
+            <span style="font-size:22px;color:#fff;font-weight:700;">✓</span>
+          </div>
+          <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${C.textLight};font-weight:600;">Amount Paid</p>
+          <p style="margin:6px 0 0;font-size:32px;font-weight:700;color:${accent};letter-spacing:-0.02em;">${fmtC(bill.amountPaid)}</p>
+          <p style="margin:8px 0 0;font-size:13px;color:${C.textMid};">Bill ${bill.billNumber}</p>
+        </td>
+      </tr>
+    </table>` : '';
+
+  const notesHtml = bill.notes ? `
+    <div style="margin:24px 0 0;padding:14px 16px;background:${C.amberBg};border-left:3px solid ${C.amber};border-radius:0 8px 8px 0;">
+      <p style="margin:0;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:${C.amberDark};font-weight:700;">Notes</p>
+      <p style="margin:6px 0 0;font-size:13px;color:${C.textMid};line-height:1.6;">${bill.notes}</p>
+    </div>` : '';
+
+  const attachNote = !isPayment ? `
+    <p style="margin:24px 0 0;font-size:12px;color:${C.textLight};line-height:1.5;text-align:center;">
+      📎 &nbsp;Bill details attached as PDF.
+    </p>` : '';
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>${badge} — ${bill.billNumber}</title>
+</head>
+<body style="margin:0;padding:0;background-color:${C.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${C.bg};padding:48px 16px;">
+    <tr>
+      <td align="center">
+
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background-color:${C.white};border-radius:16px;overflow:hidden;border:1px solid ${C.border};">
+
+          <!-- Accent bar -->
+          <tr><td style="height:4px;background:${accent};font-size:0;line-height:0;">&nbsp;</td></tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="padding:32px 36px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <h1 style="margin:0;font-size:20px;font-weight:700;color:${C.text};letter-spacing:-0.01em;">${company.name}</h1>
+                  </td>
+                  <td style="text-align:right;vertical-align:middle;">
+                    <span style="display:inline-block;padding:5px 12px;background:${accentBg};color:${accent};font-size:11px;font-weight:700;border-radius:20px;letter-spacing:0.04em;text-transform:uppercase;">${badge}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td style="padding:20px 36px 0;"><div style="height:1px;background:${C.borderLight};"></div></td></tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:24px 36px 36px;">
+              <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:${C.text};">Dear ${bill.vendorName},</p>
+              <p style="margin:0;font-size:14px;color:${C.textMid};line-height:1.7;">${messageHtml}</p>
+              ${metaHtml}
+              ${paymentCardHtml}
+              ${itemsHtml}
+              ${notesHtml}
+              ${attachNote}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 36px;border-top:1px solid ${C.borderLight};">
+              <p style="margin:0;font-size:13px;font-weight:600;color:${C.textMid};">${company.name}</p>
+              ${contactHtml}
+              ${addressHtml}
+            </td>
+          </tr>
+
+          <!-- Powered by -->
+          <tr>
+            <td style="padding:0 36px 20px;">
+              <p style="margin:0;font-size:11px;color:${C.textLight};text-align:center;">Powered by <span style="color:${C.brand};font-weight:600;">Flowbooks</span></p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>`.trim();
+}
+
+// ==========================================
+// QUOTE EMAIL (to customer)
+// ==========================================
+
+export type QuoteEmailType = 'sent' | 'reminder' | 'accepted' | 'expired';
+
+export type QuoteEmailData = {
+  quoteNumber: string;
+  customerName: string;
+  issueDate: any;
+  expiryDate: any;
+  items: Array<{ description: string; quantity: number; rate: number; amount: number }>;
+  subtotal: number;
+  taxAmount: number;
+  discount: number;
+  total: number;
+  notes?: string;
+  terms?: string;
+};
+
+export function getQuoteEmailSubject(
+  type: QuoteEmailType,
+  quoteNumber: string,
+  companyName: string,
+): string {
+  switch (type) {
+    case 'sent':
+      return `Quote ${quoteNumber} from ${companyName}`;
+    case 'reminder':
+      return `Reminder: Quote ${quoteNumber} expiring soon`;
+    case 'accepted':
+      return `Quote ${quoteNumber} Accepted`;
+    case 'expired':
+      return `Quote ${quoteNumber} has Expired`;
+  }
+}
+
+export function quoteEmail(
+  type: QuoteEmailType,
+  quote: QuoteEmailData,
+  company: CompanyEmailData,
+): string {
+  type QuoteCfg = { accent: string; accentDark: string; accentBg: string; badge: string; showItems: boolean; showAttachment: boolean };
+  const cfgMap: Record<QuoteEmailType, QuoteCfg> = {
+    sent:     { accent: C.brand,  accentDark: C.brandDark,  accentBg: C.brandBg,  badge: 'New Quote',     showItems: true,  showAttachment: true },
+    reminder: { accent: C.amber,  accentDark: C.amberDark,  accentBg: C.amberBg,  badge: 'Expiring Soon', showItems: false, showAttachment: true },
+    accepted: { accent: C.green,  accentDark: C.greenDark,  accentBg: C.greenBg,  badge: 'Accepted',      showItems: false, showAttachment: false },
+    expired:  { accent: C.slate,  accentDark: C.slateDark,  accentBg: C.slateBg,  badge: 'Expired',       showItems: false, showAttachment: false },
+  };
+  const cfg = cfgMap[type];
+  const { accent, accentDark, accentBg, badge } = cfg;
+
+  const fmtC = (n: number) => fmtCurrency(n, company.currency);
+
+  const contactParts = [company.email, company.phone].filter(Boolean);
+  const contactHtml = contactParts.length > 0
+    ? `<p style="margin:4px 0 0;font-size:12px;color:${C.textLight};">${contactParts.join(' &nbsp;·&nbsp; ')}</p>`
+    : '';
+  const addressHtml = company.address
+    ? `<p style="margin:2px 0 0;font-size:12px;color:${C.textLight};">${company.address}</p>`
+    : '';
+
+  const messageMap: Record<QuoteEmailType, string> = {
+    sent:     `Please review the quote <strong>${quote.quoteNumber}</strong> below. Feel free to reach out if you have any questions.`,
+    reminder: `This is a friendly reminder that quote <strong>${quote.quoteNumber}</strong> is expiring on <strong>${fmtDate(quote.expiryDate)}</strong>. Please review it at your earliest convenience.`,
+    accepted: `Thank you for accepting quote <strong>${quote.quoteNumber}</strong>. We'll be in touch shortly to proceed.`,
+    expired:  `Quote <strong>${quote.quoteNumber}</strong> has expired as of <strong>${fmtDate(quote.expiryDate)}</strong>. Please contact us if you'd like to renew it.`,
+  };
+
+  const metaHtml = (type === 'sent' || type === 'reminder') ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
+      <tr>
+        <td style="padding:20px 24px;background:${C.borderLight};border-radius:10px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            ${metaRow('Quote Number', quote.quoteNumber)}
+            ${metaRow('Issue Date', fmtDate(quote.issueDate))}
+            ${metaRow('Expiry Date', fmtDate(quote.expiryDate), type === 'reminder')}
+            <tr>
+              <td style="padding:14px 0 4px;font-size:13px;color:${C.textLight};">Total</td>
+              <td style="padding:14px 0 4px;font-size:20px;font-weight:700;color:${accent};text-align:right;">${fmtC(quote.total)}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>` : '';
+
+  const acceptedCardHtml = type === 'accepted' ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
+      <tr>
+        <td style="padding:28px 24px;text-align:center;background:${accentBg};border-radius:10px;border:1px solid ${C.border};">
+          <div style="width:48px;height:48px;margin:0 auto 12px;background:${accent};border-radius:50%;line-height:48px;text-align:center;">
+            <span style="font-size:22px;color:#fff;font-weight:700;">✓</span>
+          </div>
+          <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${C.textLight};font-weight:600;">Quote Accepted</p>
+          <p style="margin:6px 0 0;font-size:32px;font-weight:700;color:${accent};letter-spacing:-0.02em;">${fmtC(quote.total)}</p>
+          <p style="margin:8px 0 0;font-size:13px;color:${C.textMid};">${quote.quoteNumber}</p>
+        </td>
+      </tr>
+    </table>` : '';
+
+  const expiredCardHtml = type === 'expired' ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
+      <tr>
+        <td style="padding:28px 24px;text-align:center;background:${accentBg};border-radius:10px;border:1px solid ${C.border};">
+          <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${C.textLight};font-weight:600;">Quote Total</p>
+          <p style="margin:6px 0 0;font-size:24px;font-weight:700;color:${accent};text-decoration:line-through;letter-spacing:-0.02em;">${fmtC(quote.total)}</p>
+          <p style="margin:8px 0 0;font-size:13px;color:${C.textMid};">${quote.quoteNumber} — Expired</p>
+        </td>
+      </tr>
+    </table>` : '';
+
+  const itemsHtml = cfg.showItems ? (() => {
+    const rows = (quote.items || []).map(item => `
+      <tr>
+        <td style="padding:12px 16px;font-size:13px;color:${C.text};border-bottom:1px solid ${C.borderLight};">${item.description}</td>
+        <td style="padding:12px 16px;font-size:13px;color:${C.textMid};text-align:center;border-bottom:1px solid ${C.borderLight};">${item.quantity}</td>
+        <td style="padding:12px 16px;font-size:13px;color:${C.textMid};text-align:right;border-bottom:1px solid ${C.borderLight};">${fmtC(item.rate)}</td>
+        <td style="padding:12px 16px;font-size:13px;font-weight:600;color:${C.text};text-align:right;border-bottom:1px solid ${C.borderLight};">${fmtC(item.quantity * item.rate)}</td>
+      </tr>`).join('');
+
+    let totals = `
+      <tr>
+        <td colspan="3" style="padding:10px 16px;text-align:right;font-size:13px;color:${C.textMid};">Subtotal</td>
+        <td style="padding:10px 16px;text-align:right;font-size:13px;font-weight:600;color:${C.text};">${fmtC(quote.subtotal)}</td>
+      </tr>`;
+    if (quote.taxAmount > 0) {
+      totals += `
+      <tr>
+        <td colspan="3" style="padding:6px 16px;text-align:right;font-size:13px;color:${C.textMid};">Tax</td>
+        <td style="padding:6px 16px;text-align:right;font-size:13px;color:${C.text};">${fmtC(quote.taxAmount)}</td>
+      </tr>`;
+    }
+    if (quote.discount > 0) {
+      totals += `
+      <tr>
+        <td colspan="3" style="padding:6px 16px;text-align:right;font-size:13px;color:${C.textMid};">Discount</td>
+        <td style="padding:6px 16px;text-align:right;font-size:13px;color:${C.green};">-${fmtC(quote.discount)}</td>
+      </tr>`;
+    }
+    totals += `
+      <tr>
+        <td colspan="3" style="padding:14px 16px;text-align:right;font-size:15px;font-weight:700;color:${C.text};border-top:2px solid ${C.border};">Total</td>
+        <td style="padding:14px 16px;text-align:right;font-size:15px;font-weight:700;color:${accent};border-top:2px solid ${C.border};">${fmtC(quote.total)}</td>
+      </tr>`;
+
+    return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;border-radius:10px;overflow:hidden;border:1px solid ${C.border};">
+      <thead>
+        <tr>
+          <th style="padding:11px 16px;text-align:left;font-size:11px;font-weight:600;color:${C.textMid};text-transform:uppercase;letter-spacing:0.06em;background:${C.borderLight};border-bottom:1px solid ${C.border};">Description</th>
+          <th style="padding:11px 16px;text-align:center;font-size:11px;font-weight:600;color:${C.textMid};text-transform:uppercase;letter-spacing:0.06em;background:${C.borderLight};border-bottom:1px solid ${C.border};">Qty</th>
+          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:600;color:${C.textMid};text-transform:uppercase;letter-spacing:0.06em;background:${C.borderLight};border-bottom:1px solid ${C.border};">Rate</th>
+          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:600;color:${C.textMid};text-transform:uppercase;letter-spacing:0.06em;background:${C.borderLight};border-bottom:1px solid ${C.border};">Amount</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>${totals}</tfoot>
+    </table>`;
+  })() : '';
+
+  const notesHtml = quote.notes ? `
+    <div style="margin:24px 0 0;padding:14px 16px;background:${C.amberBg};border-left:3px solid ${C.amber};border-radius:0 8px 8px 0;">
+      <p style="margin:0;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:${C.amberDark};font-weight:700;">Notes</p>
+      <p style="margin:6px 0 0;font-size:13px;color:${C.textMid};line-height:1.6;">${quote.notes}</p>
+    </div>` : '';
+
+  const attachNote = cfg.showAttachment ? `
+    <p style="margin:24px 0 0;font-size:12px;color:${C.textLight};line-height:1.5;text-align:center;">
+      📎 &nbsp;A PDF copy of this quote is attached to this email.
+    </p>` : '';
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>${badge} — ${quote.quoteNumber}</title>
+</head>
+<body style="margin:0;padding:0;background-color:${C.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${C.bg};padding:48px 16px;">
+    <tr>
+      <td align="center">
+
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background-color:${C.white};border-radius:16px;overflow:hidden;border:1px solid ${C.border};">
+
+          <!-- Accent bar -->
+          <tr><td style="height:4px;background:${accent};font-size:0;line-height:0;">&nbsp;</td></tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="padding:32px 36px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <h1 style="margin:0;font-size:20px;font-weight:700;color:${C.text};letter-spacing:-0.01em;">${company.name}</h1>
+                  </td>
+                  <td style="text-align:right;vertical-align:middle;">
+                    <span style="display:inline-block;padding:5px 12px;background:${accentBg};color:${accent};font-size:11px;font-weight:700;border-radius:20px;letter-spacing:0.04em;text-transform:uppercase;">${badge}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td style="padding:20px 36px 0;"><div style="height:1px;background:${C.borderLight};"></div></td></tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:24px 36px 36px;">
+              <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:${C.text};">Hi ${quote.customerName},</p>
+              <p style="margin:0;font-size:14px;color:${C.textMid};line-height:1.7;">${messageMap[type]}</p>
+              ${metaHtml}
+              ${acceptedCardHtml}
+              ${expiredCardHtml}
+              ${itemsHtml}
+              ${notesHtml}
+              ${attachNote}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 36px;border-top:1px solid ${C.borderLight};">
+              <p style="margin:0;font-size:13px;font-weight:600;color:${C.textMid};">${company.name}</p>
+              ${contactHtml}
+              ${addressHtml}
+            </td>
+          </tr>
+
+          <!-- Powered by -->
+          <tr>
+            <td style="padding:0 36px 20px;">
+              <p style="margin:0;font-size:11px;color:${C.textLight};text-align:center;">Powered by <span style="color:${C.brand};font-weight:600;">Flowbooks</span></p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>`.trim();
+}
+
+// ==========================================
+// PURCHASE ORDER EMAIL (to vendor)
+// ==========================================
+
+export type PurchaseOrderEmailType = 'sent' | 'confirmed' | 'cancelled';
+
+export type PurchaseOrderEmailData = {
+  poNumber: string;
+  vendorName: string;
+  issueDate: any;
+  expectedDate?: any;
+  items: Array<{ description: string; quantity: number; rate: number; amount: number }>;
+  subtotal: number;
+  taxAmount: number;
+  discount: number;
+  total: number;
+  notes?: string;
+  terms?: string;
+};
+
+export function getPurchaseOrderEmailSubject(
+  type: PurchaseOrderEmailType,
+  poNumber: string,
+  companyName: string,
+): string {
+  switch (type) {
+    case 'sent':
+      return `Purchase Order ${poNumber} from ${companyName}`;
+    case 'confirmed':
+      return `PO ${poNumber} Confirmed`;
+    case 'cancelled':
+      return `Purchase Order ${poNumber} Cancelled`;
+  }
+}
+
+export function purchaseOrderEmail(
+  type: PurchaseOrderEmailType,
+  po: PurchaseOrderEmailData,
+  company: CompanyEmailData,
+): string {
+  const blue = '#3B82F6';
+  const blueDark = '#2563EB';
+  const blueBg = '#EFF6FF';
+
+  type POCfg = { accent: string; accentDark: string; accentBg: string; badge: string; showItems: boolean; showAttachment: boolean };
+  const cfgMap: Record<PurchaseOrderEmailType, POCfg> = {
+    sent:      { accent: blue,    accentDark: blueDark,    accentBg: blueBg,      badge: 'Purchase Order', showItems: true,  showAttachment: true },
+    confirmed: { accent: C.green, accentDark: C.greenDark, accentBg: C.greenBg,   badge: 'Confirmed',      showItems: false, showAttachment: false },
+    cancelled: { accent: C.red,   accentDark: C.redDark,   accentBg: C.redBg,     badge: 'Cancelled',      showItems: false, showAttachment: false },
+  };
+  const cfg = cfgMap[type];
+  const { accent, accentDark, accentBg, badge } = cfg;
+
+  const fmtC = (n: number) => fmtCurrency(n, company.currency);
+
+  const contactParts = [company.email, company.phone].filter(Boolean);
+  const contactHtml = contactParts.length > 0
+    ? `<p style="margin:4px 0 0;font-size:12px;color:${C.textLight};">${contactParts.join(' &nbsp;·&nbsp; ')}</p>`
+    : '';
+  const addressHtml = company.address
+    ? `<p style="margin:2px 0 0;font-size:12px;color:${C.textLight};">${company.address}</p>`
+    : '';
+
+  const messageMap: Record<PurchaseOrderEmailType, string> = {
+    sent:      `Please find our purchase order <strong>${po.poNumber}</strong> below. Kindly confirm receipt and expected delivery.`,
+    confirmed: `Purchase order <strong>${po.poNumber}</strong> has been confirmed. Thank you for your prompt response.`,
+    cancelled: `Purchase order <strong>${po.poNumber}</strong> has been cancelled. Please disregard any previous correspondence regarding this order.`,
+  };
+
+  const metaHtml = type === 'sent' ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
+      <tr>
+        <td style="padding:20px 24px;background:${C.borderLight};border-radius:10px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            ${metaRow('PO Number', po.poNumber)}
+            ${metaRow('Issue Date', fmtDate(po.issueDate))}
+            ${po.expectedDate ? metaRow('Expected Delivery', fmtDate(po.expectedDate)) : ''}
+            <tr>
+              <td style="padding:14px 0 4px;font-size:13px;color:${C.textLight};">Total</td>
+              <td style="padding:14px 0 4px;font-size:20px;font-weight:700;color:${accent};text-align:right;">${fmtC(po.total)}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>` : '';
+
+  const confirmedCardHtml = type === 'confirmed' ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
+      <tr>
+        <td style="padding:28px 24px;text-align:center;background:${accentBg};border-radius:10px;border:1px solid ${C.border};">
+          <div style="width:48px;height:48px;margin:0 auto 12px;background:${accent};border-radius:50%;line-height:48px;text-align:center;">
+            <span style="font-size:22px;color:#fff;font-weight:700;">✓</span>
+          </div>
+          <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${C.textLight};font-weight:600;">Order Confirmed</p>
+          <p style="margin:6px 0 0;font-size:32px;font-weight:700;color:${accent};letter-spacing:-0.02em;">${fmtC(po.total)}</p>
+          <p style="margin:8px 0 0;font-size:13px;color:${C.textMid};">${po.poNumber}</p>
+        </td>
+      </tr>
+    </table>` : '';
+
+  const cancelledCardHtml = type === 'cancelled' ? `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:28px 0 0;">
+      <tr>
+        <td style="padding:28px 24px;text-align:center;background:${accentBg};border-radius:10px;border:1px solid ${C.border};">
+          <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${C.textLight};font-weight:600;">Order Total</p>
+          <p style="margin:6px 0 0;font-size:24px;font-weight:700;color:${accent};text-decoration:line-through;letter-spacing:-0.02em;">${fmtC(po.total)}</p>
+          <p style="margin:8px 0 0;font-size:13px;color:${C.textMid};">${po.poNumber} — Cancelled</p>
+        </td>
+      </tr>
+    </table>` : '';
+
+  const itemsHtml = cfg.showItems ? (() => {
+    const rows = (po.items || []).map(item => `
+      <tr>
+        <td style="padding:12px 16px;font-size:13px;color:${C.text};border-bottom:1px solid ${C.borderLight};">${item.description}</td>
+        <td style="padding:12px 16px;font-size:13px;color:${C.textMid};text-align:center;border-bottom:1px solid ${C.borderLight};">${item.quantity}</td>
+        <td style="padding:12px 16px;font-size:13px;color:${C.textMid};text-align:right;border-bottom:1px solid ${C.borderLight};">${fmtC(item.rate)}</td>
+        <td style="padding:12px 16px;font-size:13px;font-weight:600;color:${C.text};text-align:right;border-bottom:1px solid ${C.borderLight};">${fmtC(item.quantity * item.rate)}</td>
+      </tr>`).join('');
+
+    let totals = `
+      <tr>
+        <td colspan="3" style="padding:10px 16px;text-align:right;font-size:13px;color:${C.textMid};">Subtotal</td>
+        <td style="padding:10px 16px;text-align:right;font-size:13px;font-weight:600;color:${C.text};">${fmtC(po.subtotal)}</td>
+      </tr>`;
+    if (po.taxAmount > 0) {
+      totals += `
+      <tr>
+        <td colspan="3" style="padding:6px 16px;text-align:right;font-size:13px;color:${C.textMid};">Tax</td>
+        <td style="padding:6px 16px;text-align:right;font-size:13px;color:${C.text};">${fmtC(po.taxAmount)}</td>
+      </tr>`;
+    }
+    if (po.discount > 0) {
+      totals += `
+      <tr>
+        <td colspan="3" style="padding:6px 16px;text-align:right;font-size:13px;color:${C.textMid};">Discount</td>
+        <td style="padding:6px 16px;text-align:right;font-size:13px;color:${C.green};">-${fmtC(po.discount)}</td>
+      </tr>`;
+    }
+    totals += `
+      <tr>
+        <td colspan="3" style="padding:14px 16px;text-align:right;font-size:15px;font-weight:700;color:${C.text};border-top:2px solid ${C.border};">Total</td>
+        <td style="padding:14px 16px;text-align:right;font-size:15px;font-weight:700;color:${accent};border-top:2px solid ${C.border};">${fmtC(po.total)}</td>
+      </tr>`;
+
+    return `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 0;border-radius:10px;overflow:hidden;border:1px solid ${C.border};">
+      <thead>
+        <tr>
+          <th style="padding:11px 16px;text-align:left;font-size:11px;font-weight:600;color:${C.textMid};text-transform:uppercase;letter-spacing:0.06em;background:${C.borderLight};border-bottom:1px solid ${C.border};">Description</th>
+          <th style="padding:11px 16px;text-align:center;font-size:11px;font-weight:600;color:${C.textMid};text-transform:uppercase;letter-spacing:0.06em;background:${C.borderLight};border-bottom:1px solid ${C.border};">Qty</th>
+          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:600;color:${C.textMid};text-transform:uppercase;letter-spacing:0.06em;background:${C.borderLight};border-bottom:1px solid ${C.border};">Rate</th>
+          <th style="padding:11px 16px;text-align:right;font-size:11px;font-weight:600;color:${C.textMid};text-transform:uppercase;letter-spacing:0.06em;background:${C.borderLight};border-bottom:1px solid ${C.border};">Amount</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+      <tfoot>${totals}</tfoot>
+    </table>`;
+  })() : '';
+
+  const notesHtml = po.notes ? `
+    <div style="margin:24px 0 0;padding:14px 16px;background:${C.amberBg};border-left:3px solid ${C.amber};border-radius:0 8px 8px 0;">
+      <p style="margin:0;font-size:10px;text-transform:uppercase;letter-spacing:0.06em;color:${C.amberDark};font-weight:700;">Notes</p>
+      <p style="margin:6px 0 0;font-size:13px;color:${C.textMid};line-height:1.6;">${po.notes}</p>
+    </div>` : '';
+
+  const attachNote = cfg.showAttachment ? `
+    <p style="margin:24px 0 0;font-size:12px;color:${C.textLight};line-height:1.5;text-align:center;">
+      📎 &nbsp;A PDF copy of this purchase order is attached to this email.
+    </p>` : '';
+
+  return `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+  <title>${badge} — ${po.poNumber}</title>
+</head>
+<body style="margin:0;padding:0;background-color:${C.bg};font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:${C.bg};padding:48px 16px;">
+    <tr>
+      <td align="center">
+
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" style="max-width:560px;width:100%;background-color:${C.white};border-radius:16px;overflow:hidden;border:1px solid ${C.border};">
+
+          <!-- Accent bar -->
+          <tr><td style="height:4px;background:${accent};font-size:0;line-height:0;">&nbsp;</td></tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="padding:32px 36px 0;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <h1 style="margin:0;font-size:20px;font-weight:700;color:${C.text};letter-spacing:-0.01em;">${company.name}</h1>
+                  </td>
+                  <td style="text-align:right;vertical-align:middle;">
+                    <span style="display:inline-block;padding:5px 12px;background:${accentBg};color:${accent};font-size:11px;font-weight:700;border-radius:20px;letter-spacing:0.04em;text-transform:uppercase;">${badge}</span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Divider -->
+          <tr><td style="padding:20px 36px 0;"><div style="height:1px;background:${C.borderLight};"></div></td></tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="padding:24px 36px 36px;">
+              <p style="margin:0 0 6px;font-size:15px;font-weight:600;color:${C.text};">Dear ${po.vendorName},</p>
+              <p style="margin:0;font-size:14px;color:${C.textMid};line-height:1.7;">${messageMap[type]}</p>
+              ${metaHtml}
+              ${confirmedCardHtml}
+              ${cancelledCardHtml}
+              ${itemsHtml}
+              ${notesHtml}
+              ${attachNote}
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="padding:24px 36px;border-top:1px solid ${C.borderLight};">
+              <p style="margin:0;font-size:13px;font-weight:600;color:${C.textMid};">${company.name}</p>
+              ${contactHtml}
+              ${addressHtml}
+            </td>
+          </tr>
+
+          <!-- Powered by -->
+          <tr>
+            <td style="padding:0 36px 20px;">
+              <p style="margin:0;font-size:11px;color:${C.textLight};text-align:center;">Powered by <span style="color:${C.brand};font-weight:600;">Flowbooks</span></p>
+            </td>
+          </tr>
+
+        </table>
+
+      </td>
+    </tr>
+  </table>
+
+</body>
+</html>`.trim();
+}

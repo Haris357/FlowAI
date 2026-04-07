@@ -19,27 +19,137 @@ import {
   Account,
 } from '@/types';
 
+// ==========================================
+// ACCOUNT TYPE RESOLUTION
+// ==========================================
+
+// Maps subtypeCode → typeCode for accounts that may be missing the typeCode field
+const SUBTYPE_TO_TYPECODE: Record<string, string> = {
+  current_asset: 'asset',
+  fixed_asset: 'asset',
+  other_asset: 'asset',
+  current_liability: 'liability',
+  long_term_liability: 'liability',
+  owner_equity: 'equity',
+  retained_earnings: 'equity',
+  operating_revenue: 'revenue',
+  other_revenue: 'revenue',
+  operating_expense: 'expense',
+  cost_of_goods_sold: 'expense',
+  payroll_expense: 'expense',
+  other_expense: 'expense',
+};
+
+// Maps typeName variations → canonical typeCode
+const TYPENAME_TO_TYPECODE: Record<string, string> = {
+  revenue: 'revenue',
+  income: 'revenue',
+  revenues: 'revenue',
+  incomes: 'revenue',
+  sales: 'revenue',
+  expense: 'expense',
+  expenses: 'expense',
+  cost: 'expense',
+  costs: 'expense',
+  asset: 'asset',
+  assets: 'asset',
+  liability: 'liability',
+  liabilities: 'liability',
+  equity: 'equity',
+};
+
+/**
+ * Resolves the canonical typeCode for an account using multiple fallbacks:
+ * 1. account.typeCode (direct)
+ * 2. Derived from account.subtypeCode via SUBTYPE_TO_TYPECODE map
+ * 3. Derived from account.typeName (case-insensitive keyword match)
+ * 4. Heuristic from account.name keywords
+ */
+function resolveTypeCode(account: Account): string {
+  // 1. Trust explicit typeCode if set and valid
+  const direct = account.typeCode?.toLowerCase();
+  if (direct && ['asset', 'liability', 'equity', 'revenue', 'expense'].includes(direct)) {
+    return direct;
+  }
+
+  // 2. Derive from subtypeCode
+  if (account.subtypeCode) {
+    const fromSubtype = SUBTYPE_TO_TYPECODE[account.subtypeCode];
+    if (fromSubtype) return fromSubtype;
+  }
+
+  // 3. Derive from typeName
+  if (account.typeName) {
+    const fromTypeName = TYPENAME_TO_TYPECODE[account.typeName.toLowerCase().trim()];
+    if (fromTypeName) return fromTypeName;
+  }
+
+  // 4. Heuristic from account name
+  const nameLower = account.name?.toLowerCase() || '';
+  if (/\b(revenue|income|sales|earning)\b/.test(nameLower)) return 'revenue';
+  if (/\b(expense|cost|depreciation|amortization)\b/.test(nameLower)) return 'expense';
+  if (/\b(cash|bank|receivable|inventory|asset|equipment|property)\b/.test(nameLower)) return 'asset';
+  if (/\b(payable|loan|debt|liability|credit card)\b/.test(nameLower)) return 'liability';
+  if (/\b(equity|capital|drawing|retained)\b/.test(nameLower)) return 'equity';
+
+  return direct || '';
+}
+
 export async function generateProfitLossReport(
   companyId: string,
   startDate: Date,
   endDate: Date
 ): Promise<ProfitLossReport> {
-  const [incomeByCategory, expensesByCategory, totalRevenue, totalExpenses] = await Promise.all([
-    getIncomeByCategory(companyId, startDate, endDate),
-    getExpensesByCategory(companyId, startDate, endDate),
-    getTotalIncome(companyId, startDate, endDate),
-    getTotalExpenses(companyId, startDate, endDate),
+  const [accounts, journalEntries] = await Promise.all([
+    getAccounts(companyId),
+    getJournalEntriesByDateRange(companyId, startDate, endDate),
   ]);
+
+  // Build a map of accountId → Account for fast lookup
+  const accountMap = new Map<string, Account>(accounts.map(a => [a.id, a]));
+
+  // Accumulate net amounts per account name, grouped by revenue vs expense
+  const revenueMap = new Map<string, number>();
+  const expenseMap = new Map<string, number>();
+
+  for (const je of journalEntries) {
+    for (const line of je.lines) {
+      const account = accountMap.get(line.accountId);
+      if (!account) continue;
+
+      const tc = resolveTypeCode(account);
+      if (tc === 'revenue') {
+        // Revenue accounts are credit-normal: net = credit - debit
+        const net = line.credit - line.debit;
+        revenueMap.set(account.name, (revenueMap.get(account.name) || 0) + net);
+      } else if (tc === 'expense') {
+        // Expense accounts are debit-normal: net = debit - credit
+        const net = line.debit - line.credit;
+        expenseMap.set(account.name, (expenseMap.get(account.name) || 0) + net);
+      }
+    }
+  }
+
+  const revenueAccounts = Array.from(revenueMap.entries())
+    .filter(([, amount]) => amount > 0)
+    .map(([name, amount]) => ({ name, amount }));
+
+  const expenseAccounts = Array.from(expenseMap.entries())
+    .filter(([, amount]) => amount > 0)
+    .map(([name, amount]) => ({ name, amount }));
+
+  const totalRevenue = revenueAccounts.reduce((sum, a) => sum + a.amount, 0);
+  const totalExpenses = expenseAccounts.reduce((sum, a) => sum + a.amount, 0);
 
   return {
     startDate,
     endDate,
     revenue: {
-      accounts: incomeByCategory.map(c => ({ name: c.category, amount: c.amount })),
+      accounts: revenueAccounts,
       total: totalRevenue,
     },
     expenses: {
-      accounts: expensesByCategory.map(c => ({ name: c.category, amount: c.amount })),
+      accounts: expenseAccounts,
       total: totalExpenses,
     },
     netProfit: totalRevenue - totalExpenses,
@@ -50,41 +160,74 @@ export async function generateBalanceSheetReport(
   companyId: string,
   asOfDate: Date
 ): Promise<BalanceSheetReport> {
-  const accounts = await getAccounts(companyId);
+  const [accounts, allJournalEntries] = await Promise.all([
+    getAccounts(companyId),
+    getJournalEntries(companyId),
+  ]);
 
-  const assets = accounts.filter(a => a.typeCode === 'asset');
-  const liabilities = accounts.filter(a => a.typeCode === 'liability');
-  const equity = accounts.filter(a => a.typeCode === 'equity');
+  // Filter journal entries to those on or before asOfDate
+  const journalEntries = allJournalEntries.filter(je => {
+    const jeDate = je.date?.toDate ? je.date.toDate() : new Date(je.date as unknown as string);
+    return jeDate <= asOfDate;
+  });
 
+  // Compute balance for each account from journal entries
+  // Asset/expense accounts are debit-normal; liability/equity/revenue accounts are credit-normal
+  const balanceMap = new Map<string, number>();
+  for (const je of journalEntries) {
+    for (const line of je.lines) {
+      const account = accounts.find(a => a.id === line.accountId);
+      if (!account) continue;
+      const isDebitNormal = ['asset', 'expense'].includes(resolveTypeCode(account));
+      const delta = isDebitNormal ? line.debit - line.credit : line.credit - line.debit;
+      balanceMap.set(line.accountId, (balanceMap.get(line.accountId) || 0) + delta);
+    }
+  }
+
+  const assets = accounts.filter(a => resolveTypeCode(a) === 'asset');
+  const liabilities = accounts.filter(a => resolveTypeCode(a) === 'liability');
+  const equity = accounts.filter(a => resolveTypeCode(a) === 'equity');
+
+  // Split assets/liabilities into standard sub-buckets, collect remainders into "Other"
   const currentAssets = assets.filter(a => a.subtypeCode === 'current_asset');
   const fixedAssets = assets.filter(a => a.subtypeCode === 'fixed_asset');
+  const otherAssets = assets.filter(a => a.subtypeCode !== 'current_asset' && a.subtypeCode !== 'fixed_asset');
   const currentLiabilities = liabilities.filter(a => a.subtypeCode === 'current_liability');
   const longTermLiabilities = liabilities.filter(a => a.subtypeCode === 'long_term_liability');
+  const otherLiabilities = liabilities.filter(a => a.subtypeCode !== 'current_liability' && a.subtypeCode !== 'long_term_liability');
 
-  const totalCurrentAssets = currentAssets.reduce((sum, a) => sum + a.balance, 0);
-  const totalFixedAssets = fixedAssets.reduce((sum, a) => sum + a.balance, 0);
-  const totalCurrentLiabilities = currentLiabilities.reduce((sum, a) => sum + a.balance, 0);
-  const totalLongTermLiabilities = longTermLiabilities.reduce((sum, a) => sum + a.balance, 0);
-  const totalEquity = equity.reduce((sum, a) => sum + a.balance, 0);
+  const bal = (a: Account) => balanceMap.get(a.id) || 0;
+
+  const totalCurrentAssets = currentAssets.reduce((sum, a) => sum + bal(a), 0);
+  const totalFixedAssets = fixedAssets.reduce((sum, a) => sum + bal(a), 0);
+  const totalOtherAssets = otherAssets.reduce((sum, a) => sum + bal(a), 0);
+  const totalCurrentLiabilities = currentLiabilities.reduce((sum, a) => sum + bal(a), 0);
+  const totalLongTermLiabilities = longTermLiabilities.reduce((sum, a) => sum + bal(a), 0);
+  const totalOtherLiabilities = otherLiabilities.reduce((sum, a) => sum + bal(a), 0);
+  const totalEquity = equity.reduce((sum, a) => sum + bal(a), 0);
 
   return {
     asOfDate,
     assets: {
-      current: currentAssets.map(a => ({ name: a.name, amount: a.balance })),
-      fixed: fixedAssets.map(a => ({ name: a.name, amount: a.balance })),
+      current: currentAssets.map(a => ({ name: a.name, amount: bal(a) })),
+      fixed: fixedAssets.map(a => ({ name: a.name, amount: bal(a) })),
+      other: otherAssets.map(a => ({ name: a.name, amount: bal(a) })),
       totalCurrent: totalCurrentAssets,
       totalFixed: totalFixedAssets,
-      total: totalCurrentAssets + totalFixedAssets,
+      totalOther: totalOtherAssets,
+      total: totalCurrentAssets + totalFixedAssets + totalOtherAssets,
     },
     liabilities: {
-      current: currentLiabilities.map(a => ({ name: a.name, amount: a.balance })),
-      longTerm: longTermLiabilities.map(a => ({ name: a.name, amount: a.balance })),
+      current: currentLiabilities.map(a => ({ name: a.name, amount: bal(a) })),
+      longTerm: longTermLiabilities.map(a => ({ name: a.name, amount: bal(a) })),
+      other: otherLiabilities.map(a => ({ name: a.name, amount: bal(a) })),
       totalCurrent: totalCurrentLiabilities,
       totalLongTerm: totalLongTermLiabilities,
-      total: totalCurrentLiabilities + totalLongTermLiabilities,
+      totalOther: totalOtherLiabilities,
+      total: totalCurrentLiabilities + totalLongTermLiabilities + totalOtherLiabilities,
     },
     equity: {
-      items: equity.map(a => ({ name: a.name, amount: a.balance })),
+      items: equity.map(a => ({ name: a.name, amount: bal(a) })),
       total: totalEquity,
     },
   };
@@ -94,22 +237,42 @@ export async function generateTrialBalanceReport(
   companyId: string,
   asOfDate: Date
 ): Promise<TrialBalanceReport> {
-  const accounts = await getAccounts(companyId);
+  const [accounts, allJournalEntries] = await Promise.all([
+    getAccounts(companyId),
+    getJournalEntries(companyId),
+  ]);
 
+  // Filter journal entries to those on or before asOfDate
+  const journalEntries = allJournalEntries.filter(je => {
+    const jeDate = je.date?.toDate ? je.date.toDate() : new Date(je.date as unknown as string);
+    return jeDate <= asOfDate;
+  });
+
+  // Compute balance for each account from journal entries
+  const balanceMap = new Map<string, number>();
+  for (const je of journalEntries) {
+    for (const line of je.lines) {
+      const account = accounts.find(a => a.id === line.accountId);
+      if (!account) continue;
+      const isDebitNormal = ['asset', 'expense'].includes(resolveTypeCode(account));
+      const delta = isDebitNormal ? line.debit - line.credit : line.credit - line.debit;
+      balanceMap.set(line.accountId, (balanceMap.get(line.accountId) || 0) + delta);
+    }
+  }
+
+  // Build trial balance accounts — assets/expenses show on debit side, others on credit side
   const accountsWithBalances = accounts
-    .filter(a => a.balance !== 0)
     .map(a => {
-      // Assets and Expenses normally have debit balances
-      // Liabilities, Equity, and Revenue normally have credit balances
-      const isDebitNormal = a.typeCode === 'asset' || a.typeCode === 'expense';
-
+      const balance = balanceMap.get(a.id) || 0;
+      const isDebitNormal = ['asset', 'expense'].includes(resolveTypeCode(a));
       return {
         code: a.code,
         name: a.name,
-        debit: isDebitNormal ? a.balance : 0,
-        credit: !isDebitNormal ? a.balance : 0,
+        debit: isDebitNormal ? balance : 0,
+        credit: !isDebitNormal ? balance : 0,
       };
-    });
+    })
+    .filter(a => a.debit !== 0 || a.credit !== 0);
 
   const totalDebit = accountsWithBalances.reduce((sum, a) => sum + a.debit, 0);
   const totalCredit = accountsWithBalances.reduce((sum, a) => sum + a.credit, 0);
@@ -271,13 +434,32 @@ export async function getDashboardSummary(companyId: string): Promise<{
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-  const [totalRevenue, totalExpenses, outstandingInvoices, overdueInvoices, vendorsWithBalance] = await Promise.all([
-    getTotalIncome(companyId, startOfMonth, now),
-    getTotalExpenses(companyId, startOfMonth, now),
+  const [accounts, journalEntries, outstandingInvoices, overdueInvoices, vendorsWithBalance] = await Promise.all([
+    getAccounts(companyId),
+    getJournalEntriesByDateRange(companyId, startOfMonth, now),
     getOutstandingInvoices(companyId),
     getOverdueInvoices(companyId),
     getVendorsWithOutstandingBalance(companyId),
   ]);
+
+  // Build account map for typeCode lookup
+  const accountMap = new Map<string, Account>(accounts.map(a => [a.id, a]));
+
+  // Sum revenue (credit-normal) and expenses (debit-normal) from journal entries
+  let totalRevenue = 0;
+  let totalExpenses = 0;
+  for (const je of journalEntries) {
+    for (const line of je.lines) {
+      const account = accountMap.get(line.accountId);
+      if (!account) continue;
+      const tc2 = resolveTypeCode(account);
+      if (tc2 === 'revenue') {
+        totalRevenue += line.credit - line.debit;
+      } else if (tc2 === 'expense') {
+        totalExpenses += line.debit - line.credit;
+      }
+    }
+  }
 
   const outstandingReceivables = outstandingInvoices.reduce((sum, inv) => sum + inv.amountDue, 0);
   const outstandingPayables = vendorsWithBalance.reduce((sum, v) => sum + v.outstandingBalance, 0);
@@ -332,7 +514,7 @@ export async function generateGeneralLedgerReport(
 
     // Calculate running balance
     // For assets and expenses, debit increases balance; for liabilities, equity, revenue, credit increases
-    const isDebitNormal = account.typeCode === 'asset' || account.typeCode === 'expense';
+    const isDebitNormal = ['asset', 'expense'].includes(resolveTypeCode(account));
     let runningBalance = 0; // Opening balance for period (simplified)
 
     accountEntries.forEach(entry => {

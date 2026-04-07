@@ -2,8 +2,6 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
 import { ShieldCheck, Moon, Sun, Eye, EyeOff } from 'lucide-react';
 import FlowBooksLogo from '@/components/FlowBooksLogo';
 
@@ -52,12 +50,12 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // Also sign in via Firebase client SDK so ID tokens are available for API calls
-      await signInWithEmailAndPassword(auth, email, password);
-
-      // Store admin session in sessionStorage (separate from Firebase auth)
+      // Store admin session in sessionStorage — includes the idToken so admin API
+      // calls can use it directly without touching the shared Firebase client auth.
+      // This keeps the admin session completely isolated from the main app's auth.
       sessionStorage.setItem('adminSession', JSON.stringify({
         email: data.email,
+        idToken: data.idToken,
         authenticatedAt: Date.now(),
         expiresAt: Date.now() + (data.expiresIn * 1000),
       }));

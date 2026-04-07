@@ -250,8 +250,8 @@ function exportReportPDF(
     }
     case 'balance-sheet': {
       const sections = [
-        { label: 'Assets', rows: [...reportData.assets.current.map((a: any) => ['  ' + a.name, fmt(a.amount)]), ...reportData.assets.fixed.map((a: any) => ['  ' + a.name, fmt(a.amount)])], foot: [['Total Assets', fmt(reportData.assets.total)]] },
-        { label: 'Liabilities', rows: [...reportData.liabilities.current.map((a: any) => ['  ' + a.name, fmt(a.amount)]), ...reportData.liabilities.longTerm.map((a: any) => ['  ' + a.name, fmt(a.amount)])], foot: [['Total Liabilities', fmt(reportData.liabilities.total)]] },
+        { label: 'Assets', rows: [...reportData.assets.current.map((a: any) => ['  ' + a.name, fmt(a.amount)]), ...reportData.assets.fixed.map((a: any) => ['  ' + a.name, fmt(a.amount)]), ...(reportData.assets.other || []).map((a: any) => ['  ' + a.name, fmt(a.amount)])], foot: [['Total Assets', fmt(reportData.assets.total)]] },
+        { label: 'Liabilities', rows: [...reportData.liabilities.current.map((a: any) => ['  ' + a.name, fmt(a.amount)]), ...reportData.liabilities.longTerm.map((a: any) => ['  ' + a.name, fmt(a.amount)]), ...(reportData.liabilities.other || []).map((a: any) => ['  ' + a.name, fmt(a.amount)])], foot: [['Total Liabilities', fmt(reportData.liabilities.total)]] },
         { label: 'Equity', rows: reportData.equity.items.map((a: any) => [a.name, fmt(a.amount)]), foot: [['Total Equity', fmt(reportData.equity.total)]] },
       ];
       for (const s of sections) {
@@ -619,6 +619,11 @@ export default function ReportPage() {
                         {reportData.assets.fixed.map((a: any, i: number) => <tr key={`fa-${i}`}><td style={{ paddingLeft: 24 }}>{a.name}</td><td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{fmt(a.amount)}</td></tr>)}
                         <tr><td style={{ fontWeight: 600 }}>Subtotal Fixed</td><td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{fmt(reportData.assets.totalFixed)}</td></tr>
                       </>}
+                      {reportData.assets.other?.length > 0 && <>
+                        <tr><td colSpan={2} style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--joy-palette-text-secondary)' }}>Other Assets</td></tr>
+                        {reportData.assets.other.map((a: any, i: number) => <tr key={`oa-${i}`}><td style={{ paddingLeft: 24 }}>{a.name}</td><td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{fmt(a.amount)}</td></tr>)}
+                        <tr><td style={{ fontWeight: 600 }}>Subtotal Other</td><td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{fmt(reportData.assets.totalOther)}</td></tr>
+                      </>}
                     </tbody>
                     <tfoot><tr><td><strong>Total Assets</strong></td><td style={{ textAlign: 'right', fontFamily: 'monospace' }}><strong>{fmt(reportData.assets.total)}</strong></td></tr></tfoot>
                   </Table>
@@ -643,6 +648,11 @@ export default function ReportPage() {
                         <tr><td colSpan={2} style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--joy-palette-text-secondary)' }}>Long-term Liabilities</td></tr>
                         {reportData.liabilities.longTerm.map((a: any, i: number) => <tr key={`lt-${i}`}><td style={{ paddingLeft: 24 }}>{a.name}</td><td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{fmt(a.amount)}</td></tr>)}
                         <tr><td style={{ fontWeight: 600 }}>Subtotal Long-term</td><td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{fmt(reportData.liabilities.totalLongTerm)}</td></tr>
+                      </>}
+                      {reportData.liabilities.other?.length > 0 && <>
+                        <tr><td colSpan={2} style={{ fontWeight: 600, fontSize: '0.8rem', color: 'var(--joy-palette-text-secondary)' }}>Other Liabilities</td></tr>
+                        {reportData.liabilities.other.map((a: any, i: number) => <tr key={`ol-${i}`}><td style={{ paddingLeft: 24 }}>{a.name}</td><td style={{ textAlign: 'right', fontFamily: 'monospace' }}>{fmt(a.amount)}</td></tr>)}
+                        <tr><td style={{ fontWeight: 600 }}>Subtotal Other</td><td style={{ textAlign: 'right', fontFamily: 'monospace', fontWeight: 600 }}>{fmt(reportData.liabilities.totalOther)}</td></tr>
                       </>}
                     </tbody>
                     <tfoot><tr><td><strong>Total Liabilities</strong></td><td style={{ textAlign: 'right', fontFamily: 'monospace' }}><strong>{fmt(reportData.liabilities.total)}</strong></td></tr></tfoot>

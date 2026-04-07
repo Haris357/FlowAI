@@ -47,9 +47,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Credentials verified + email is admin
+    // Return the idToken so the admin panel can use it for API calls
+    // without signing into the shared Firebase client auth instance
     return NextResponse.json({
       success: true,
       email: firebaseData.email,
+      idToken: firebaseData.idToken,
       expiresIn: 3600, // 1 hour session
     });
   } catch {

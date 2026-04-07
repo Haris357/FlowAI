@@ -260,8 +260,22 @@ export default function InvoicesPage() {
       errors.dueDate = 'Due date is required';
     }
 
-    const validItems = items.filter(item => item.description.trim() && item.quantity > 0 && item.rate > 0);
-    if (validItems.length === 0) {
+    let hasValidItem = false;
+    items.forEach((item, index) => {
+      if (!item.description.trim()) {
+        errors[`item_${index}_description`] = 'Description is required';
+      }
+      if (item.quantity <= 0) {
+        errors[`item_${index}_quantity`] = 'Qty must be > 0';
+      }
+      if (item.rate <= 0) {
+        errors[`item_${index}_rate`] = 'Rate must be > 0';
+      }
+      if (item.description.trim() && item.quantity > 0 && item.rate > 0) {
+        hasValidItem = true;
+      }
+    });
+    if (!hasValidItem) {
       errors.items = 'At least one valid line item is required';
     }
 
@@ -325,6 +339,10 @@ export default function InvoicesPage() {
       newItems[index] = { ...newItems[index], [field]: value };
     }
     setItems(newItems);
+    const errorKey = `item_${index}_${field}`;
+    if (formErrors[errorKey] || formErrors.items) {
+      setFormErrors(prev => ({ ...prev, [errorKey]: undefined, items: undefined }));
+    }
   };
 
   // Add new item
@@ -870,7 +888,10 @@ export default function InvoicesPage() {
                   options={customers}
                   getOptionLabel={(option) => option.name}
                   value={selectedCustomer}
-                  onChange={(_, value) => setSelectedCustomer(value)}
+                  onChange={(_, value) => {
+                    setSelectedCustomer(value);
+                    if (formErrors.customer) setFormErrors(prev => ({ ...prev, customer: undefined }));
+                  }}
                   isOptionEqualToValue={(option, value) => option.id === value?.id}
                   disabled={!!editingInvoice}
                   slotProps={{
@@ -901,7 +922,10 @@ export default function InvoicesPage() {
                     <Input
                       type="date"
                       value={dueDate}
-                      onChange={(e) => setDueDate(e.target.value)}
+                      onChange={(e) => {
+                        setDueDate(e.target.value);
+                        if (formErrors.dueDate) setFormErrors(prev => ({ ...prev, dueDate: undefined }));
+                      }}
                     />
                     {formErrors.dueDate && <FormHelperText>{formErrors.dueDate}</FormHelperText>}
                   </FormControl>
@@ -920,35 +944,44 @@ export default function InvoicesPage() {
                 )}
                 <Stack spacing={1.5}>
                   {items.map((item, index) => (
-                    <Grid container spacing={1} key={index} alignItems="flex-end">
+                    <Grid container spacing={1} key={index} alignItems="flex-start">
                       <Grid xs={12} sm={5}>
-                        <FormControl>
+                        <FormControl error={!!formErrors[`item_${index}_description`]}>
                           <FormLabel>Description</FormLabel>
                           <Input
                             value={item.description}
                             onChange={(e) => handleItemChange(index, 'description', e.target.value)}
                             placeholder="Item description"
                           />
+                          {formErrors[`item_${index}_description`] && (
+                            <FormHelperText>{formErrors[`item_${index}_description`]}</FormHelperText>
+                          )}
                         </FormControl>
                       </Grid>
                       <Grid xs={4} sm={2}>
-                        <FormControl>
+                        <FormControl error={!!formErrors[`item_${index}_quantity`]}>
                           <FormLabel>Qty</FormLabel>
                           <Input
                             type="number"
                             value={item.quantity}
                             onChange={(e) => handleItemChange(index, 'quantity', e.target.value)}
                           />
+                          {formErrors[`item_${index}_quantity`] && (
+                            <FormHelperText>{formErrors[`item_${index}_quantity`]}</FormHelperText>
+                          )}
                         </FormControl>
                       </Grid>
                       <Grid xs={4} sm={2}>
-                        <FormControl>
+                        <FormControl error={!!formErrors[`item_${index}_rate`]}>
                           <FormLabel>Rate</FormLabel>
                           <Input
                             type="number"
                             value={item.rate}
                             onChange={(e) => handleItemChange(index, 'rate', e.target.value)}
                           />
+                          {formErrors[`item_${index}_rate`] && (
+                            <FormHelperText>{formErrors[`item_${index}_rate`]}</FormHelperText>
+                          )}
                         </FormControl>
                       </Grid>
                       <Grid xs={3} sm={2}>
@@ -964,6 +997,7 @@ export default function InvoicesPage() {
                           color="danger"
                           onClick={() => handleRemoveItem(index)}
                           disabled={items.length === 1}
+                          sx={{ mt: 3 }}
                         >
                           <X size={16} />
                         </IconButton>
