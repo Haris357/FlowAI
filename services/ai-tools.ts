@@ -530,6 +530,10 @@ export async function executeAITool(
       case 'merge_contact':
         return await mergeContactAI(args, companyId);
 
+      // Exchange rates
+      case 'get_exchange_rates':
+        return await getExchangeRatesAI(companyId);
+
       default:
         return {
           success: false,
@@ -3749,5 +3753,33 @@ async function mergeContactAI(args: Record<string, any>, companyId: string): Pro
     };
   } catch (error: any) {
     return handleError(error, 'Merge contact');
+  }
+}
+
+async function getExchangeRatesAI(companyId: string): Promise<ToolResult> {
+  try {
+    const snap = await getDoc(doc(db, `companies/${companyId}/settings/exchangeRates`));
+    if (!snap.exists()) {
+      return {
+        success: false,
+        message: 'No exchange rates stored yet. They are fetched automatically when the company currency is set. You can also ask me to refresh them.',
+      };
+    }
+    const data = snap.data()!;
+    const { base, rates, updatedAt, source } = data;
+    const updatedStr = updatedAt?.toDate ? updatedAt.toDate().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }) : 'unknown';
+
+    // Build a readable summary of most common currencies
+    const COMMON = ['USD', 'EUR', 'GBP', 'PKR', 'AED', 'SAR', 'INR', 'CAD', 'AUD', 'JPY', 'CNY', 'CHF'];
+    const rateLines = COMMON
+      .filter(c => c !== base && rates[c])
+      .map(c => `1 ${c} = ${rates[c].toFixed(4)} ${base}`);
+
+    return {
+      success: true,
+      message: `**Exchange Rates** (Base: **${base}**, Source: ${source}, Updated: ${updatedStr})\n\n${rateLines.join('\n')}\n\nRates are available for ${Object.keys(rates).length} currencies.`,
+    };
+  } catch (error: any) {
+    return handleError(error, 'Get exchange rates');
   }
 }

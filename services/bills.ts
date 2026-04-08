@@ -230,6 +230,8 @@ export async function createBill(
     category?: string;
     notes?: string;
     attachmentUrl?: string;
+    currency?: string;
+    exchangeRate?: number;
     // Accounting config for journal entry
     accountingConfig?: {
       expenseAccountId: string;
@@ -246,6 +248,8 @@ export async function createBill(
 
   const subtotal = data.items.reduce((sum, item) => sum + item.amount, 0);
   const total = subtotal + (data.taxAmount || 0);
+  const exchangeRate = data.exchangeRate ?? 1;
+  const totalInBaseCurrency = total * exchangeRate;
 
   const billsRef = collection(db, `companies/${companyId}/bills`);
   const docRef = await addDoc(billsRef, {
@@ -264,6 +268,9 @@ export async function createBill(
     category: data.category || '',
     notes: data.notes || '',
     attachmentUrl: data.attachmentUrl || '',
+    currency: data.currency || null,
+    exchangeRate,
+    totalInBaseCurrency,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });

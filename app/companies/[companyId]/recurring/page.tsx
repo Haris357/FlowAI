@@ -264,7 +264,7 @@ export default function RecurringTransactionsPage() {
           terms: formData.terms,
           frequency: formData.frequency,
           startDate: new Date(formData.startDate),
-          endDate: formData.endDate ? new Date(formData.endDate) : null,
+          endDate: formData.endDate ? new Date(formData.endDate) : undefined,
           maxRuns: formData.maxRuns ? Number(formData.maxRuns) : 0,
           autoSend: formData.autoSend,
         });
@@ -279,7 +279,7 @@ export default function RecurringTransactionsPage() {
           notes: formData.notes,
           frequency: formData.frequency,
           startDate: new Date(formData.startDate),
-          endDate: formData.endDate ? new Date(formData.endDate) : null,
+          endDate: formData.endDate ? new Date(formData.endDate) : undefined,
           maxRuns: formData.maxRuns ? Number(formData.maxRuns) : 0,
         });
       }

@@ -57,6 +57,7 @@ import { createBill } from '@/services/bills';
 import { convertPOToBill } from '@/services/purchaseOrders';
 import { LoadingSpinner, PageBreadcrumbs, FormTableSkeleton } from '@/components/common';
 import { PurchaseOrder, PurchaseOrderItem, PurchaseOrderStatus, Vendor } from '@/types';
+import { SUPPORTED_CURRENCIES } from '@/services/exchangeRates';
 import {
   Plus,
   Edit,
@@ -128,6 +129,10 @@ export default function PurchaseOrdersPage() {
     terms: '',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  // Multi-currency
+  const [poCurrency, setPoCurrency] = useState('');
+  const [poExchangeRate, setPoExchangeRate] = useState<number>(1);
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -157,6 +162,10 @@ export default function PurchaseOrdersPage() {
   useEffect(() => {
     if (company?.id) {
       loadData();
+      fetch(`/api/exchange-rates?companyId=${company.id}`)
+        .then(r => r.json())
+        .then(d => { if (d.rates) setExchangeRates(d.rates); })
+        .catch(() => {});
     }
   }, [company?.id]);
 
@@ -193,6 +202,11 @@ export default function PurchaseOrdersPage() {
         vendorName: vendor.name,
         vendorEmail: vendor.email || '',
       }));
+      const vend = vendor as any;
+      const cur = vend.currency || company?.currency || 'USD';
+      setPoCurrency(cur);
+      const base = company?.currency || 'USD';
+      setPoExchangeRate(cur === base ? 1 : (exchangeRates[cur] ?? 1));
       if (formErrors.vendorId) {
         setFormErrors((prev) => { const next = { ...prev }; delete next.vendorId; return next; });
       }
@@ -249,12 +263,17 @@ export default function PurchaseOrdersPage() {
     });
     setFormErrors({});
     setEditingPO(null);
+    setPoCurrency(company?.currency || 'USD');
+    setPoExchangeRate(1);
   };
 
   const handleSubmit = async () => {
     if (!company?.id) return;
     if (!validateForm()) return;
     setSaving(true);
+    const baseCurrency = company?.currency || 'USD';
+    const docCurrency = poCurrency || baseCurrency;
+    const exchRate = docCurrency === baseCurrency ? 1 : (poExchangeRate || 1);
     try {
       if (editingPO) {
         const { subtotal, taxAmount, total } = calculateTotals();
@@ -272,6 +291,9 @@ export default function PurchaseOrdersPage() {
           shippingAddress: formData.shippingAddress,
           notes: formData.notes,
           terms: formData.terms,
+          currency: docCurrency,
+          exchangeRate: exchRate,
+          totalInBaseCurrency: total * exchRate,
         });
       } else {
         await createPurchaseOrder(company.id, {
@@ -279,12 +301,14 @@ export default function PurchaseOrdersPage() {
           vendorName: formData.vendorName,
           vendorEmail: formData.vendorEmail,
           items: formData.items,
-          expectedDate: formData.expectedDate ? new Date(formData.expectedDate) : null,
+          expectedDate: formData.expectedDate ? new Date(formData.expectedDate) : undefined,
           taxRate: formData.taxRate,
           discount: formData.discount,
           shippingAddress: formData.shippingAddress,
           notes: formData.notes,
           terms: formData.terms,
+          currency: docCurrency,
+          exchangeRate: exchRate,
         });
       }
       setModalOpen(false);
@@ -311,6 +335,8 @@ export default function PurchaseOrdersPage() {
       notes: po.notes || '',
       terms: po.terms || '',
     });
+    setPoCurrency(po.currency || company?.currency || 'USD');
+    setPoExchangeRate(po.exchangeRate ?? 1);
     setModalOpen(true);
   };
 
@@ -773,6 +799,42 @@ export default function PurchaseOrdersPage() {
                   placeholder="Delivery address..."
                 />
               </FormControl>
+
+              {/* Currency row */}
+              {(() => {
+                const baseCur = company?.currency || 'USD';
+                const docCur = poCurrency || baseCur;
+                const isDifferent = docCur !== baseCur;
+                return (
+                  <Grid container spacing={2} alignItems="flex-end">
+                    <Grid xs={12} sm={isDifferent ? 5 : 6}>
+                      <FormControl>
+                        <FormLabel>PO Currency</FormLabel>
+                        <Select size="sm" value={poCurrency || baseCur} onChange={(_, v) => {
+                          const c = v || baseCur;
+                          setPoCurrency(c);
+                          setPoExchangeRate(c === baseCur ? 1 : (exchangeRates[c] ?? 1));
+                        }}>
+                          {Object.entries(SUPPORTED_CURRENCIES).map(([code, info]) => (
+                            <Option key={code} value={code}>{info.symbol} {code} — {info.name}</Option>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    {isDifferent && (
+                      <Grid xs={12} sm={7}>
+                        <FormControl>
+                          <FormLabel>Exchange Rate (1 {docCur} = ? {baseCur})</FormLabel>
+                          <Input size="sm" type="number" value={poExchangeRate}
+                            onChange={(e) => setPoExchangeRate(parseFloat(e.target.value) || 1)}
+                            endDecorator={<Typography level="body-xs">{baseCur}</Typography>}
+                          />
+                        </FormControl>
+                      </Grid>
+                    )}
+                  </Grid>
+                );
+              })()}
 
               <Divider />
 

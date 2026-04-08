@@ -29,6 +29,9 @@ interface InvoiceData {
   status: string;
   notes?: string;
   terms?: string;
+  currency?: string;
+  exchangeRate?: number;
+  totalInBaseCurrency?: number;
 }
 
 interface CompanyData {
@@ -347,12 +350,25 @@ function renderClassic(doc: jsPDF, invoice: InvoiceData, company: CompanyData, P
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...P.white);
+  const invoiceDisplayCurrency = invoice.currency || company.currency;
   doc.text('Total', lblX, y);
-  doc.text(formatCurrency(invoice.total, company.currency), valX, y, { align: 'right' });
+  doc.text(formatCurrency(invoice.total, invoiceDisplayCurrency), valX, y, { align: 'right' });
   y += totalBoxH + 3;
 
+  // Dual-currency note: show base-currency equivalent if doc currency differs
+  if (invoice.currency && invoice.currency !== company.currency && invoice.totalInBaseCurrency != null) {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...P.textMid);
+    doc.text(`≈ ${formatCurrency(invoice.totalInBaseCurrency, company.currency)} (${company.currency})`, valX, y, { align: 'right' });
+    y += 5;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...P.text);
+  }
+
   if (invoice.amountPaid > 0) {
-    drawRow('Amount Paid', formatCurrency(invoice.amountPaid, company.currency), { color: [34, 139, 34] as RGB });
+    drawRow('Amount Paid', formatCurrency(invoice.amountPaid, invoiceDisplayCurrency), { color: [34, 139, 34] as RGB });
   }
 
   if (invoice.amountDue > 0 && invoice.amountPaid > 0) {
@@ -364,7 +380,7 @@ function renderClassic(doc: jsPDF, invoice: InvoiceData, company: CompanyData, P
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(...P.brand);
     doc.text('Amount Due', lblX, y);
-    doc.text(formatCurrency(invoice.amountDue, company.currency), valX, y, { align: 'right' });
+    doc.text(formatCurrency(invoice.amountDue, invoiceDisplayCurrency), valX, y, { align: 'right' });
     y += dueBoxH + 2;
   }
 

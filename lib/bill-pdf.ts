@@ -24,6 +24,9 @@ interface BillData {
   amountDue: number;
   status: string;
   notes?: string;
+  currency?: string;
+  exchangeRate?: number;
+  totalInBaseCurrency?: number;
 }
 
 interface CompanyData {
@@ -317,12 +320,25 @@ export function generateBillPDF(bill: BillData, company: CompanyData): Buffer {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...palette.white);
+  const billDisplayCurrency = bill.currency || company.currency;
   doc.text('Total', lblX, y);
-  doc.text(fmt(bill.total), valX, y, { align: 'right' });
+  doc.text(formatCurrency(bill.total, billDisplayCurrency), valX, y, { align: 'right' });
   y += totalBoxH + 3;
 
+  // Dual-currency note
+  if (bill.currency && bill.currency !== company.currency && bill.totalInBaseCurrency != null) {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...palette.textMid);
+    doc.text(`≈ ${fmt(bill.totalInBaseCurrency)} (${company.currency})`, valX, y, { align: 'right' });
+    y += 5;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...palette.text);
+  }
+
   if (bill.amountPaid > 0) {
-    drawRow('Amount Paid', fmt(bill.amountPaid), { color: GREEN });
+    drawRow('Amount Paid', formatCurrency(bill.amountPaid, billDisplayCurrency), { color: GREEN });
   }
 
   if (bill.amountDue > 0 && bill.amountPaid > 0) {

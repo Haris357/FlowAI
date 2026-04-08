@@ -90,6 +90,8 @@ export async function createPurchaseOrder(
     shippingAddress?: string;
     notes?: string;
     terms?: string;
+    currency?: string;
+    exchangeRate?: number;
   }
 ): Promise<string> {
   const poNumber = await generatePONumber(companyId);
@@ -97,6 +99,8 @@ export async function createPurchaseOrder(
   const subtotal = data.items.reduce((sum, item) => sum + item.amount, 0);
   const taxAmount = subtotal * ((data.taxRate || 0) / 100);
   const total = subtotal + taxAmount - (data.discount || 0);
+  const exchangeRate = data.exchangeRate ?? 1;
+  const totalInBaseCurrency = total * exchangeRate;
 
   const posRef = collection(db, `companies/${companyId}/purchaseOrders`);
   const docRef = await addDoc(posRef, {
@@ -116,6 +120,9 @@ export async function createPurchaseOrder(
     shippingAddress: data.shippingAddress || '',
     notes: data.notes || '',
     terms: data.terms || '',
+    currency: data.currency || null,
+    exchangeRate,
+    totalInBaseCurrency,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });

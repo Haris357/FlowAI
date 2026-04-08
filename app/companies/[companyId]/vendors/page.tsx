@@ -44,6 +44,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import { getVendors, createVendor, updateVendor, deleteVendor } from '@/services/vendors';
 import { Vendor } from '@/types';
+import { SUPPORTED_CURRENCIES } from '@/services/exchangeRates';
 import { LoadingSpinner, EmptyState, ConfirmDialog, PageBreadcrumbs, FormTableSkeleton } from '@/components/common';
 import {
   Search, Mail, Phone, ChevronLeft, ChevronRight, Building2, CreditCard,
@@ -115,6 +116,7 @@ export default function VendorsPage() {
     country: '',
     taxId: '',
     notes: '',
+    currency: '',
   });
 
   // Validation errors
@@ -253,6 +255,7 @@ export default function VendorsPage() {
       country: '',
       taxId: '',
       notes: '',
+      currency: '',
     });
     setErrors({ name: '', email: '', phone: '' });
   };
@@ -280,6 +283,7 @@ export default function VendorsPage() {
         country: formData.country || '',
         taxId: formData.taxId.trim() || '',
         notes: formData.notes.trim() || '',
+        ...(formData.currency ? { currency: formData.currency } : {}),
       });
 
       await fetchVendors();
@@ -305,6 +309,7 @@ export default function VendorsPage() {
       country: vendor.country || '',
       taxId: vendor.taxId || '',
       notes: vendor.notes || '',
+      currency: vendor.currency || '',
     });
     setErrors({ name: '', email: '', phone: '' });
     setEditModalOpen(true);
@@ -326,6 +331,7 @@ export default function VendorsPage() {
         country: formData.country || '',
         taxId: formData.taxId.trim() || '',
         notes: formData.notes.trim() || '',
+        currency: formData.currency || '',
       });
 
       await fetchVendors();
@@ -474,6 +480,23 @@ export default function VendorsPage() {
             value={formData.taxId}
             onChange={(e) => handleFieldChange('taxId', e.target.value)}
           />
+        </FormControl>
+      </Grid>
+
+      <Grid xs={12} sm={6}>
+        <FormControl>
+          <FormLabel>Default Currency</FormLabel>
+          <Select
+            placeholder="Same as company default"
+            value={formData.currency || ''}
+            onChange={(_, v) => handleFieldChange('currency', v || '')}
+            size="sm"
+          >
+            <Option value="">Same as company default ({company?.currency || 'USD'})</Option>
+            {Object.entries(SUPPORTED_CURRENCIES).map(([code, info]) => (
+              <Option key={code} value={code}>{info.symbol} {code} — {info.name}</Option>
+            ))}
+          </Select>
         </FormControl>
       </Grid>
 

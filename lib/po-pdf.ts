@@ -26,6 +26,9 @@ interface PurchaseOrderData {
   notes?: string;
   terms?: string;
   status: string;
+  currency?: string;
+  exchangeRate?: number;
+  totalInBaseCurrency?: number;
 }
 
 interface CompanyData {
@@ -329,9 +332,19 @@ export function generatePurchaseOrderPDF(po: PurchaseOrderData, company: Company
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...palette.white);
+  const poDisplayCurrency = po.currency || company.currency;
   doc.text('Total', lblX, y);
-  doc.text(fmt(po.total), valX, y, { align: 'right' });
+  doc.text(formatCurrency(po.total, poDisplayCurrency), valX, y, { align: 'right' });
   y += totalBoxH + 3;
+
+  // Dual-currency note
+  if (po.currency && po.currency !== company.currency && po.totalInBaseCurrency != null) {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...palette.textMid);
+    doc.text(`≈ ${fmt(po.totalInBaseCurrency)} (${company.currency})`, valX, y, { align: 'right' });
+    y += 5;
+  }
 
   // ── Notes & Terms ──
   y += 6;

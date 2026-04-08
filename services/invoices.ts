@@ -181,6 +181,8 @@ export async function createInvoice(
     discount?: number;
     notes?: string;
     terms?: string;
+    currency?: string;
+    exchangeRate?: number;
   }
 ): Promise<string> {
   const invoiceNumber = await generateInvoiceNumber(companyId);
@@ -188,6 +190,8 @@ export async function createInvoice(
   const subtotal = data.items.reduce((sum, item) => sum + item.amount, 0);
   const taxAmount = subtotal * ((data.taxRate || 0) / 100);
   const total = subtotal + taxAmount - (data.discount || 0);
+  const exchangeRate = data.exchangeRate ?? 1;
+  const totalInBaseCurrency = total * exchangeRate;
 
   const invoicesRef = collection(db, `companies/${companyId}/invoices`);
   const docRef = await addDoc(invoicesRef, {
@@ -208,6 +212,9 @@ export async function createInvoice(
     status: 'draft',
     notes: data.notes || '',
     terms: data.terms || '',
+    currency: data.currency || null,
+    exchangeRate,
+    totalInBaseCurrency,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   });

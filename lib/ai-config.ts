@@ -21,7 +21,7 @@ export interface AITool {
 export interface ActionButton {
   type: 'view' | 'edit' | 'delete' | 'download' | 'navigate' | 'send' | 'pay' | 'cancel' | 'approve' | 'confirm';
   label: string;
-  entityType?: 'customer' | 'vendor' | 'employee' | 'invoice' | 'bill' | 'transaction' | 'account' | 'report' | 'salary_slip';
+  entityType?: 'customer' | 'vendor' | 'employee' | 'invoice' | 'bill' | 'quote' | 'purchase_order' | 'purchaseOrder' | 'transaction' | 'account' | 'report' | 'salary_slip';
   entityId?: string;
   data?: Record<string, any>;
   toolCall?: string; // For actions that trigger AI tool calls (e.g., "send_invoice")
@@ -90,6 +90,8 @@ export const ALLOWED_OPERATIONS = [
   'bulk_action',
   // Contact management
   'merge_contact',
+  // Exchange rates
+  'get_exchange_rates',
 ] as const;
 
 export const BLOCKED_PATTERNS = [
@@ -1422,6 +1424,20 @@ export const FLOW_AI_TOOLS: AITool[] = [
       },
     },
   },
+
+  // ============ EXCHANGE RATE TOOLS ============
+  {
+    type: 'function',
+    function: {
+      name: 'get_exchange_rates',
+      description: 'Get current exchange rates for the company. Shows rates for major currencies relative to the company base currency. Use this when the user asks about exchange rates, currency conversion, or wants to create a multi-currency document.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        required: [],
+      },
+    },
+  },
 ];
 
 // ==========================================
@@ -1486,6 +1502,15 @@ export const FLOW_AI_SYSTEM_PROMPT = `You are Flow AI, the accounting assistant 
 - When displaying amounts, use the company currency: "PKR 5,000.00" not "$5,000.00" if company uses PKR.
 - When the user types "$500" or "500 dollars" in a PKR company, record the number 500 in the company's currency — do not convert. Just use the amount they said.
 - Currency shorthand: "5k" → 5000, "1.5m" → 1500000.
+
+# MULTI-CURRENCY
+- Customers and vendors can have a default currency (e.g. a USD customer in a PKR company). When creating an invoice/bill for them, the document will be in their currency with an exchange rate.
+- Exchange rates are stored per company and auto-refreshed daily from Frankfurter (ECB rates) with fallback to exchangerate-api.com.
+- To check current exchange rates, use the get_exchange_rates tool. This shows rates for common currencies relative to the company base currency.
+- When a user asks "what's the rate for USD" or "convert 100 USD to PKR", call get_exchange_rates and compute from the result.
+- Documents store currency (doc currency), exchangeRate (1 docCurrency = X baseCurrency), and totalInBaseCurrency (total * exchangeRate).
+- All reports and dashboard show amounts in base currency using stored exchange rates.
+- If a user says "create invoice for USD 500 to customer Ali" and company is PKR: create the invoice with currency=USD, and fetch the exchange rate using get_exchange_rates.
 
 # RESPONSE FORMAT
 - Currency: use company currency symbol + amount (e.g. "PKR 5,000.00" or "€5,000.00"). Dates: "Nov 15, 2024". Success: ✓. Warning: ⚠️.

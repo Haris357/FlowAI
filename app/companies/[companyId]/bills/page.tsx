@@ -45,6 +45,7 @@ import { getBills, updateBill, deleteBill, getVendors } from '@/services/vendors
 import { createBill, updateBillStatus } from '@/services/bills';
 import { getCompanyAccounts } from '@/services/account-init';
 import { Bill, BillItem, Vendor, Account } from '@/types';
+import { SUPPORTED_CURRENCIES } from '@/services/exchangeRates';
 import { LoadingSpinner, EmptyState, ConfirmDialog, PageBreadcrumbs, FormTableSkeleton } from '@/components/common';
 import { Search, FileText, Clock, CheckCircle, AlertCircle, ChevronLeft, ChevronRight, Plus, Edit2, Trash2, X, Calculator, BarChart3, Eye, MoreVertical, Send } from 'lucide-react';
 import StatusChangeModal from '@/components/StatusChangeModal';
@@ -112,6 +113,10 @@ export default function BillsPage() {
   const [category, setCategory] = useState('');
   const [notes, setNotes] = useState('');
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  // Multi-currency
+  const [billCurrency, setBillCurrency] = useState('');
+  const [billExchangeRate, setBillExchangeRate] = useState<number>(1);
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
 
   // Get formatting functions from company preferences
   const { formatCurrency, formatDate } = useFormatting();
@@ -144,6 +149,25 @@ export default function BillsPage() {
 
     fetchData();
   }, [company?.id]);
+
+  // Load exchange rates
+  useEffect(() => {
+    if (!company?.id) return;
+    fetch(`/api/exchange-rates?companyId=${company.id}`)
+      .then(r => r.json())
+      .then(d => { if (d.rates) setExchangeRates(d.rates); })
+      .catch(() => {});
+  }, [company?.id]);
+
+  // Auto-set currency when vendor changes
+  useEffect(() => {
+    if (!selectedVendor) return;
+    const vend = selectedVendor as any;
+    const cur = vend.currency || company?.currency || 'USD';
+    setBillCurrency(cur);
+    const base = company?.currency || 'USD';
+    setBillExchangeRate(cur === base ? 1 : (exchangeRates[cur] ?? 1));
+  }, [selectedVendor?.id]);
 
   // Calculate totals for line items
   const calculateItemAmount = (quantity: number, rate: number) => quantity * rate;
@@ -321,6 +345,8 @@ export default function BillsPage() {
     setNotes('');
     setFormErrors({});
     setEditingBill(null);
+    setBillCurrency(company?.currency || 'USD');
+    setBillExchangeRate(1);
   };
 
   // Open modal for add
@@ -346,6 +372,8 @@ export default function BillsPage() {
     setCategory(bill.category || '');
     setNotes(bill.notes || '');
     setFormErrors({});
+    setBillCurrency(bill.currency || company?.currency || 'USD');
+    setBillExchangeRate(bill.exchangeRate ?? 1);
     setModalOpen(true);
   };
 
@@ -392,13 +420,17 @@ export default function BillsPage() {
     try {
       const validItems = items.filter(item => item.description.trim() && item.quantity > 0 && item.rate > 0);
 
+      const baseCurrency = company?.currency || 'USD';
+      const docCurrency = billCurrency || baseCurrency;
+      const exchRate = docCurrency === baseCurrency ? 1 : (billExchangeRate || 1);
+
       if (editingBill) {
         // Update existing bill
         const updatedData = {
           vendorId: selectedVendor?.id,
           vendorName: selectedVendor?.name || '',
           issueDate: Timestamp.fromDate(new Date(issueDate)),
-          dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
+          dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : undefined,
           items: validItems,
           subtotal,
           taxAmount: parseFloat(taxAmount) || 0,
@@ -406,6 +438,9 @@ export default function BillsPage() {
           amountDue: total - editingBill.amountPaid,
           category,
           notes,
+          currency: docCurrency,
+          exchangeRate: exchRate,
+          totalInBaseCurrency: total * exchRate,
         };
         await updateBill(company.id, editingBill.id, updatedData);
         toast.success('Bill updated successfully');
@@ -415,7 +450,7 @@ export default function BillsPage() {
           vendorId: selectedVendor?.id,
           vendorName: selectedVendor?.name || '',
           issueDate: Timestamp.fromDate(new Date(issueDate)),
-          dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : null,
+          dueDate: dueDate ? Timestamp.fromDate(new Date(dueDate)) : undefined,
           items: validItems,
           subtotal,
           taxAmount: parseFloat(taxAmount) || 0,
@@ -483,10 +518,12 @@ export default function BillsPage() {
           vendorName: selectedVendor?.name || '',
           billNumber: billNumber.trim() || '',
           items: validItems,
-          dueDate: dueDate ? new Date(dueDate) : null,
+          dueDate: dueDate ? new Date(dueDate) : undefined,
           taxAmount: parseFloat(taxAmount) || 0,
           category,
           notes,
+          currency: docCurrency,
+          exchangeRate: exchRate,
           accountingConfig,
         });
         toast.success('Bill created successfully');
@@ -969,6 +1006,42 @@ export default function BillsPage() {
                 </Grid>
               </Grid>
 
+              {/* Currency row */}
+              {(() => {
+                const baseCur = company?.currency || 'USD';
+                const docCur = billCurrency || baseCur;
+                const isDifferent = docCur !== baseCur;
+                return (
+                  <Grid container spacing={2} alignItems="flex-end">
+                    <Grid xs={12} sm={isDifferent ? 5 : 6}>
+                      <FormControl>
+                        <FormLabel>Bill Currency</FormLabel>
+                        <Select size="sm" value={billCurrency || baseCur} onChange={(_, v) => {
+                          const c = v || baseCur;
+                          setBillCurrency(c);
+                          setBillExchangeRate(c === baseCur ? 1 : (exchangeRates[c] ?? 1));
+                        }}>
+                          {Object.entries(SUPPORTED_CURRENCIES).map(([code, info]) => (
+                            <Option key={code} value={code}>{info.symbol} {code} — {info.name}</Option>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    {isDifferent && (
+                      <Grid xs={12} sm={7}>
+                        <FormControl>
+                          <FormLabel>Exchange Rate (1 {docCur} = ? {baseCur})</FormLabel>
+                          <Input size="sm" type="number" value={billExchangeRate}
+                            onChange={(e) => setBillExchangeRate(parseFloat(e.target.value) || 1)}
+                            endDecorator={<Typography level="body-xs">{baseCur}</Typography>}
+                          />
+                        </FormControl>
+                      </Grid>
+                    )}
+                  </Grid>
+                );
+              })()}
+
               {/* Dates */}
               <Grid container spacing={2}>
                 <Grid xs={12} sm={4}>
@@ -1138,9 +1211,18 @@ export default function BillsPage() {
                           <Stack direction="row" justifyContent="space-between">
                             <Typography level="title-md">Total</Typography>
                             <Typography level="title-md" fontWeight="bold" color="primary">
-                              {formatCurrency(total)}
+                              {billCurrency && billCurrency !== (company?.currency || 'USD')
+                                ? `${SUPPORTED_CURRENCIES[billCurrency]?.symbol || billCurrency} ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                : formatCurrency(total)
+                              }
                             </Typography>
                           </Stack>
+                          {billCurrency && billCurrency !== (company?.currency || 'USD') && billExchangeRate !== 1 && (
+                            <Stack direction="row" justifyContent="space-between">
+                              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>≈ In {company?.currency}</Typography>
+                              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>{formatCurrency(total * billExchangeRate)}</Typography>
+                            </Stack>
+                          )}
                         </Stack>
                       </AccordionDetails>
                     </Accordion>

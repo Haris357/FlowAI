@@ -44,6 +44,7 @@ import { useRouter } from 'next/navigation';
 import { getInvoices, createInvoice, updateInvoice, deleteInvoice, generateInvoiceNumber, updateInvoiceStatus } from '@/services/invoices';
 import { getCustomers } from '@/services/customers';
 import { Invoice, InvoiceItem, Customer } from '@/types';
+import { SUPPORTED_CURRENCIES } from '@/services/exchangeRates';
 import { LoadingSpinner, EmptyState, ConfirmDialog, PageBreadcrumbs, FormTableSkeleton } from '@/components/common';
 import { Search, FileText, ChevronLeft, ChevronRight, DollarSign, Plus, Edit2, Trash2, X, Calculator, BarChart3, Eye, MoreVertical, Send, Download } from 'lucide-react';
 import StatusChangeModal from '@/components/StatusChangeModal';
@@ -123,6 +124,10 @@ export default function InvoicesPage() {
   const [notes, setNotes] = useState('');
   const [terms, setTerms] = useState('');
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  // Multi-currency
+  const [invoiceCurrency, setInvoiceCurrency] = useState('');
+  const [invoiceExchangeRate, setInvoiceExchangeRate] = useState<number>(1);
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
 
   // Get invoice statuses from dynamic settings
   const { options: invoiceStatuses, getLabel: getStatusLabel, getColor: getStatusColor } = useSettingsCategory(company?.id, 'invoice_status');
@@ -168,6 +173,29 @@ export default function InvoicesPage() {
 
     fetchData();
   }, [company?.id]);
+
+  // Load exchange rates once when component mounts
+  useEffect(() => {
+    if (!company?.id) return;
+    fetch(`/api/exchange-rates?companyId=${company.id}`)
+      .then(r => r.json())
+      .then(d => { if (d.rates) setExchangeRates(d.rates); })
+      .catch(() => {});
+  }, [company?.id]);
+
+  // When customer changes, auto-set currency
+  useEffect(() => {
+    if (!selectedCustomer) return;
+    const cust = selectedCustomer as any;
+    const cur = cust.currency || company?.currency || 'USD';
+    setInvoiceCurrency(cur);
+    const base = company?.currency || 'USD';
+    if (cur === base) {
+      setInvoiceExchangeRate(1);
+    } else {
+      setInvoiceExchangeRate(exchangeRates[cur] ?? 1);
+    }
+  }, [selectedCustomer?.id]);
 
   // Calculate totals for line items
   const calculateItemAmount = (quantity: number, rate: number) => quantity * rate;
@@ -295,6 +323,8 @@ export default function InvoicesPage() {
     setTerms('');
     setFormErrors({});
     setEditingInvoice(null);
+    setInvoiceCurrency(company?.currency || 'USD');
+    setInvoiceExchangeRate(1);
   };
 
   // Open modal for add
@@ -320,6 +350,9 @@ export default function InvoicesPage() {
     setNotes(invoice.notes || '');
     setTerms(invoice.terms || '');
     setFormErrors({});
+    const invCur = invoice.currency || company?.currency || 'USD';
+    setInvoiceCurrency(invCur);
+    setInvoiceExchangeRate(invoice.exchangeRate ?? 1);
     setModalOpen(true);
   };
 
@@ -375,6 +408,10 @@ export default function InvoicesPage() {
     try {
       const validItems = items.filter(item => item.description.trim() && item.quantity > 0 && item.rate > 0);
 
+      const baseCurrency = company?.currency || 'USD';
+      const docCurrency = invoiceCurrency || baseCurrency;
+      const exchRate = docCurrency === baseCurrency ? 1 : (invoiceExchangeRate || 1);
+
       if (editingInvoice) {
         // Update existing invoice
         const updatedData = {
@@ -392,6 +429,9 @@ export default function InvoicesPage() {
           amountDue: total - editingInvoice.amountPaid,
           notes,
           terms,
+          currency: docCurrency,
+          exchangeRate: exchRate,
+          totalInBaseCurrency: total * exchRate,
         };
         await updateInvoice(company.id, editingInvoice.id, updatedData);
         toast.success('Invoice updated successfully');
@@ -407,6 +447,8 @@ export default function InvoicesPage() {
           discount: parseFloat(discount) || 0,
           notes,
           terms,
+          currency: docCurrency,
+          exchangeRate: exchRate,
         });
         toast.success('Invoice created successfully');
       }
@@ -903,6 +945,49 @@ export default function InvoicesPage() {
                 {formErrors.customer && <FormHelperText>{formErrors.customer}</FormHelperText>}
               </FormControl>
 
+              {/* Currency row */}
+              {(() => {
+                const baseCur = company?.currency || 'USD';
+                const docCur = invoiceCurrency || baseCur;
+                const isDifferent = docCur !== baseCur;
+                return (
+                  <Grid container spacing={2} alignItems="flex-end">
+                    <Grid xs={12} sm={isDifferent ? 5 : 6}>
+                      <FormControl>
+                        <FormLabel>Invoice Currency</FormLabel>
+                        <Select
+                          size="sm"
+                          value={invoiceCurrency || baseCur}
+                          onChange={(_, v) => {
+                            const c = v || baseCur;
+                            setInvoiceCurrency(c);
+                            setInvoiceExchangeRate(c === baseCur ? 1 : (exchangeRates[c] ?? 1));
+                          }}
+                        >
+                          {Object.entries(SUPPORTED_CURRENCIES).map(([code, info]) => (
+                            <Option key={code} value={code}>{info.symbol} {code} — {info.name}</Option>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    {isDifferent && (
+                      <Grid xs={12} sm={7}>
+                        <FormControl>
+                          <FormLabel>Exchange Rate (1 {docCur} = ? {baseCur})</FormLabel>
+                          <Input
+                            size="sm"
+                            type="number"
+                            value={invoiceExchangeRate}
+                            onChange={(e) => setInvoiceExchangeRate(parseFloat(e.target.value) || 1)}
+                            endDecorator={<Typography level="body-xs">{baseCur}</Typography>}
+                          />
+                        </FormControl>
+                      </Grid>
+                    )}
+                  </Grid>
+                );
+              })()}
+
               {/* Dates */}
               <Grid container spacing={2}>
                 <Grid xs={12} sm={6}>
@@ -1094,9 +1179,22 @@ export default function InvoicesPage() {
                           <Stack direction="row" justifyContent="space-between">
                             <Typography level="title-md">Total</Typography>
                             <Typography level="title-md" fontWeight="bold" color="primary">
-                              {formatCurrency(total)}
+                              {invoiceCurrency && invoiceCurrency !== (company?.currency || 'USD')
+                                ? `${SUPPORTED_CURRENCIES[invoiceCurrency]?.symbol || invoiceCurrency} ${total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                                : formatCurrency(total)
+                              }
                             </Typography>
                           </Stack>
+                          {invoiceCurrency && invoiceCurrency !== (company?.currency || 'USD') && invoiceExchangeRate !== 1 && (
+                            <Stack direction="row" justifyContent="space-between">
+                              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                                ≈ In {company?.currency || 'USD'}
+                              </Typography>
+                              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                                {formatCurrency(total * invoiceExchangeRate)}
+                              </Typography>
+                            </Stack>
+                          )}
                         </Stack>
                       </AccordionDetails>
                     </Accordion>

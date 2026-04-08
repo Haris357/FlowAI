@@ -461,7 +461,11 @@ export async function getDashboardSummary(companyId: string): Promise<{
     }
   }
 
-  const outstandingReceivables = outstandingInvoices.reduce((sum, inv) => sum + inv.amountDue, 0);
+  // Use totalInBaseCurrency ratio to get amountDue in base currency
+  const outstandingReceivables = outstandingInvoices.reduce((sum, inv) => {
+    const exchRate = (inv as any).exchangeRate ?? 1;
+    return sum + inv.amountDue * exchRate;
+  }, 0);
   const outstandingPayables = vendorsWithBalance.reduce((sum, v) => sum + v.outstandingBalance, 0);
 
   return {
@@ -659,17 +663,20 @@ export async function generateAgedReceivablesReport(
     const daysOverdue = Math.floor((asOfDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
 
     // Determine aging bucket
+    const exchRate = (inv as any).exchangeRate ?? 1;
+    const amountDueBase = inv.amountDue * exchRate;
+    const totalBase = inv.total * exchRate;
     let current = 0, days1to30 = 0, days31to60 = 0, days61to90 = 0, over90 = 0;
     if (daysOverdue <= 0) {
-      current = inv.amountDue;
+      current = amountDueBase;
     } else if (daysOverdue <= 30) {
-      days1to30 = inv.amountDue;
+      days1to30 = amountDueBase;
     } else if (daysOverdue <= 60) {
-      days31to60 = inv.amountDue;
+      days31to60 = amountDueBase;
     } else if (daysOverdue <= 90) {
-      days61to90 = inv.amountDue;
+      days61to90 = amountDueBase;
     } else {
-      over90 = inv.amountDue;
+      over90 = amountDueBase;
     }
 
     const agedInvoice = {
@@ -677,8 +684,8 @@ export async function generateAgedReceivablesReport(
       invoiceNumber: inv.invoiceNumber,
       date: inv.issueDate?.toDate ? inv.issueDate.toDate() : new Date(inv.issueDate as unknown as string),
       dueDate,
-      total: inv.total,
-      amountDue: inv.amountDue,
+      total: totalBase,
+      amountDue: amountDueBase,
       daysOverdue: Math.max(0, daysOverdue),
       current,
       days1to30,
@@ -758,17 +765,20 @@ export async function generateAgedPayablesReport(
     const daysOverdue = Math.floor((asOfDate.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
 
     // Determine aging bucket
+    const billExchRate = (bill as any).exchangeRate ?? 1;
+    const billAmountDueBase = bill.amountDue * billExchRate;
+    const billTotalBase = bill.total * billExchRate;
     let current = 0, days1to30 = 0, days31to60 = 0, days61to90 = 0, over90 = 0;
     if (daysOverdue <= 0) {
-      current = bill.amountDue;
+      current = billAmountDueBase;
     } else if (daysOverdue <= 30) {
-      days1to30 = bill.amountDue;
+      days1to30 = billAmountDueBase;
     } else if (daysOverdue <= 60) {
-      days31to60 = bill.amountDue;
+      days31to60 = billAmountDueBase;
     } else if (daysOverdue <= 90) {
-      days61to90 = bill.amountDue;
+      days61to90 = billAmountDueBase;
     } else {
-      over90 = bill.amountDue;
+      over90 = billAmountDueBase;
     }
 
     const agedBill = {
@@ -776,8 +786,8 @@ export async function generateAgedPayablesReport(
       billNumber: bill.billNumber,
       date: bill.issueDate?.toDate ? bill.issueDate.toDate() : new Date(bill.issueDate as unknown as string),
       dueDate,
-      total: bill.total,
-      amountDue: bill.amountDue,
+      total: billTotalBase,
+      amountDue: billAmountDueBase,
       daysOverdue: Math.max(0, daysOverdue),
       current,
       days1to30,

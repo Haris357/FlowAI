@@ -57,6 +57,7 @@ import { createInvoice } from '@/services/invoices';
 import { convertQuoteToInvoice } from '@/services/quotes';
 import { LoadingSpinner, PageBreadcrumbs, FormTableSkeleton } from '@/components/common';
 import { Quote, QuoteItem, QuoteStatus, Customer } from '@/types';
+import { SUPPORTED_CURRENCIES } from '@/services/exchangeRates';
 import {
   Plus,
   Edit,
@@ -126,6 +127,10 @@ export default function QuotesPage() {
     terms: '',
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  // Multi-currency
+  const [quoteCurrency, setQuoteCurrency] = useState('');
+  const [quoteExchangeRate, setQuoteExchangeRate] = useState<number>(1);
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -155,6 +160,11 @@ export default function QuotesPage() {
   useEffect(() => {
     if (company?.id) {
       loadData();
+      // Load exchange rates
+      fetch(`/api/exchange-rates?companyId=${company.id}`)
+        .then(r => r.json())
+        .then(d => { if (d.rates) setExchangeRates(d.rates); })
+        .catch(() => {});
     }
   }, [company?.id]);
 
@@ -197,6 +207,12 @@ export default function QuotesPage() {
       if (formErrors.customerId) {
         setFormErrors((prev) => { const next = { ...prev }; delete next.customerId; return next; });
       }
+      // Auto-set currency from customer
+      const cust = customer as any;
+      const cur = cust.currency || company?.currency || 'USD';
+      setQuoteCurrency(cur);
+      const base = company?.currency || 'USD';
+      setQuoteExchangeRate(cur === base ? 1 : (exchangeRates[cur] ?? 1));
     }
   };
 
@@ -249,12 +265,17 @@ export default function QuotesPage() {
     });
     setFormErrors({});
     setEditingQuote(null);
+    setQuoteCurrency(company?.currency || 'USD');
+    setQuoteExchangeRate(1);
   };
 
   const handleSubmit = async () => {
     if (!company?.id) return;
     if (!validateForm()) return;
     setSaving(true);
+    const baseCurrency = company?.currency || 'USD';
+    const docCurrency = quoteCurrency || baseCurrency;
+    const exchRate = docCurrency === baseCurrency ? 1 : (quoteExchangeRate || 1);
     try {
       if (editingQuote) {
         const { subtotal, taxAmount, total } = calculateTotals();
@@ -271,6 +292,9 @@ export default function QuotesPage() {
           total,
           notes: formData.notes,
           terms: formData.terms,
+          currency: docCurrency,
+          exchangeRate: exchRate,
+          totalInBaseCurrency: total * exchRate,
         });
       } else {
         await createQuote(company.id, {
@@ -283,6 +307,8 @@ export default function QuotesPage() {
           discount: formData.discount,
           notes: formData.notes,
           terms: formData.terms,
+          currency: docCurrency,
+          exchangeRate: exchRate,
         });
       }
       setModalOpen(false);
@@ -308,6 +334,8 @@ export default function QuotesPage() {
       notes: quote.notes || '',
       terms: quote.terms || '',
     });
+    setQuoteCurrency(quote.currency || company?.currency || 'USD');
+    setQuoteExchangeRate(quote.exchangeRate ?? 1);
     setModalOpen(true);
   };
 
@@ -734,6 +762,42 @@ export default function QuotesPage() {
                   </FormControl>
                 </Grid>
               </Grid>
+
+              {/* Currency row */}
+              {(() => {
+                const baseCur = company?.currency || 'USD';
+                const docCur = quoteCurrency || baseCur;
+                const isDifferent = docCur !== baseCur;
+                return (
+                  <Grid container spacing={2} alignItems="flex-end">
+                    <Grid xs={12} sm={isDifferent ? 5 : 6}>
+                      <FormControl>
+                        <FormLabel>Quote Currency</FormLabel>
+                        <Select size="sm" value={quoteCurrency || baseCur} onChange={(_, v) => {
+                          const c = v || baseCur;
+                          setQuoteCurrency(c);
+                          setQuoteExchangeRate(c === baseCur ? 1 : (exchangeRates[c] ?? 1));
+                        }}>
+                          {Object.entries(SUPPORTED_CURRENCIES).map(([code, info]) => (
+                            <Option key={code} value={code}>{info.symbol} {code} — {info.name}</Option>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </Grid>
+                    {isDifferent && (
+                      <Grid xs={12} sm={7}>
+                        <FormControl>
+                          <FormLabel>Exchange Rate (1 {docCur} = ? {baseCur})</FormLabel>
+                          <Input size="sm" type="number" value={quoteExchangeRate}
+                            onChange={(e) => setQuoteExchangeRate(parseFloat(e.target.value) || 1)}
+                            endDecorator={<Typography level="body-xs">{baseCur}</Typography>}
+                          />
+                        </FormControl>
+                      </Grid>
+                    )}
+                  </Grid>
+                );
+              })()}
 
               <Divider />
 

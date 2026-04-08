@@ -58,6 +58,11 @@ import {
   ChevronRight,
   Palette,
   User,
+  RefreshCw,
+  TrendingUp,
+  Edit2,
+  Check,
+  X as XIcon,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import {
@@ -73,6 +78,7 @@ import { deleteCompanyData, getCompanyDataCounts } from '@/services/company';
 import { getAccountPreferences, updateAccountPreferences } from '@/services/preferences';
 import { getAccounts } from '@/services/accounts';
 import { Account, AccountPreferences } from '@/types';
+import { SUPPORTED_CURRENCIES } from '@/services/exchangeRates';
 
 // ─── Derived constants ───
 const BUSINESS_TYPES = ALL_SETTINGS.find(s => s.code === 'business_type')?.options.map(o => o.label) || [
@@ -101,7 +107,7 @@ const PAYMENT_TERMS = [
 ];
 
 // ─── Sidebar nav config (same pattern as ReportsSidebar) ───
-type SettingsSection = 'general' | 'documents' | 'accounts' | 'customization' | 'danger';
+type SettingsSection = 'general' | 'documents' | 'accounts' | 'currency' | 'customization' | 'danger';
 
 interface SettingsNavItem {
   id: SettingsSection;
@@ -121,6 +127,7 @@ const settingsCategories: SettingsNavCategory[] = [
       { id: 'general', name: 'General', icon: Building2 },
       { id: 'documents', name: 'Documents', icon: FileText },
       { id: 'accounts', name: 'Account Defaults', icon: Layers },
+      { id: 'currency', name: 'Currency & Rates', icon: TrendingUp },
     ],
   },
   {
@@ -248,6 +255,19 @@ export default function SettingsPage() {
   const [loadingPreferences, setLoadingPreferences] = useState(true);
   const [savingPreferences, setSavingPreferences] = useState(false);
 
+  // ─── Exchange rates state ───
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({});
+  const [ratesBase, setRatesBase] = useState('');
+  const [ratesUpdatedAt, setRatesUpdatedAt] = useState<string | null>(null);
+  const [ratesSource, setRatesSource] = useState<'auto' | 'manual'>('auto');
+  const [ratesLoading, setRatesLoading] = useState(false);
+  const [editingRateKey, setEditingRateKey] = useState<string | null>(null);
+  const [editingRateValue, setEditingRateValue] = useState('');
+  const [savingRate, setSavingRate] = useState(false);
+  const [currencyChanging, setCurrencyChanging] = useState(false);
+  const [currencyChangeConfirmOpen, setCurrencyChangeConfirmOpen] = useState(false);
+  const [pendingCurrencyChange, setPendingCurrencyChange] = useState<{ from: string; to: string } | null>(null);
+
   // ─── Delete company data state ───
   const [deleteDataConfirmOpen, setDeleteDataConfirmOpen] = useState(false);
   const [deletingData, setDeletingData] = useState(false);
@@ -356,6 +376,42 @@ export default function SettingsPage() {
       setLoadingSettings(false);
     }
   };
+
+  // ─── Load exchange rates ───
+  const loadExchangeRates = async (forceRefresh = false) => {
+    if (!company?.id) return;
+    setRatesLoading(true);
+    try {
+      const url = forceRefresh
+        ? `/api/exchange-rates`
+        : `/api/exchange-rates?companyId=${company.id}`;
+      if (forceRefresh) {
+        await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ companyId: company.id }),
+        });
+      }
+      const res = await fetch(`/api/exchange-rates?companyId=${company.id}`);
+      if (res.ok) {
+        const data = await res.json();
+        setExchangeRates(data.rates || {});
+        setRatesBase(data.base || company.currency || 'USD');
+        setRatesUpdatedAt(data.updatedAt || null);
+        setRatesSource(data.source || 'auto');
+      }
+    } catch (e) {
+      console.error('Failed to load exchange rates', e);
+    } finally {
+      setRatesLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (company?.id && activeSection === 'currency') {
+      loadExchangeRates();
+    }
+  }, [company?.id, activeSection]);
 
   // ─── Validation ───
   const validateLabel = (label: string): string => {
@@ -489,6 +545,18 @@ export default function SettingsPage() {
     if (!company?.id) return;
     if (!companyName.trim()) { toast.error('Company name is required'); return; }
 
+    // If currency changed, confirm first
+    if (company.currency && currency !== company.currency) {
+      setPendingCurrencyChange({ from: company.currency, to: currency });
+      setCurrencyChangeConfirmOpen(true);
+      return;
+    }
+
+    await doSaveGeneral();
+  };
+
+  const doSaveGeneral = async () => {
+    if (!company?.id) return;
     setSaving(true);
     try {
       await updateDoc(doc(db, 'companies', company.id), {
@@ -517,6 +585,79 @@ export default function SettingsPage() {
       toast.error('Failed to save settings');
     } finally {
       setSaving(false);
+    }
+  };
+
+  // ─── Handle confirmed currency change ───
+  const handleConfirmCurrencyChange = async () => {
+    if (!company?.id || !pendingCurrencyChange) return;
+    setCurrencyChanging(true);
+    setCurrencyChangeConfirmOpen(false);
+    try {
+      const res = await fetch('/api/currency-change', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: company.id,
+          oldCurrency: pendingCurrencyChange.from,
+          newCurrency: pendingCurrencyChange.to,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Currency change failed');
+      const { updated } = data;
+      toast.success(
+        `Currency changed to ${pendingCurrencyChange.to}. Recalculated: ${updated.invoices} invoices, ${updated.bills} bills, ${updated.quotes} quotes, ${updated.purchaseOrders} POs.`
+      );
+      // Also save other general settings
+      await updateDoc(doc(db, 'companies', company.id), {
+        name: companyName.trim(), businessType, country,
+        description: description.trim(), fiscalYearStart, enableTax, showDecimalPlaces, dateFormat,
+        hasInventory, hasEmployees, contactName: contactName.trim(),
+        email: contactEmail.trim(), phone: contactPhone.trim(),
+        address: contactAddress.trim(), city: contactCity.trim(), taxId: taxId.trim(),
+        updatedAt: new Date(),
+      });
+      setPendingCurrencyChange(null);
+      // Reload rates
+      await loadExchangeRates();
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to change currency');
+    } finally {
+      setCurrencyChanging(false);
+    }
+  };
+
+  // ─── Exchange rate editing ───
+  const handleStartEditRate = (cur: string, currentVal: number) => {
+    setEditingRateKey(cur);
+    setEditingRateValue(String(currentVal));
+  };
+
+  const handleSaveRate = async (cur: string) => {
+    if (!company?.id) return;
+    const val = parseFloat(editingRateValue);
+    if (!val || val <= 0) { toast.error('Invalid rate'); return; }
+    setSavingRate(true);
+    try {
+      const res = await fetch('/api/exchange-rates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: company.id,
+          manualRates: { [cur]: val },
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to save rate');
+      const data = await res.json();
+      setExchangeRates(data.rates || {});
+      setRatesSource('manual');
+      setEditingRateKey(null);
+      toast.success(`Rate updated: 1 ${cur} = ${val} ${ratesBase}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to save rate');
+    } finally {
+      setSavingRate(false);
     }
   };
 
@@ -1431,6 +1572,130 @@ export default function SettingsPage() {
             )}
 
             {/* ═══════════════════════════════════════ */}
+            {/* CURRENCY & RATES                       */}
+            {/* ═══════════════════════════════════════ */}
+            {activeSection === 'currency' && (
+              <Stack spacing={3}>
+                {/* Info card */}
+                <SectionCard icon={<TrendingUp size={18} />} title="Exchange Rates" description="Live rates from Frankfurter (ECB) — refreshed automatically every 24h">
+                  <Stack spacing={2}>
+
+                    {/* Header row: base, last updated, refresh */}
+                    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={1}>
+                      <Stack spacing={0.5}>
+                        <Typography level="body-sm">
+                          Base currency: <strong>{ratesBase || company?.currency || 'USD'}</strong>
+                          {ratesSource === 'manual' && (
+                            <Chip size="sm" color="warning" variant="soft" sx={{ ml: 1 }}>Has manual overrides</Chip>
+                          )}
+                        </Typography>
+                        {ratesUpdatedAt && (
+                          <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                            Last updated: {new Date(ratesUpdatedAt).toLocaleString()}
+                          </Typography>
+                        )}
+                      </Stack>
+                      <Button
+                        size="sm"
+                        variant="outlined"
+                        startDecorator={ratesLoading ? undefined : <RefreshCw size={14} />}
+                        loading={ratesLoading}
+                        onClick={() => loadExchangeRates(true)}
+                      >
+                        Refresh Live Rates
+                      </Button>
+                    </Stack>
+
+                    <Divider />
+
+                    {ratesLoading && Object.keys(exchangeRates).length === 0 ? (
+                      <Stack spacing={1}>
+                        {[1, 2, 3].map(i => <Skeleton key={i} variant="rectangular" height={36} sx={{ borderRadius: 'sm' }} />)}
+                      </Stack>
+                    ) : Object.keys(exchangeRates).length === 0 ? (
+                      <Box sx={{ textAlign: 'center', py: 3 }}>
+                        <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
+                          No rates loaded yet.
+                        </Typography>
+                        <Button size="sm" variant="soft" sx={{ mt: 1 }} onClick={() => loadExchangeRates(true)}>
+                          Load Rates
+                        </Button>
+                      </Box>
+                    ) : (
+                      <Sheet variant="outlined" sx={{ borderRadius: 'sm', overflow: 'hidden' }}>
+                        <Table size="sm" stickyHeader>
+                          <thead>
+                            <tr>
+                              <th style={{ width: 70 }}>Code</th>
+                              <th>Currency</th>
+                              <th style={{ width: 80, textAlign: 'center' }}>Symbol</th>
+                              <th>Rate (1 X = ? {ratesBase})</th>
+                              <th style={{ width: 80 }}></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {Object.entries(exchangeRates)
+                              .filter(([cur]) => cur !== ratesBase)
+                              .sort(([a], [b]) => a.localeCompare(b))
+                              .map(([cur, rate]) => {
+                                const info = SUPPORTED_CURRENCIES[cur];
+                                const isEditing = editingRateKey === cur;
+                                return (
+                                  <tr key={cur}>
+                                    <td><Typography level="body-xs" fontWeight={600}>{cur}</Typography></td>
+                                    <td><Typography level="body-xs">{info?.name || cur}</Typography></td>
+                                    <td style={{ textAlign: 'center' }}>
+                                      <Typography level="body-xs">{info?.symbol || ''}</Typography>
+                                    </td>
+                                    <td>
+                                      {isEditing ? (
+                                        <Input
+                                          size="sm"
+                                          type="number"
+                                          value={editingRateValue}
+                                          onChange={(e) => setEditingRateValue(e.target.value)}
+                                          sx={{ maxWidth: 160 }}
+                                          autoFocus
+                                          onKeyDown={(e) => {
+                                            if (e.key === 'Enter') handleSaveRate(cur);
+                                            if (e.key === 'Escape') setEditingRateKey(null);
+                                          }}
+                                        />
+                                      ) : (
+                                        <Typography level="body-xs">{rate.toFixed(4)}</Typography>
+                                      )}
+                                    </td>
+                                    <td>
+                                      {isEditing ? (
+                                        <Stack direction="row" spacing={0.5}>
+                                          <IconButton size="sm" color="success" variant="soft" onClick={() => handleSaveRate(cur)} loading={savingRate}>
+                                            <Check size={14} />
+                                          </IconButton>
+                                          <IconButton size="sm" color="neutral" variant="plain" onClick={() => setEditingRateKey(null)}>
+                                            <XIcon size={14} />
+                                          </IconButton>
+                                        </Stack>
+                                      ) : (
+                                        <Tooltip title="Override rate manually">
+                                          <IconButton size="sm" variant="plain" onClick={() => handleStartEditRate(cur, rate as number)}>
+                                            <Edit2 size={14} />
+                                          </IconButton>
+                                        </Tooltip>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
+                          </tbody>
+                        </Table>
+                      </Sheet>
+                    )}
+                  </Stack>
+                </SectionCard>
+              </Stack>
+            )}
+
+            {/* ═══════════════════════════════════════ */}
             {/* CUSTOMIZATION                          */}
             {/* ═══════════════════════════════════════ */}
             {activeSection === 'customization' && (
@@ -1705,6 +1970,34 @@ export default function SettingsPage() {
             <Stack direction={{ xs: 'column-reverse', sm: 'row' }} spacing={1} justifyContent="flex-end" sx={{ pt: 1 }}>
               <Button variant="plain" color="neutral" onClick={() => setEditModalOpen(false)}>Cancel</Button>
               <Button onClick={handleUpdateOption} loading={savingOption} disabled={!!labelError || !newOptionLabel}>Save Changes</Button>
+            </Stack>
+          </Stack>
+        </ModalDialog>
+      </Modal>
+
+      {/* Currency Change Confirm Dialog */}
+      <Modal open={currencyChangeConfirmOpen} onClose={() => !currencyChanging && setCurrencyChangeConfirmOpen(false)}>
+        <ModalDialog sx={{ maxWidth: 480 }}>
+          <ModalClose disabled={currencyChanging} />
+          <Typography level="title-lg">Change Base Currency?</Typography>
+          <Stack spacing={2} sx={{ mt: 1.5 }}>
+            <Typography level="body-sm">
+              You are changing the base currency from{' '}
+              <strong>{pendingCurrencyChange?.from}</strong> to{' '}
+              <strong>{pendingCurrencyChange?.to}</strong>.
+            </Typography>
+            <Box sx={{ p: 1.5, borderRadius: 'sm', bgcolor: 'warning.softBg', border: '1px solid', borderColor: 'warning.outlinedBorder' }}>
+              <Typography level="body-sm" sx={{ color: 'warning.700' }}>
+                This will recalculate exchange rates on all existing invoices, bills, quotes, and purchase orders using today&apos;s live rates.
+              </Typography>
+            </Box>
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <Button variant="plain" color="neutral" onClick={() => { setCurrencyChangeConfirmOpen(false); setCurrency(company?.currency || 'USD'); }} disabled={currencyChanging}>
+                Cancel
+              </Button>
+              <Button color="warning" onClick={handleConfirmCurrencyChange} loading={currencyChanging}>
+                Yes, Change Currency
+              </Button>
             </Stack>
           </Stack>
         </ModalDialog>

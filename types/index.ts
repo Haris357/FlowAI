@@ -205,6 +205,7 @@ export interface Customer {
   country?: string;
   taxId?: string;
   notes?: string;
+  currency?: string;           // Default currency for this customer (e.g. 'USD')
   totalInvoiced: number;
   totalPaid: number;
   outstandingBalance: number;
@@ -223,6 +224,7 @@ export interface Vendor {
   country?: string;
   taxId?: string;
   notes?: string;
+  currency?: string;           // Default currency for this vendor (e.g. 'USD')
   totalBilled: number;
   totalPaid: number;
   outstandingBalance: number;
@@ -283,6 +285,10 @@ export interface Invoice {
   pdfUrl?: string;
   sentAt?: Timestamp;
   paidAt?: Timestamp;
+  // Multi-currency fields
+  currency?: string;             // Document currency (e.g. 'USD')
+  exchangeRate?: number;         // 1 docCurrency = exchangeRate baseCurrency units
+  totalInBaseCurrency?: number;  // total * exchangeRate
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -315,6 +321,10 @@ export interface Bill {
   category?: string;
   notes?: string;
   attachmentUrl?: string;
+  // Multi-currency fields
+  currency?: string;
+  exchangeRate?: number;
+  totalInBaseCurrency?: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -535,15 +545,19 @@ export interface BalanceSheetReport {
   assets: {
     current: ReportAccountItem[];
     fixed: ReportAccountItem[];
+    other?: ReportAccountItem[];
     totalCurrent: number;
     totalFixed: number;
+    totalOther?: number;
     total: number;
   };
   liabilities: {
     current: ReportAccountItem[];
     longTerm: ReportAccountItem[];
+    other?: ReportAccountItem[];
     totalCurrent: number;
     totalLongTerm: number;
+    totalOther?: number;
     total: number;
   };
   equity: {
@@ -638,6 +652,10 @@ export interface Quote {
   sentAt?: Timestamp;
   acceptedAt?: Timestamp;
   rejectedAt?: Timestamp;
+  // Multi-currency fields
+  currency?: string;
+  exchangeRate?: number;
+  totalInBaseCurrency?: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -680,6 +698,10 @@ export interface PurchaseOrder {
   sentAt?: Timestamp;
   confirmedAt?: Timestamp;
   receivedAt?: Timestamp;
+  // Multi-currency fields
+  currency?: string;
+  exchangeRate?: number;
+  totalInBaseCurrency?: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }

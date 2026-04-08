@@ -30,9 +30,9 @@ const store = new Map<string, Window>();
 const pruneInterval = setInterval(
   () => {
     const cutoff = Date.now() - 10 * 60_000;
-    for (const [k, w] of store) {
+    store.forEach((w, k) => {
       if (w.start < cutoff) store.delete(k);
-    }
+    });
   },
   5 * 60_000,
 );
