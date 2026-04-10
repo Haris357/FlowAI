@@ -419,7 +419,10 @@ export const FLOW_AI_TOOLS: AITool[] = [
         properties: {
           description: { type: 'string' },
           amount: { type: 'number' },
-          category: { type: 'string' },
+          category: {
+            type: 'string',
+            description: 'Expense account category. Pick the most specific match based on what was bought: "Equipment" or "Computer Equipment" for hardware/electronics/PCs/laptops; "Office Supplies" for stationery/paper/pens; "Repairs & Maintenance" for repairs/fixes; "Software & Subscriptions" for apps/SaaS/licenses; "Travel Expenses" for travel/flights/hotels; "Meals & Entertainment" for food/dining; "Utilities" for electricity/water/gas/internet; "Rent" for office rent; "Salaries & Wages" for staff payments; "Professional Services" for lawyers/consultants; "Advertising & Marketing" ONLY for actual ads/marketing spend; "Other Expenses" when nothing else fits. Default to "Other Expenses" if uncertain.',
+          },
           vendorName: { type: 'string' },
           date: { type: 'string' },
           paymentMethod: { type: 'string', enum: ['cash', 'bank_transfer', 'card', 'cheque'] },

@@ -192,13 +192,22 @@ async function resolvePreferredAccount(
     if (match) return match;
   }
 
-  // Fallback: try name match within type (case-insensitive)
+  // Fallback: try name match within type (case-insensitive, bidirectional — "Equipment" matches "Computer Equipment" and vice versa)
   if (fallbackNameMatch) {
-    const match = accounts.find(a =>
+    const needle = fallbackNameMatch.toLowerCase();
+    const exact = accounts.find(a =>
       isActive(a) && typeMatches(a) &&
-      a.name.toLowerCase().includes(fallbackNameMatch.toLowerCase())
+      a.name.toLowerCase().includes(needle)
     );
-    if (match) return match;
+    if (exact) return exact;
+
+    // Also check if any word in the needle appears in the account name
+    const words = needle.split(/\s+/).filter(w => w.length > 3);
+    const wordMatch = accounts.find(a =>
+      isActive(a) && typeMatches(a) &&
+      words.some(w => a.name.toLowerCase().includes(w))
+    );
+    if (wordMatch) return wordMatch;
   }
 
   // Fallback: name match across ALL accounts (ignore type) for cash/bank keywords
@@ -210,7 +219,15 @@ async function resolvePreferredAccount(
     if (match) return match;
   }
 
-  // Final fallback: any active account of the type (case-insensitive)
+  // Final fallback: prefer a generic/other account over an arbitrary first match
+  const genericKeywords = ['other expense', 'general expense', 'miscellaneous', 'general', 'other'];
+  const genericMatch = accounts.find(a =>
+    isActive(a) && typeMatches(a) &&
+    genericKeywords.some(kw => a.name.toLowerCase().includes(kw))
+  );
+  if (genericMatch) return genericMatch;
+
+  // Last resort: any active account of the type
   const result = accounts.find(a => isActive(a) && typeMatches(a));
 
   return result;
