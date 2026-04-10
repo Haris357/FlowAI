@@ -15,6 +15,8 @@ import {
   updateMessageCompletedActions,
   updateChatTitleFromMessage,
   generateDefaultChatTitle,
+  starChat as starChatService,
+  archiveChat as archiveChatService,
 } from '@/services/chats';
 import toast from 'react-hot-toast';
 import { executeAITool, ToolResult } from '@/services/ai-tools';
@@ -134,7 +136,9 @@ interface ChatContextType {
   selectChat: (sessionId: string) => Promise<void>;
   renameChat: (sessionId: string, newTitle: string) => Promise<void>;
   deleteChat: (sessionId: string) => Promise<void>;
-  sendMessage: (content: string, onChatCreated?: (chatId: string) => void, files?: File[]) => Promise<void>;
+  starChat: (sessionId: string, isStarred: boolean) => Promise<void>;
+  archiveChat: (sessionId: string, isArchived: boolean) => Promise<void>;
+  sendMessage: (content: string, onChatCreated?: (chatId: string) => void, files?: File[], entityContext?: string, mentionedEntities?: { type: string; label: string; id: string }[]) => Promise<void>;
   executeToolAction: (toolName: string, args: Record<string, any>, sourceMessageId?: string, actionKey?: string) => Promise<void>;
   processAllDocumentEntries: () => Promise<void>;
   pendingDocumentEntries: any[];
@@ -175,6 +179,12 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [sessions, setSessions] = useState<Chat[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [currentMessages, setCurrentMessages] = useState<ChatMessage[]>([]);
+
+  // Stable refs so callbacks don't need mutable values in their deps
+  const sessionsRef = React.useRef<Chat[]>([]);
+  const refreshDataRef = React.useRef(refreshData);
+  React.useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
+  React.useEffect(() => { refreshDataRef.current = refreshData; }, [refreshData]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
   const [sessionsLoaded, setSessionsLoaded] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
@@ -267,10 +277,15 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     try {
       const title = generateDefaultChatTitle();
       const chatId = await createChat(company.id, { title, ownerId: user.uid });
-      await loadSessions();
+      // Add optimistically to sessions immediately — no need to await loadSessions
+      const now = { toDate: () => new Date(), seconds: Date.now() / 1000, nanoseconds: 0 } as any;
+      setSessions(prev => [{ id: chatId, title, ownerId: user.uid, createdAt: now, updatedAt: now, lastMessageAt: now, messageCount: 0 }, ...prev]);
+      setSessionsLoaded(true);
       setCurrentSessionId(chatId);
       setCurrentMessages([]);
       localStorage.setItem(`last_chat_session_${company.id}`, chatId);
+      // Refresh sessions in background so sidebar gets accurate server data
+      loadSessions().catch(err => console.warn('[Chat] Background session refresh failed:', err));
       return chatId;
     } catch (error) {
       console.error('Error creating chat:', error);
@@ -325,6 +340,29 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     }
   }, [company?.id, currentSessionId]);
 
+  const starChat = useCallback(async (sessionId: string, isStarred: boolean) => {
+    if (!company?.id) return;
+    try {
+      await starChatService(company.id, sessionId, isStarred);
+      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, isStarred } : s));
+    } catch (error) {
+      console.error('Error starring chat:', error);
+      toast.error('Failed to update chat');
+    }
+  }, [company?.id]);
+
+  const archiveChat = useCallback(async (sessionId: string, isArchived: boolean) => {
+    if (!company?.id) return;
+    try {
+      await archiveChatService(company.id, sessionId, isArchived);
+      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, isArchived } : s));
+      toast.success(isArchived ? 'Chat archived' : 'Chat unarchived');
+    } catch (error) {
+      console.error('Error archiving chat:', error);
+      toast.error('Failed to update chat');
+    }
+  }, [company?.id]);
+
   const clearAllChats = useCallback(async () => {
     if (!company?.id || !user?.uid) return;
     try {
@@ -341,14 +379,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   }, [company?.id, user?.uid]);
 
   const sendMessage = useCallback(
-    async (content: string, onChatCreated?: (chatId: string) => void, files?: File[]) => {
+    async (content: string, onChatCreated?: (chatId: string) => void, files?: File[], entityContext?: string, mentionedEntities?: { type: string; label: string; id: string }[]) => {
       if (!company?.id || !user?.uid || (!content.trim() && (!files || files.length === 0))) return;
       if (isSendingMessage) return; // Prevent concurrent sends
 
       let sessionId = currentSessionId;
+      const isNewChat = !sessionId;
       if (!sessionId) {
         sessionId = await createNewChat();
-        if (onChatCreated) onChatCreated(sessionId);
       }
 
       setIsSendingMessage(true);
@@ -384,21 +422,28 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         role: 'user',
         content: displayContent,
         attachments,
+        mentionedEntities: mentionedEntities?.length ? mentionedEntities : undefined,
         createdAt: { toDate: () => new Date() } as any,
       };
+      // Show message immediately BEFORE navigation so user sees it right away
       setCurrentMessages(prev => [...prev, userMessage]);
+
+      // Navigate to the new chat URL after message is visible
+      if (isNewChat && onChatCreated) onChatCreated(sessionId);
 
       // Start typing indicator (no accordion — only shown when tool calls are detected)
       setIsAITyping(true);
       setThinkingSteps(prev => prev.length > 0 ? prev : []);
 
       try {
-        await addMessage(company.id, sessionId, { role: 'user', content: displayContent, attachments });
+        await addMessage(company.id, sessionId, { role: 'user', content: displayContent, attachments, mentionedEntities: mentionedEntities?.length ? mentionedEntities : undefined });
 
-        const currentChat = sessions.find(s => s.id === sessionId);
+        const currentChat = sessionsRef.current.find(s => s.id === sessionId);
         if (currentChat?.title.startsWith('New Chat -')) {
-          await updateChatTitleFromMessage(company.id, sessionId, displayContent);
-          await loadSessions();
+          // Fire-and-forget: title update + session refresh don't need to block the AI call
+          updateChatTitleFromMessage(company.id, sessionId, displayContent)
+            .then(() => loadSessions())
+            .catch(err => console.warn('[Chat] Title update failed:', err));
         }
 
         // Analyze attachments if present
@@ -463,8 +508,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Build the message to send to AI (include document context if any)
-        const aiMessage = (content.trim() || (attachments ? `I've attached ${attachments.map(a => a.name).join(', ')}. Please analyze and process this document.` : '')) + documentContext;
+        // Build the message to send to AI (include document context + entity/tag context if any)
+        // Entity context is injected BEFORE the user message so the AI reads it first and
+        // treats "this invoice", "this customer", "it", "them" as the attached entity.
+        const userText = content.trim() || (attachments ? `I've attached ${attachments.map(a => a.name).join(', ')}. Please analyze and process this document.` : '');
+        const entityPrefix = entityContext?.trim()
+          ? `[ATTACHED ENTITY CONTEXT — use this as the subject of the following request]\n${entityContext.trim()}\n[END ATTACHED CONTEXT]\n\n`
+          : '';
+        const aiMessage = entityPrefix + userText + documentContext;
 
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -807,18 +858,34 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             // Build richDataList — collect ALL rich data blocks (entities, lists, summaries)
             const collectedRichData: ChatMessageRichData[] = [];
 
+            // Deduplicate entity results by entity ID — when the same entity appears
+            // multiple times (e.g. draft invoice then sent invoice in one response),
+            // only keep the last occurrence which reflects the final state.
+            const deduplicatedEntityResults = (() => {
+              const seen = new Map<string, typeof entityResults[0]>();
+              for (const r of entityResults) {
+                const id = r.data?.entity?.id || r.data?.entity?.invoiceId || r.data?.entity?.billId || null;
+                if (id) {
+                  seen.set(id, r); // later occurrence overwrites earlier
+                } else {
+                  seen.set(`__no-id-${Math.random()}`, r);
+                }
+              }
+              return Array.from(seen.values());
+            })();
+
             // Combine entity results into one block with entities array
-            if (entityResults.length > 1) {
+            if (deduplicatedEntityResults.length > 1) {
               collectedRichData.push({
                 type: 'entity',
-                entities: entityResults.map(r => ({
+                entities: deduplicatedEntityResults.map(r => ({
                   entityType: r.data!.entityType || 'unknown',
                   entity: r.data!.entity!,
                   actions: r.actions || [],
                 })),
               });
-            } else if (entityResults.length === 1) {
-              const er = entityResults[0];
+            } else if (deduplicatedEntityResults.length === 1) {
+              const er = deduplicatedEntityResults[0];
               collectedRichData.push({
                 ...er.data!,
                 // Attach actions to single entity via entities array for consistency
@@ -846,7 +913,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             // Collect actions from entity results (if not already in entities array)
             // and from non-entity results
             const allFlatActions = [
-              ...entityResults.flatMap(r => r.actions || []),
+              ...deduplicatedEntityResults.flatMap(r => r.actions || []),
               ...nonEntityResults.flatMap(r => r.actions || []),
             ];
             // Only include actions from non-entity results in flat list (entity actions are in entities array)
@@ -864,7 +931,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             finalMessage = results.map(r => r.message).join('\n\n');
           }
 
-          refreshData();
+          refreshDataRef.current();
         }
 
         // Brief pause then clear thinking
@@ -923,7 +990,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setIsSendingMessage(false);
       }
     },
-    [company?.id, user?.uid, currentSessionId, currentMessages, sessions, isSendingMessage, createNewChat, loadSessions, refreshData, selectedModel]
+    [company?.id, user?.uid, currentSessionId, isSendingMessage, createNewChat, loadSessions, selectedModel]
   );
 
   // Direct tool execution — bypasses AI for action button clicks (send invoice, etc.)
@@ -1028,7 +1095,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           followUp,
         });
 
-        refreshData();
+        refreshDataRef.current();
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Action failed';
         console.error('Error executing tool action:', error);
@@ -1047,7 +1114,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setIsSendingMessage(false);
       }
     },
-    [company?.id, user?.uid, currentSessionId, currentMessages, isSendingMessage, refreshData, pendingDocumentEntries, processedEntryTypes]
+    [company?.id, user?.uid, currentSessionId, isSendingMessage, pendingDocumentEntries, processedEntryTypes]
   );
 
   // Process ALL document entries at once (invoices + bills + journal entries + expenses etc.)
@@ -1234,7 +1301,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           followUp: 'All entries from the document have been processed!',
         });
 
-        refreshData();
+        refreshDataRef.current();
       } catch (error: unknown) {
         const errorMessage = error instanceof Error ? error.message : 'Batch processing failed';
         console.error('Error in processAllDocumentEntries:', error);
@@ -1245,7 +1312,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setIsSendingMessage(false);
       }
     },
-    [company?.id, user?.uid, currentSessionId, isSendingMessage, pendingDocumentEntries, refreshData]
+    [company?.id, user?.uid, currentSessionId, isSendingMessage, pendingDocumentEntries]
   );
 
   const toggleSidebar = useCallback(() => { setSidebarCollapsed(prev => !prev); }, []);
@@ -1267,6 +1334,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     selectChat,
     renameChat,
     deleteChat,
+    starChat,
+    archiveChat,
     sendMessage,
     executeToolAction,
     processAllDocumentEntries,

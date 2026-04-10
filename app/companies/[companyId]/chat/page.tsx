@@ -5,8 +5,8 @@ import { useRouter, useParams } from 'next/navigation';
 import { Box } from '@mui/joy';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChat } from '@/contexts/ChatContext';
-import { ChatSidebar, ChatMain, ChatSettings } from '@/components/chat';
-import { FormShortcut } from '@/components/chat/FormShortcuts';
+import { ChatSidebar, ChatMain, ChatSettings, ToolkitPanel, CustomizePanel } from '@/components/chat';
+import { BusinessProfileProvider } from '@/contexts/BusinessProfileContext';
 
 export default function ChatPage() {
   const router = useRouter();
@@ -14,8 +14,10 @@ export default function ChatPage() {
   const companyId = params.companyId as string;
   const { user } = useAuth();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [selectedForm, setSelectedForm] = useState<FormShortcut | null>(null);
+  const [toolkitOpen, setToolkitOpen] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
+  const [focusTrigger, setFocusTrigger] = useState(0);
 
   const {
     sessions,
@@ -30,23 +32,25 @@ export default function ChatPage() {
     selectChat,
     renameChat,
     deleteChat,
+    starChat,
+    archiveChat,
     sendMessage,
     executeToolAction,
     clearAllChats,
     toggleSidebar,
     updateChatSettings,
     sessionUsage,
+    isLoadingSessions,
   } = useChat();
 
   const handleNewChat = () => {
     startNewChat();
-    setSelectedForm(null);
     setInputValue('');
+    setFocusTrigger(prev => prev + 1);
   };
 
   const handleSelectChat = async (sessionId: string) => {
     await selectChat(sessionId);
-    setSelectedForm(null);
     setInputValue('');
     router.push(`/companies/${companyId}/chat/${sessionId}`);
   };
@@ -59,23 +63,10 @@ export default function ChatPage() {
     await renameChat(sessionId, newTitle);
   };
 
-  const handleSendMessage = async (content: string, files?: File[]) => {
-    // sendMessage will create a chat if none exists
+  const handleSendMessage = async (content: string, files?: File[], entityContext?: string, mentionedEntities?: { type: string; label: string; id: string }[]) => {
     await sendMessage(content, (newChatId) => {
-      // Replace URL to new chat (no back button to empty state)
       router.replace(`/companies/${companyId}/chat/${newChatId}`);
-    }, files);
-    setSelectedForm(null);
-    setInputValue('');
-  };
-
-  const handleSelectShortcut = (shortcut: FormShortcut) => {
-    setSelectedForm(shortcut);
-    setInputValue(shortcut.prompt);
-  };
-
-  const handleClearForm = () => {
-    setSelectedForm(null);
+    }, files, entityContext, mentionedEntities);
     setInputValue('');
   };
 
@@ -84,6 +75,7 @@ export default function ChatPage() {
   };
 
   return (
+    <BusinessProfileProvider>
     <Box
       sx={{
         display: 'flex',
@@ -102,8 +94,12 @@ export default function ChatPage() {
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}
         onRenameChat={handleRenameChat}
-        onSelectShortcut={handleSelectShortcut}
+        onStarChat={starChat}
+        onArchiveChat={archiveChat}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenToolkit={() => setToolkitOpen(true)}
+        onOpenCustomize={() => setCustomizeOpen(true)}
+        isLoadingSessions={isLoadingSessions}
       />
 
       {/* Main Chat Area */}
@@ -116,14 +112,13 @@ export default function ChatPage() {
         userPhotoUrl={user?.photoURL || undefined}
         showTimestamps={chatSettings.showTimestamps}
         voiceEnabled={chatSettings.voiceInputEnabled}
-        selectedForm={selectedForm}
         inputValue={inputValue}
         onSendMessage={handleSendMessage}
         onExecuteToolAction={executeToolAction}
         onSelectAction={handleSelectAction}
-        onClearForm={handleClearForm}
         sessionUsage={sessionUsage}
         chatId={currentSessionId}
+        focusTrigger={focusTrigger}
       />
 
       {/* Settings Modal */}
@@ -135,6 +130,21 @@ export default function ChatPage() {
         onClearAllChats={clearAllChats}
         chatCount={sessions.length}
       />
+
+      {/* Toolkit Panel */}
+      <ToolkitPanel
+        open={toolkitOpen}
+        onClose={() => setToolkitOpen(false)}
+        onSendMessage={(msg) => { handleSendMessage(msg); setToolkitOpen(false); }}
+        onSelectTemplate={(prompt) => { setInputValue(prompt); setToolkitOpen(false); }}
+      />
+
+      {/* Customize Panel */}
+      <CustomizePanel
+        open={customizeOpen}
+        onClose={() => setCustomizeOpen(false)}
+      />
     </Box>
+    </BusinessProfileProvider>
   );
 }

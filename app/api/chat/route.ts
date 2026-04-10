@@ -19,6 +19,7 @@ import {
 } from '@/services/userContext';
 import { checkUsageBudgetAdmin, trackUsageAdmin, type UsageBudgetResult } from '@/services/subscription-admin';
 import { getCompanySnapshot, invalidateCompanySnapshot, buildSnapshotPrompt, FIRESTORE_SCHEMA } from '@/services/company-snapshot';
+import { getBusinessProfileAdmin, buildBusinessProfilePrompt } from '@/services/businessProfile-admin';
 import { formatDuration } from '@/lib/plans';
 import { trackServer } from '@/lib/analytics-server';
 import { rateLimit, rateLimitHeaders } from '@/lib/rate-limit';
@@ -277,12 +278,21 @@ export async function POST(request: NextRequest) {
     }
 
     // ==========================================
-    // SUBSCRIPTION USAGE CHECK (Session + Weekly)
+    // PARALLEL PRE-FLIGHT: subscription + memory + context all at once
     // ==========================================
 
+    const [usageResult, memoryResult, snapshotResult, businessCtxResult, bizProfileResult] = await Promise.allSettled([
+      checkUsageBudgetAdmin(userId),
+      getConversationMemory(companyId, userId, chatId),
+      getCompanySnapshot(companyId),
+      getUserBusinessContext(companyId, userId),
+      getBusinessProfileAdmin(companyId, userId),
+    ]);
+
+    // ── Subscription gate ─────────────────────────────────────────────────────
     let usageBudget: UsageBudgetResult | null = null;
-    try {
-      usageBudget = await checkUsageBudgetAdmin(userId);
+    if (usageResult.status === 'fulfilled') {
+      usageBudget = usageResult.value;
       if (!usageBudget.canSend) {
         trackServer(userId, 'usage_limit_hit', { blocked_by: usageBudget.blockedBy, plan: usageBudget.planId });
         const timeLeft = formatDuration(Math.max(0, usageBudget.session.resetsAt - Date.now()));
@@ -300,29 +310,26 @@ export async function POST(request: NextRequest) {
           weekly: usageBudget.weekly,
         }, { status: 403 });
       }
-    } catch (err) {
-      // Graceful degradation — if subscription check fails, allow with free limits
-      console.warn('[Flow AI] Subscription check failed, defaulting to free tier:', err);
+    } else {
+      console.warn('[Flow AI] Subscription check failed, defaulting to free tier:', usageResult.reason);
     }
 
     // ==========================================
     // AI MEMORY SYSTEM
     // ==========================================
 
-    // Resolve model — use requested model if valid, otherwise default
-    // Also enforce plan's allowed models
+    // Resolve model
     let resolvedModel = (requestModel && MODEL_PRICING[requestModel]) ? requestModel : DEFAULT_MODEL;
     if (usageBudget?.allowedModels && !usageBudget.allowedModels.includes(resolvedModel)) {
-      // Fall back to the best model allowed on the plan
       resolvedModel = usageBudget.allowedModels[usageBudget.allowedModels.length - 1] || DEFAULT_MODEL;
     }
     const MODEL = resolvedModel;
     console.log(`[Flow AI] Model: ${MODEL}${isFollowUp ? ' (follow-up)' : ''}`);
-    let memory = await getConversationMemory(companyId, userId, chatId);
+
+    let memory = memoryResult.status === 'fulfilled' ? memoryResult.value : null;
     let conversationId: string;
 
     if (isFollowUp) {
-      // Follow-up round: just load memory, don't add a user message
       if (!memory) {
         return NextResponse.json(
           { error: 'Conversation not found for follow-up' },
@@ -337,7 +344,6 @@ export async function POST(request: NextRequest) {
         timestamp: Timestamp.now(),
         tokens: estimateTokens(message),
       };
-
       try {
         conversationId = await createConversationMemory(companyId, userId, userMessage, chatId);
         memory = {
@@ -363,27 +369,30 @@ export async function POST(request: NextRequest) {
         timestamp: Timestamp.now(),
         tokens: estimateTokens(message),
       };
-      await addMessageToMemory(companyId, conversationId, userMessage);
 
-      // CRITICAL: Update in-memory object so buildContextFromMemory includes current message
+      // Fire write without blocking — compaction check uses already-loaded memory
+      const writePromise = addMessageToMemory(companyId, conversationId, userMessage);
+
+      // Update in-memory object so buildContextFromMemory includes current message
       memory.messages = [...(memory.messages || []), userMessage];
       memory.totalTokens = (memory.totalTokens || 0) + userMessage.tokens;
 
       if (needsCompaction(memory)) {
+        await writePromise; // must complete before compaction reads
         console.log('[Flow AI] Compacting conversation memory...');
         memory = await compactConversation(companyId, conversationId);
         console.log(`[Flow AI] Compaction complete. Tokens: ${memory.totalTokens}`);
 
-        // Extract and save business context from the new summary
         if (memory.summary) {
           extractBusinessContext(memory.summary).then(ctx => {
-            if (ctx) {
-              updateUserBusinessContext(companyId, userId, ctx).catch(err =>
-                console.warn('[Flow AI] Failed to save business context:', err)
-              );
-            }
+            if (ctx) updateUserBusinessContext(companyId, userId, ctx).catch(err =>
+              console.warn('[Flow AI] Failed to save business context:', err)
+            );
           }).catch(err => console.warn('[Flow AI] Business context extraction failed:', err));
         }
+      } else {
+        // Don't await — let it persist in the background
+        writePromise.catch(err => console.warn('[Flow AI] Memory write failed:', err));
       }
     }
 
@@ -393,19 +402,18 @@ export async function POST(request: NextRequest) {
     // Build context reminder (skip for follow-up)
     const contextMessages = isFollowUp ? [] : buildContextReminder(recentHistory, message);
 
-    // Load business snapshot (L1→L2→build) and persistent user context in parallel
+    // Build system prompt using already-fetched context (no extra round-trips)
     let systemPrompt = FLOW_AI_SYSTEM_PROMPT + '\n\n' + FIRESTORE_SCHEMA;
-    const [snapshot, businessCtx] = await Promise.allSettled([
-      getCompanySnapshot(companyId),
-      getUserBusinessContext(companyId, userId),
-    ]);
 
-    if (snapshot.status === 'fulfilled') {
-      systemPrompt += buildSnapshotPrompt(snapshot.value);
+    if (snapshotResult.status === 'fulfilled') {
+      systemPrompt += buildSnapshotPrompt(snapshotResult.value);
     }
-    if (businessCtx.status === 'fulfilled' && businessCtx.value) {
-      const ctxSnippet = buildBusinessContextPrompt(businessCtx.value);
+    if (businessCtxResult.status === 'fulfilled' && businessCtxResult.value) {
+      const ctxSnippet = buildBusinessContextPrompt(businessCtxResult.value);
       if (ctxSnippet) systemPrompt += ctxSnippet;
+    }
+    if (bizProfileResult.status === 'fulfilled' && bizProfileResult.value) {
+      systemPrompt += buildBusinessProfilePrompt(bizProfileResult.value);
     }
 
     // ==========================================

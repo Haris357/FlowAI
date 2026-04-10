@@ -27,7 +27,7 @@ export async function getConversationMemory(
   try {
     const conversationsRef = adminDb.collection(`companies/${companyId}/conversations`);
 
-    // If chatId provided, look for conversation tied to this specific chat session
+    // If chatId provided, look for conversation tied to this specific chat session only
     if (chatId) {
       const chatSnapshot = await conversationsRef
         .where('chatId', '==', chatId)
@@ -38,9 +38,13 @@ export async function getConversationMemory(
         const doc = chatSnapshot.docs[0];
         return { id: doc.id, ...doc.data() };
       }
+
+      // chatId given but no memory exists yet — this is a brand-new chat, return null
+      // (do NOT fall back to a previous chat's memory)
+      return null;
     }
 
-    // Fallback: get most recent conversation for this user
+    // No chatId — legacy fallback: get most recent conversation for this user
     const snapshot = await conversationsRef
       .where('userId', '==', userId)
       .orderBy('lastActivity', 'desc')

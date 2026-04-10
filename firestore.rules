@@ -309,6 +309,15 @@ service cloud.firestore {
         allow read, write: if false;
       }
 
+      // Business Profile + Saved Templates — user can only access their own
+      match /businessProfiles/{userId} {
+        allow read, write: if isAuthenticated() && request.auth.uid == userId;
+
+        match /templates/{templateId} {
+          allow read, write: if isAuthenticated() && request.auth.uid == userId;
+        }
+      }
+
       match /chatMessages/{messageId} {
         allow read: if isAuthenticated() && hasAccess(companyId);
         allow create: if isAuthenticated() &&

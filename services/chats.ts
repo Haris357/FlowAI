@@ -158,6 +158,7 @@ export async function addMessage(
     followUp?: string;
     hidden?: boolean;
     attachments?: ChatAttachment[];
+    mentionedEntities?: { type: string; label: string; id: string }[];
   }
 ): Promise<string> {
   const messagesRef = collection(db, `companies/${companyId}/chats/${chatId}/messages`);
@@ -174,6 +175,7 @@ export async function addMessage(
     followUp: message.followUp || null,
     hidden: message.hidden || null,
     attachments: message.attachments || null,
+    mentionedEntities: message.mentionedEntities || null,
     createdAt: serverTimestamp(),
   });
 
@@ -239,6 +241,22 @@ export async function updateChatTitleFromMessage(
 export function generateDefaultChatTitle(): string {
   const now = new Date();
   return `New Chat - ${now.toLocaleDateString()}`;
+}
+
+/**
+ * Star or unstar a chat
+ */
+export async function starChat(companyId: string, chatId: string, isStarred: boolean): Promise<void> {
+  const chatRef = doc(db, `companies/${companyId}/chats`, chatId);
+  await updateDoc(chatRef, { isStarred, updatedAt: serverTimestamp() });
+}
+
+/**
+ * Archive or unarchive a chat
+ */
+export async function archiveChat(companyId: string, chatId: string, isArchived: boolean): Promise<void> {
+  const chatRef = doc(db, `companies/${companyId}/chats`, chatId);
+  await updateDoc(chatRef, { isArchived, updatedAt: serverTimestamp() });
 }
 
 /**

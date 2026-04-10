@@ -7,5 +7,7 @@ export { default as ChatMessage } from './ChatMessage';
 export { default as ChatSettings } from './ChatSettings';
 export { default as ChatSidebar } from './ChatSidebar';
 export { default as ChatWelcome } from './ChatWelcome';
+export { default as CustomizePanel } from './CustomizePanel';
+export { default as ToolkitPanel } from './ToolkitPanel';
 export { default as FormShortcuts } from './FormShortcuts';
 export { default as MemoryIndicator } from './MemoryIndicator';

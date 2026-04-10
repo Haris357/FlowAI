@@ -9,16 +9,13 @@ import {
   Button,
   Stack,
   Divider,
-  Switch,
-  FormControl,
-  FormLabel,
   Box,
   LinearProgress,
   CircularProgress,
   IconButton,
   Chip,
 } from '@mui/joy';
-import { Settings, Trash2, Clock, Mic, MessageSquare, Database, RefreshCw, AlertTriangle, Zap, CalendarDays, Calendar } from 'lucide-react';
+import { Settings, Trash2, Database, RefreshCw, AlertTriangle, Zap, CalendarDays } from 'lucide-react';
 import { ChatSettings as ChatSettingsType } from '@/types';
 import DangerousConfirmDialog from '@/components/common/DangerousConfirmDialog';
 import { useMemoryStats } from '@/hooks/useMemoryStats';
@@ -271,81 +268,6 @@ export default function ChatSettings({
                   </Stack>
                 </Stack>
               </Box>
-            </Box>
-
-            <Divider />
-
-            {/* Display Settings */}
-            <Box>
-              <Typography level="body-xs" fontWeight={600} textTransform="uppercase" letterSpacing="0.05em" sx={{ mb: 1.5, color: 'text.tertiary' }}>
-                Display
-              </Typography>
-              <Stack spacing={1.5}>
-                <FormControl orientation="horizontal" sx={{ justifyContent: 'space-between' }}>
-                  <Stack spacing={0.25}>
-                    <FormLabel>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Clock size={15} style={{ color: 'var(--joy-palette-neutral-500)' }} />
-                        <span>Show timestamps</span>
-                      </Stack>
-                    </FormLabel>
-                    <Typography level="body-xs" sx={{ color: 'text.tertiary', pl: 3.25 }}>
-                      Display time for each message
-                    </Typography>
-                  </Stack>
-                  <Switch
-                    checked={settings.showTimestamps}
-                    onChange={(e) => onUpdateSettings({ showTimestamps: e.target.checked })}
-                    color="primary"
-                  />
-                </FormControl>
-
-                <FormControl orientation="horizontal" sx={{ justifyContent: 'space-between' }}>
-                  <Stack spacing={0.25}>
-                    <FormLabel>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <MessageSquare size={15} style={{ color: 'var(--joy-palette-neutral-500)' }} />
-                        <span>Welcome greeting</span>
-                      </Stack>
-                    </FormLabel>
-                    <Typography level="body-xs" sx={{ color: 'text.tertiary', pl: 3.25 }}>
-                      Show welcome message on new chats
-                    </Typography>
-                  </Stack>
-                  <Switch
-                    checked={settings.defaultGreeting}
-                    onChange={(e) => onUpdateSettings({ defaultGreeting: e.target.checked })}
-                    color="primary"
-                  />
-                </FormControl>
-              </Stack>
-            </Box>
-
-            <Divider />
-
-            {/* Input Settings */}
-            <Box>
-              <Typography level="body-xs" fontWeight={600} textTransform="uppercase" letterSpacing="0.05em" sx={{ mb: 1.5, color: 'text.tertiary' }}>
-                Input
-              </Typography>
-              <FormControl orientation="horizontal" sx={{ justifyContent: 'space-between' }}>
-                <Stack spacing={0.25}>
-                  <FormLabel>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Mic size={15} style={{ color: 'var(--joy-palette-neutral-500)' }} />
-                      <span>Voice input</span>
-                    </Stack>
-                  </FormLabel>
-                  <Typography level="body-xs" sx={{ color: 'text.tertiary', pl: 3.25 }}>
-                    Enable speech-to-text for messages
-                  </Typography>
-                </Stack>
-                <Switch
-                  checked={settings.voiceInputEnabled}
-                  onChange={(e) => onUpdateSettings({ voiceInputEnabled: e.target.checked })}
-                  color="primary"
-                />
-              </FormControl>
             </Box>
 
             <Divider />

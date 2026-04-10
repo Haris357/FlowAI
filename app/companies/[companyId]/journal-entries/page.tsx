@@ -168,9 +168,13 @@ export default function JournalEntriesPage() {
     return Array.from(types).sort();
   }, [entries]);
 
-  // Count balanced entries
+  // Count balanced entries — recalculate from lines (same as list rows) so stored isBalanced field can't diverge
   const balancedCount = useMemo(() => {
-    return entries.filter(e => e.isBalanced).length;
+    return entries.filter(e => {
+      const debit = e.lines.reduce((sum, l) => sum + l.debit, 0);
+      const credit = e.lines.reduce((sum, l) => sum + l.credit, 0);
+      return Math.abs(debit - credit) < 0.01;
+    }).length;
   }, [entries]);
 
   // Additional journal stats

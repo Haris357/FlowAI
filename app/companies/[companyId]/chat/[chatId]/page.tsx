@@ -5,8 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import { Box } from '@mui/joy';
 import { useAuth } from '@/contexts/AuthContext';
 import { useChat } from '@/contexts/ChatContext';
-import { ChatSidebar, ChatMain, ChatSettings } from '@/components/chat';
-import { FormShortcut } from '@/components/chat/FormShortcuts';
+import { ChatSidebar, ChatMain, ChatSettings, ToolkitPanel, CustomizePanel } from '@/components/chat';
+import { BusinessProfileProvider } from '@/contexts/BusinessProfileContext';
 
 export default function ChatWithIdPage() {
   const params = useParams();
@@ -16,9 +16,11 @@ export default function ChatWithIdPage() {
 
   const { user } = useAuth();
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [selectedForm, setSelectedForm] = useState<FormShortcut | null>(null);
+  const [toolkitOpen, setToolkitOpen] = useState(false);
+  const [customizeOpen, setCustomizeOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [focusTrigger, setFocusTrigger] = useState(0);
 
   const {
     sessions,
@@ -35,6 +37,8 @@ export default function ChatWithIdPage() {
     selectChat,
     renameChat,
     deleteChat,
+    starChat,
+    archiveChat,
     sendMessage,
     executeToolAction,
     clearAllChats,
@@ -61,14 +65,12 @@ export default function ChatWithIdPage() {
 
   const handleNewChat = () => {
     startNewChat();
-    setSelectedForm(null);
     setInputValue('');
     router.push(`/companies/${companyId}/chat`);
   };
 
   const handleSelectChat = async (sessionId: string) => {
     await selectChat(sessionId);
-    setSelectedForm(null);
     setInputValue('');
     router.push(`/companies/${companyId}/chat/${sessionId}`);
   };
@@ -85,22 +87,10 @@ export default function ChatWithIdPage() {
     await renameChat(sessionId, newTitle);
   };
 
-  const handleSendMessage = async (content: string, files?: File[]) => {
+  const handleSendMessage = async (content: string, files?: File[], entityContext?: string, mentionedEntities?: { type: string; label: string; id: string }[]) => {
     await sendMessage(content, (newChatId) => {
-      // Navigate to the new chat URL when a chat is created
       router.push(`/companies/${companyId}/chat/${newChatId}`);
-    }, files);
-    setSelectedForm(null);
-    setInputValue('');
-  };
-
-  const handleSelectShortcut = (shortcut: FormShortcut) => {
-    setSelectedForm(shortcut);
-    setInputValue(shortcut.prompt);
-  };
-
-  const handleClearForm = () => {
-    setSelectedForm(null);
+    }, files, entityContext, mentionedEntities);
     setInputValue('');
   };
 
@@ -109,9 +99,11 @@ export default function ChatWithIdPage() {
   };
 
   // Show loading state while sessions load or chat initializes (prevents welcome screen flash)
-  const isInitializing = !sessionsLoaded || (!hasInitialized && !!chatId);
+  // But don't show skeleton if we already have messages — e.g. when navigating from a new chat
+  const isInitializing = !sessionsLoaded || (!hasInitialized && !!chatId && currentMessages.length === 0 && !isSendingMessage);
 
   return (
+    <BusinessProfileProvider>
     <Box
       sx={{
         display: 'flex',
@@ -130,8 +122,12 @@ export default function ChatWithIdPage() {
         onNewChat={handleNewChat}
         onDeleteChat={handleDeleteChat}
         onRenameChat={handleRenameChat}
-        onSelectShortcut={handleSelectShortcut}
+        onStarChat={starChat}
+        onArchiveChat={archiveChat}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenToolkit={() => setToolkitOpen(true)}
+        onOpenCustomize={() => setCustomizeOpen(true)}
+        isLoadingSessions={isLoadingSessions}
       />
 
       {/* Main Chat Area */}
@@ -144,14 +140,13 @@ export default function ChatWithIdPage() {
         userPhotoUrl={user?.photoURL || undefined}
         showTimestamps={chatSettings.showTimestamps}
         voiceEnabled={chatSettings.voiceInputEnabled}
-        selectedForm={selectedForm}
         inputValue={inputValue}
         onSendMessage={handleSendMessage}
         onExecuteToolAction={executeToolAction}
         onSelectAction={handleSelectAction}
-        onClearForm={handleClearForm}
         sessionUsage={sessionUsage}
         isLoading={isInitializing}
+        focusTrigger={focusTrigger}
       />
 
       {/* Settings Modal */}
@@ -163,6 +158,21 @@ export default function ChatWithIdPage() {
         onClearAllChats={clearAllChats}
         chatCount={sessions.length}
       />
+
+      {/* Toolkit Panel */}
+      <ToolkitPanel
+        open={toolkitOpen}
+        onClose={() => setToolkitOpen(false)}
+        onSendMessage={(msg) => { handleSendMessage(msg); setToolkitOpen(false); }}
+        onSelectTemplate={(prompt) => { setInputValue(prompt); setToolkitOpen(false); }}
+      />
+
+      {/* Customize Panel */}
+      <CustomizePanel
+        open={customizeOpen}
+        onClose={() => setCustomizeOpen(false)}
+      />
     </Box>
+    </BusinessProfileProvider>
   );
 }

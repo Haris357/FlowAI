@@ -70,6 +70,10 @@ import {
   MessageCircle,
   ArrowLeft,
   Flag,
+  Activity,
+  Truck,
+  UserCircle2,
+  FileMinus,
 } from 'lucide-react';
 import ReportModal from '@/components/modals/ReportModal';
 
@@ -88,38 +92,42 @@ const getNavItems = (companyId: string): NavItem[] => [
   { label: 'Dashboard', path: `/companies/${companyId}/dashboard`, icon: LayoutDashboard, tourId: 'dashboard' },
   { label: 'Flow AI', path: `/companies/${companyId}/chat`, icon: MessageCircle, tourId: 'flow-ai' },
   {
+    // Sales: contacts first → main docs → adjustments
     label: 'Sales',
     icon: ShoppingCart,
     tourId: 'sales',
     children: [
+      { label: 'Customers', path: `/companies/${companyId}/customers`, icon: Users },
       { label: 'Invoices', path: `/companies/${companyId}/invoices`, icon: FileText },
       { label: 'Quotes', path: `/companies/${companyId}/quotes`, icon: ClipboardList },
-      { label: 'Customers', path: `/companies/${companyId}/customers`, icon: Users },
-      { label: 'Credit Notes', path: `/companies/${companyId}/credit-notes`, icon: CreditCard },
+      { label: 'Credit Notes', path: `/companies/${companyId}/credit-notes`, icon: FileMinus },
     ],
   },
   {
+    // Purchases: contacts first → main docs → pre-docs
     label: 'Purchases',
-    icon: Receipt,
+    icon: Truck,
     tourId: 'purchases',
     children: [
+      { label: 'Vendors', path: `/companies/${companyId}/vendors`, icon: Building2 },
       { label: 'Bills', path: `/companies/${companyId}/bills`, icon: Receipt },
       { label: 'Purchase Orders', path: `/companies/${companyId}/purchase-orders`, icon: Package },
-      { label: 'Vendors', path: `/companies/${companyId}/vendors`, icon: Building2 },
     ],
   },
   {
+    // Banking: primary activity first, then account setup
     label: 'Banking',
     icon: Landmark,
     tourId: 'banking',
     children: [
-      { label: 'Bank Accounts', path: `/companies/${companyId}/bank-accounts`, icon: Landmark },
       { label: 'Transactions', path: `/companies/${companyId}/transactions`, icon: ArrowLeftRight },
+      { label: 'Bank Accounts', path: `/companies/${companyId}/bank-accounts`, icon: Landmark },
     ],
   },
   {
+    // People: master data first, then payroll activity
     label: 'People',
-    icon: Briefcase,
+    icon: UserCircle2,
     tourId: 'people',
     children: [
       { label: 'Employees', path: `/companies/${companyId}/employees`, icon: UserCheck },
@@ -127,13 +135,14 @@ const getNavItems = (companyId: string): NavItem[] => [
     ],
   },
   {
+    // Accounting: structure → manual entries → automation
     label: 'Accounting',
     icon: Calculator,
     tourId: 'accounting',
     children: [
       { label: 'Chart of Accounts', path: `/companies/${companyId}/accounts`, icon: Wallet },
       { label: 'Journal Entries', path: `/companies/${companyId}/journal-entries`, icon: BookOpen },
-      { label: 'Recurring', path: `/companies/${companyId}/recurring`, icon: RefreshCw },
+      { label: 'Recurring Transactions', path: `/companies/${companyId}/recurring`, icon: RefreshCw },
     ],
   },
   { label: 'Reports', path: `/companies/${companyId}/reports`, icon: BarChart3, tourId: 'reports' },
@@ -675,6 +684,31 @@ export default function Layout({ children }: LayoutProps) {
                   </IconButton>
                 </Tooltip>
                 <NotificationBell onClick={() => setNotificationPanelOpen(true)} collapsed />
+                {/* Usage meter popup */}
+                <Dropdown>
+                  <Tooltip title="Usage" placement="right">
+                    <MenuButton
+                      slots={{ root: IconButton }}
+                      slotProps={{
+                        root: {
+                          variant: 'plain',
+                          size: 'sm',
+                          sx: {
+                            borderRadius: '50%',
+                            width: 34,
+                            height: 34,
+                            '&:hover': { bgcolor: 'rgba(217,119,87,0.08)' },
+                          },
+                        } as any,
+                      }}
+                    >
+                      <Activity size={16} />
+                    </MenuButton>
+                  </Tooltip>
+                  <Menu placement="right-end" sx={{ minWidth: 240, maxWidth: 280, p: 1.5, zIndex: 1200 }}>
+                    <UsageMeter />
+                  </Menu>
+                </Dropdown>
                 <Dropdown>
                   <Tooltip title={user?.displayName || user?.email?.split('@')[0]} placement="right">
                     <MenuButton

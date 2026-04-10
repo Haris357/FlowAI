@@ -23,13 +23,14 @@ interface ChatMainProps {
   voiceEnabled?: boolean;
   selectedForm?: FormShortcut | null;
   inputValue?: string;
-  onSendMessage: (content: string, files?: File[]) => void;
+  onSendMessage: (content: string, files?: File[], entityContext?: string, mentionedEntities?: { type: string; label: string; id: string }[]) => void;
   onExecuteToolAction?: (toolName: string, args: Record<string, any>, sourceMessageId?: string, actionKey?: string) => void;
   onSelectAction?: (prompt: string) => void;
   onClearForm?: () => void;
   sessionUsage?: SessionUsage;
   isLoading?: boolean;
   chatId?: string | null;
+  focusTrigger?: number;
 }
 
 export default function ChatMain({
@@ -50,12 +51,14 @@ export default function ChatMain({
   sessionUsage,
   isLoading = false,
   chatId,
+  focusTrigger,
 }: ChatMainProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
-  const [showWelcome, setShowWelcome] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(() => messages.length === 0);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [internalFocusTrigger, setInternalFocusTrigger] = useState(0);
 
   // Only show the panel for actions that require a real decision — not just "View Details"
   const ACTIONABLE_TYPES = new Set(['send', 'pay', 'cancel', 'approve', 'confirm']);
@@ -90,6 +93,8 @@ export default function ChatMain({
       const timer = setTimeout(() => {
         setShowWelcome(false);
         setIsTransitioning(false);
+        // Focus the bottom input after transition completes
+        setInternalFocusTrigger(prev => prev + 1);
       }, 200);
       return () => clearTimeout(timer);
     } else if (messages.length === 0 && !showWelcome) {
@@ -104,8 +109,8 @@ export default function ChatMain({
     }
   }, [messages, isAITyping]);
 
-  const handleSend = (content: string, files?: File[]) => {
-    onSendMessage(content, files);
+  const handleSend = (content: string, files?: File[], entityContext?: string, mentionedEntities?: { type: string; label: string; id: string }[]) => {
+    onSendMessage(content, files, entityContext, mentionedEntities);
   };
 
   const handleSelectAction = (prompt: string) => {
@@ -205,10 +210,11 @@ export default function ChatMain({
           selectedForm={selectedForm}
           onClearForm={onClearForm}
           initialValue={inputValue}
-          showQuickActions={true}
+          showQuickActions={false}
           onSelectAction={handleSelectAction}
           sessionUsage={sessionUsage}
           chatId={chatId}
+          focusTrigger={focusTrigger}
         />
       </Box>
     );
@@ -353,6 +359,7 @@ export default function ChatMain({
           showQuickActions={false}
           sessionUsage={sessionUsage}
           chatId={chatId}
+          focusTrigger={(focusTrigger ?? 0) + internalFocusTrigger}
           questionPanel={panelActions && lastAiMessage ? {
             question: panelQuestion,
             actions: panelActions,

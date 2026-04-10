@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from '@/lib/firebase';
 import {
@@ -160,9 +160,10 @@ export function CompanyProvider({
     }
   };
 
-  const refreshData = async () => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const refreshData = useCallback(async () => {
     await fetchCompanyData();
-  };
+  }, [user?.uid, urlCompanyId]);
 
   useEffect(() => {
     fetchCompanyData();

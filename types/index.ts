@@ -487,6 +487,8 @@ export interface ChatMessage {
   completedActions?: string[];
   selectedSuggestion?: string;
   attachments?: ChatAttachment[];
+  /** Entity chips attached via @ mention — shown in user bubble */
+  mentionedEntities?: { type: string; label: string; id: string }[];
   createdAt: Timestamp;
 }
 
@@ -511,6 +513,8 @@ export interface Chat {
   updatedAt: Timestamp;
   lastMessageAt: Timestamp;
   messageCount: number;
+  isStarred?: boolean;
+  isArchived?: boolean;
 }
 
 // Chat settings type

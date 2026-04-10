@@ -1107,6 +1107,21 @@ export default function ChatMessage({
                     ))}
                   </Stack>
                 )}
+                {message.mentionedEntities && message.mentionedEntities.length > 0 && (
+                  <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                    {message.mentionedEntities.map((e, i) => (
+                      <Chip
+                        key={i}
+                        size="sm"
+                        variant="soft"
+                        color="success"
+                        sx={{ fontSize: '0.72rem', fontWeight: 500 }}
+                      >
+                        @{e.label}
+                      </Chip>
+                    ))}
+                  </Stack>
+                )}
               </Box>
             </Box>
           </Stack>

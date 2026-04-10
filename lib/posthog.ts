@@ -6,7 +6,7 @@ export const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.
 let initialized = false;
 
 export function initPostHog() {
-  if (typeof window === 'undefined' || initialized || !POSTHOG_KEY) return;
+  if (typeof window === 'undefined' || initialized || !POSTHOG_KEY || process.env.NODE_ENV === 'development') return;
 
   posthog.init(POSTHOG_KEY, {
     api_host: POSTHOG_HOST,
