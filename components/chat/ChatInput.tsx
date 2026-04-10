@@ -371,7 +371,7 @@ export default function ChatInput({
   const handleSend = useCallback(() => {
     if ((!value.trim() && pendingFiles.length === 0 && chips.length === 0) || disabled || uploading) return;
     const entityChips = chips
-      .filter(c => c.kind === 'entity')
+      .filter((c): c is { kind: 'entity'; result: EntityResult } => c.kind === 'entity')
       .map(c => ({ type: c.result.type, label: c.result.label, id: c.result.id }));
     onSend(
       value.trim(),

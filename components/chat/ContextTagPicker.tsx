@@ -14,6 +14,7 @@ export type TagCategory = 'time' | 'status' | 'mode' | 'scope';
 export interface ContextTag {
   id: string;
   trigger: string;       // text after `#` that matches
+  aliases?: string[];    // alternative trigger strings
   label: string;
   description: string;
   icon: LucideIcon;
