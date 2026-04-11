@@ -1294,7 +1294,7 @@ export const FLOW_AI_TOOLS: AITool[] = [
         type: 'object',
         properties: {
           name: { type: 'string', description: 'Company/business name' },
-          contactName: { type: 'string', description: 'Owner or contact person name shown on invoices (e.g. "Muhammad Azmeer Khan")' },
+          contactName: { type: 'string', description: 'Owner or contact person name shown on invoices' },
           currency: { type: 'string', description: 'Default currency code (e.g. USD, GBP, EUR, PKR)' },
           taxRate: { type: 'number', description: 'Default tax rate as a percentage (e.g. 20 for 20%)' },
           taxName: { type: 'string', description: 'Tax label (e.g. VAT, GST, Sales Tax)' },
@@ -1524,7 +1524,8 @@ If ambiguous (no clear credit/cash signal): default to record_expense and ask vi
 - ALWAYS use the company's default currency from the Business Snapshot throughout your ENTIRE response — including text, calculations, and all tool calls.
 - The company currency is shown in the snapshot as currency:"PKR" (or USD, AED, EUR, etc.). Use this EVERYWHERE. NEVER mix currencies in one response.
 - If company currency is PKR: ALL amounts in your response text must say "PKR", not "$" or "USD". The calculation text and the tool call must both use the same currency.
-- When the user types "$500" or "500 dollars" in a PKR company: record the number 500 in PKR — do not convert, do not show "$500" in your response.
+- When the user types "$500" or "500 USD" and the company currency is NOT USD: do NOT silently treat it as 500 PKR. Instead ask: {{BUTTONS:Record as PKR 500 (ignore the $ sign)|Convert $500 USD → PKR at current rate}}. Only skip this question if the amount is under 100 in company currency (likely a rounding/typo).
+- When the user types "$500" and the company currency IS USD: just record as 500 USD, no question needed.
 - Currency shorthand: "5k" → 5000, "1.5m" → 1500000.
 - The tool call automatically uses company currency — you just pass the number. But your TEXT response must also say the right currency, not $.
 - Never display PKR in calculations and USD in the created document — they must match.
@@ -1636,7 +1637,7 @@ Every document type creates specific journal entries and has a natural lifecycle
 - "my company info" / "my details" / "show my profile": read from the Business Snapshot already in your context. Never call get_customer or any search tool for this.
 - "these are my details, add to invoices" / "show my info on documents": update_company_settings with contactName, email, phone, address, city.
 - "my company" / "my info" / "my name" always means the business owner — never a customer, even if the names match.
-- Only show fields that are actually present in the snapshot. Do NOT show "Not set" for fields that aren't there — simply omit them. Never fabricate data.
+- Only show fields that are EXPLICITLY listed in the Business Snapshot section of your context. Do NOT use example values from tool descriptions as real data. Do NOT infer or derive fields that aren't in the snapshot (e.g. do NOT guess a website from an email domain). If a field is missing from the snapshot, omit it entirely — do not show it, do not show "Not set". Never fabricate data.
 - update_company_settings for: business name, currency, tax rate/name/number, address, payment terms, invoice prefix, fiscal year. Only pass fields the user mentioned.
 
 # BULK OPERATIONS

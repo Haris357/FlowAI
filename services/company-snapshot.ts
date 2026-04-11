@@ -34,8 +34,11 @@ export interface CompanySnapshot {
   contactName?: string;
   email?: string;
   phone?: string;
+  website?: string;
   address?: string;
   city?: string;
+  state?: string;
+  zipCode?: string;
   country?: string;
   taxId?: string;
   taxRate?: number;
@@ -562,8 +565,11 @@ async function buildSnapshot(companyId: string): Promise<CompanySnapshot> {
     contactName: cd.contactName || undefined,
     email: cd.email || undefined,
     phone: cd.phone || undefined,
+    website: cd.website || undefined,
     address: cd.address || undefined,
     city: cd.city || undefined,
+    state: cd.state || undefined,
+    zipCode: cd.zipCode || undefined,
     country: cd.country || undefined,
     taxId: cd.taxId || undefined,
     taxRate: cd.invoiceDefaultTaxRate ?? cd.taxRate ?? undefined,
@@ -631,7 +637,8 @@ export function buildSnapshotPrompt(s: CompanySnapshot): string {
   if (s.contactName) profile.push(`Contact: ${s.contactName}`);
   if (s.email) profile.push(`Email: ${s.email}`);
   if (s.phone) profile.push(`Phone: ${s.phone}`);
-  if (s.address) profile.push(`Address: ${[s.address, s.city, s.country].filter(Boolean).join(', ')}`);
+  if (s.website) profile.push(`Website: ${s.website}`);
+  if (s.address) profile.push(`Address: ${[s.address, s.city, s.state, s.zipCode, s.country].filter(Boolean).join(', ')}`);
   if (s.taxId) profile.push(`Tax ID: ${s.taxId}`);
   if (s.taxRate != null) profile.push(`Tax Rate: ${s.taxRate}%${s.taxName ? ` (${s.taxName})` : ''}${s.enableTax === false ? ' [DISABLED]' : ''}`);
   if (s.invoicePrefix) profile.push(`Invoice prefix: ${s.invoicePrefix}${s.invoiceNextNumber != null ? `-${s.invoiceNextNumber}` : ''}${s.billPrefix ? ` | Bill prefix: ${s.billPrefix}${s.billNextNumber != null ? `-${s.billNextNumber}` : ''}` : ''}`);
