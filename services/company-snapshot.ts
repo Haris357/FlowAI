@@ -170,17 +170,28 @@ export async function getCompanySnapshot(companyId: string): Promise<CompanySnap
   const mem = l1Cache.get(companyId);
   if (mem && Date.now() < mem.expiresAt) return mem.snapshot;
 
-  // L2: Firestore cache doc — cheap single-doc read
+  // Read company doc and cache doc in parallel
   try {
-    const cacheSnap = await db.doc(`companies/${companyId}/cache/snapshot`).get();
+    const [companyDocSnap, cacheSnap] = await Promise.all([
+      db.doc(`companies/${companyId}`).get(),
+      db.doc(`companies/${companyId}/cache/snapshot`).get(),
+    ]);
+
     if (cacheSnap.exists) {
       const { snapshot, cachedAt } = cacheSnap.data()!;
-      if (Date.now() - (cachedAt?.toMillis?.() ?? 0) < L2_TTL_MS && snapshot) {
+      const cachedAtMs = cachedAt?.toMillis?.() ?? 0;
+      const companyUpdatedAt = companyDocSnap.data()?.updatedAt?.toMillis?.() ?? 0;
+
+      // Cache is valid only if: within TTL AND company doc hasn't been updated since cache was built
+      const withinTTL = Date.now() - cachedAtMs < L2_TTL_MS;
+      const companyUnchanged = companyUpdatedAt <= cachedAtMs;
+
+      if (withinTTL && companyUnchanged && snapshot) {
         l1Cache.set(companyId, { snapshot, expiresAt: Date.now() + L1_TTL_MS });
         return snapshot as CompanySnapshot;
       }
     }
-  } catch { /* L2 miss — fall through */ }
+  } catch { /* fall through to full build */ }
 
   // Build fresh
   const snapshot = await buildSnapshot(companyId);
