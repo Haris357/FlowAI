@@ -16,8 +16,7 @@ import { initAdmin } from '@/lib/firebase-admin';
 initAdmin();
 const db = getFirestore();
 
-const L1_TTL_MS = 60_000;       // 1 minute  — in-memory
-const L2_TTL_MS = 10 * 60_000;  // 10 minutes — Firestore
+// No caching — always build fresh so every new entry / settings change is immediately visible to AI
 
 // ==========================================
 // TYPES
@@ -31,6 +30,7 @@ export interface CompanySnapshot {
   cachedAt: string;
 
   // Company profile / invoice sender details
+  description?: string;
   contactName?: string;
   email?: string;
   phone?: string;
@@ -41,13 +41,21 @@ export interface CompanySnapshot {
   taxRate?: number;
   taxName?: string;
   businessType?: string;
+  enableTax?: boolean;
+  hasInventory?: boolean;
+  hasEmployees?: boolean;
   invoicePrefix?: string;
   billPrefix?: string;
+  invoiceNextNumber?: number;
+  billNextNumber?: number;
   invoiceDefaultTerms?: number;
+  billDefaultTerms?: number;
+  invoiceDefaultTaxRate?: number;
   invoiceNotes?: string;
   invoiceFooter?: string;
   dateFormat?: string;
   fiscalYearStart?: number;
+  showDecimalPlaces?: number;
 
   // Bank
   bankAccounts: Array<{
@@ -159,54 +167,17 @@ export interface CompanySnapshot {
 // L1 IN-MEMORY CACHE
 // ==========================================
 
-const l1Cache = new Map<string, { snapshot: CompanySnapshot; expiresAt: number }>();
-
 // ==========================================
 // PUBLIC API
 // ==========================================
 
 export async function getCompanySnapshot(companyId: string): Promise<CompanySnapshot> {
-  // L1: in-memory — fastest, zero cost
-  const mem = l1Cache.get(companyId);
-  if (mem && Date.now() < mem.expiresAt) return mem.snapshot;
-
-  // Read company doc and cache doc in parallel
-  try {
-    const [companyDocSnap, cacheSnap] = await Promise.all([
-      db.doc(`companies/${companyId}`).get(),
-      db.doc(`companies/${companyId}/cache/snapshot`).get(),
-    ]);
-
-    if (cacheSnap.exists) {
-      const { snapshot, cachedAt } = cacheSnap.data()!;
-      const cachedAtMs = cachedAt?.toMillis?.() ?? 0;
-      const companyUpdatedAt = companyDocSnap.data()?.updatedAt?.toMillis?.() ?? 0;
-
-      // Cache is valid only if: within TTL AND company doc hasn't been updated since cache was built
-      const withinTTL = Date.now() - cachedAtMs < L2_TTL_MS;
-      const companyUnchanged = companyUpdatedAt <= cachedAtMs;
-
-      if (withinTTL && companyUnchanged && snapshot) {
-        l1Cache.set(companyId, { snapshot, expiresAt: Date.now() + L1_TTL_MS });
-        return snapshot as CompanySnapshot;
-      }
-    }
-  } catch { /* fall through to full build */ }
-
-  // Build fresh
-  const snapshot = await buildSnapshot(companyId);
-
-  l1Cache.set(companyId, { snapshot, expiresAt: Date.now() + L1_TTL_MS });
-  db.doc(`companies/${companyId}/cache/snapshot`)
-    .set({ snapshot, cachedAt: Timestamp.now() })
-    .catch(() => {});
-
-  return snapshot;
+  // Always build fresh — no caching so every new entry / settings change is immediately visible
+  return buildSnapshot(companyId);
 }
 
-export function invalidateCompanySnapshot(companyId: string): void {
-  l1Cache.delete(companyId);
-  db.doc(`companies/${companyId}/cache/snapshot`).delete().catch(() => {});
+export function invalidateCompanySnapshot(_companyId: string): void {
+  // No-op — snapshot is always built fresh, nothing to invalidate
 }
 
 // ==========================================
@@ -587,6 +558,7 @@ async function buildSnapshot(companyId: string): Promise<CompanySnapshot> {
     currency,
     cachedAt: new Date().toISOString(),
     // Company profile
+    description: cd.description || undefined,
     contactName: cd.contactName || undefined,
     email: cd.email || undefined,
     phone: cd.phone || undefined,
@@ -597,13 +569,21 @@ async function buildSnapshot(companyId: string): Promise<CompanySnapshot> {
     taxRate: cd.invoiceDefaultTaxRate ?? cd.taxRate ?? undefined,
     taxName: cd.taxName || undefined,
     businessType: cd.businessType || undefined,
+    enableTax: cd.enableTax ?? undefined,
+    hasInventory: cd.hasInventory ?? undefined,
+    hasEmployees: cd.hasEmployees ?? undefined,
     invoicePrefix: cd.invoicePrefix || undefined,
     billPrefix: cd.billPrefix || undefined,
+    invoiceNextNumber: cd.invoiceNextNumber ?? undefined,
+    billNextNumber: cd.billNextNumber ?? undefined,
     invoiceDefaultTerms: cd.invoiceDefaultTerms ?? undefined,
+    billDefaultTerms: cd.billDefaultTerms ?? undefined,
+    invoiceDefaultTaxRate: cd.invoiceDefaultTaxRate ?? undefined,
     invoiceNotes: cd.invoiceNotes || undefined,
     invoiceFooter: cd.invoiceFooter || undefined,
     dateFormat: cd.dateFormat || undefined,
     fiscalYearStart: cd.fiscalYearStart ?? undefined,
+    showDecimalPlaces: cd.showDecimalPlaces ?? undefined,
     // Financial
     bankAccounts,
     totalCashBalance,
@@ -646,16 +626,23 @@ export function buildSnapshotPrompt(s: CompanySnapshot): string {
 
   // ── Company Profile ──
   const profile: string[] = [];
+  if (s.description) profile.push(`Description: ${s.description}`);
+  if (s.businessType) profile.push(`Business Type: ${s.businessType}`);
   if (s.contactName) profile.push(`Contact: ${s.contactName}`);
   if (s.email) profile.push(`Email: ${s.email}`);
   if (s.phone) profile.push(`Phone: ${s.phone}`);
   if (s.address) profile.push(`Address: ${[s.address, s.city, s.country].filter(Boolean).join(', ')}`);
   if (s.taxId) profile.push(`Tax ID: ${s.taxId}`);
-  if (s.taxRate != null) profile.push(`Tax: ${s.taxRate}%${s.taxName ? ` (${s.taxName})` : ''}`);
-  if (s.businessType) profile.push(`Type: ${s.businessType}`);
-  if (s.invoicePrefix) profile.push(`Invoice prefix: ${s.invoicePrefix}${s.billPrefix ? ` | Bill prefix: ${s.billPrefix}` : ''}`);
-  if (s.invoiceDefaultTerms != null) profile.push(`Default terms: Net ${s.invoiceDefaultTerms}`);
-  if (s.invoiceNotes) profile.push(`Invoice notes: ${s.invoiceNotes}`);
+  if (s.taxRate != null) profile.push(`Tax Rate: ${s.taxRate}%${s.taxName ? ` (${s.taxName})` : ''}${s.enableTax === false ? ' [DISABLED]' : ''}`);
+  if (s.invoicePrefix) profile.push(`Invoice prefix: ${s.invoicePrefix}${s.invoiceNextNumber != null ? `-${s.invoiceNextNumber}` : ''}${s.billPrefix ? ` | Bill prefix: ${s.billPrefix}${s.billNextNumber != null ? `-${s.billNextNumber}` : ''}` : ''}`);
+  if (s.invoiceDefaultTerms != null) profile.push(`Default payment terms: Net ${s.invoiceDefaultTerms} days`);
+  if (s.billDefaultTerms != null) profile.push(`Default bill terms: Net ${s.billDefaultTerms} days`);
+  if (s.fiscalYearStart != null) profile.push(`Fiscal year starts: Month ${s.fiscalYearStart}`);
+  if (s.dateFormat) profile.push(`Date format: ${s.dateFormat}`);
+  if (s.hasInventory != null) profile.push(`Inventory tracking: ${s.hasInventory ? 'Yes' : 'No'}`);
+  if (s.hasEmployees != null) profile.push(`Has employees: ${s.hasEmployees ? 'Yes' : 'No'}`);
+  if (s.invoiceNotes) profile.push(`Default invoice notes: ${s.invoiceNotes}`);
+  if (s.invoiceFooter) profile.push(`Invoice footer: ${s.invoiceFooter}`);
   if (profile.length > 0) { lines.push(`\n## Company Profile`); profile.forEach(l => lines.push(l)); }
 
   // ── Bank Accounts ──
