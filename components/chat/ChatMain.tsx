@@ -117,6 +117,89 @@ interface ChatMainProps {
   focusTrigger?: number;
 }
 
+// ── Chat skeleton — shown while sessions load or a chat is being fetched ───────
+const SKELETON_ROWS = [
+  { isUser: false, lines: [72, 52] },
+  { isUser: true,  lines: [48] },
+  { isUser: false, lines: [88, 66, 40] },
+  { isUser: true,  lines: [58, 36] },
+  { isUser: false, lines: [76, 50] },
+];
+
+function ChatSkeleton() {
+  return (
+    <Box
+      sx={{
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        minHeight: 0,
+        bgcolor: 'background.body',
+        '@keyframes skPulse': {
+          '0%, 100%': { opacity: 0.3 },
+          '50%': { opacity: 0.65 },
+        },
+      }}
+    >
+      <Box sx={{ flex: 1, overflowY: 'hidden', py: 2.5 }}>
+        {SKELETON_ROWS.map((row, i) => (
+          <Box
+            key={i}
+            sx={{
+              maxWidth: 768,
+              mx: 'auto',
+              px: { xs: 1.5, sm: 2.5 },
+              py: 0.75,
+              display: 'flex',
+              justifyContent: row.isUser ? 'flex-end' : 'flex-start',
+              animation: `skPulse 1.5s ease-in-out ${i * 0.15}s infinite`,
+            }}
+          >
+            {row.isUser ? (
+              <Box
+                sx={{
+                  maxWidth: '60%',
+                  bgcolor: 'background.level2',
+                  borderRadius: '16px 16px 4px 16px',
+                  px: 2,
+                  py: 1.25,
+                }}
+              >
+                <Stack spacing={0.65}>
+                  {row.lines.map((w, j) => (
+                    <Box key={j} sx={{ height: 10, borderRadius: 5, width: `${w}%`, bgcolor: 'neutral.300' }} />
+                  ))}
+                </Stack>
+              </Box>
+            ) : (
+              <Box sx={{ maxWidth: '70%' }}>
+                <Stack spacing={0.65}>
+                  {row.lines.map((w, j) => (
+                    <Box key={j} sx={{ height: 10, borderRadius: 5, width: `${w}%`, bgcolor: 'background.level2' }} />
+                  ))}
+                </Stack>
+              </Box>
+            )}
+          </Box>
+        ))}
+      </Box>
+      <Box sx={{ pb: 2, px: { xs: 1.5, sm: 2.5 }, maxWidth: 768, mx: 'auto', width: '100%' }}>
+        <Box
+          sx={{
+            height: 52,
+            borderRadius: 'xl',
+            bgcolor: 'background.level1',
+            border: '1px solid',
+            borderColor: 'neutral.outlinedBorder',
+            animation: 'skPulse 1.5s ease-in-out infinite',
+          }}
+        />
+      </Box>
+    </Box>
+  );
+}
+
 export default function ChatMain({
   messages,
   isAITyping,
@@ -219,83 +302,6 @@ export default function ChatMain({
   };
 
   const hasMessages = messages.length > 0;
-
-  // Skeleton UI — used for initial load and switching chats
-  const ChatSkeleton = () => {
-    // Alternating pattern: AI short, user medium, AI long, user short, AI medium
-    const rows = [
-      { isUser: false, lines: [72, 55] },
-      { isUser: true,  lines: [48] },
-      { isUser: false, lines: [88, 66, 42] },
-      { isUser: true,  lines: [60, 38] },
-      { isUser: false, lines: [78, 50] },
-    ];
-    return (
-      <Box
-        sx={{
-          flex: 1,
-          display: 'flex',
-          flexDirection: 'column',
-          height: '100%',
-          minHeight: 0,
-          bgcolor: 'background.body',
-          '@keyframes skPulse': {
-            '0%, 100%': { opacity: 0.35 },
-            '50%': { opacity: 0.7 },
-          },
-        }}
-      >
-        <Box sx={{ flex: 1, overflowY: 'hidden', py: 2 }}>
-          {rows.map((row, i) => (
-            <Box
-              key={i}
-              sx={{
-                maxWidth: 768,
-                mx: 'auto',
-                px: { xs: 1.5, sm: 2.5 },
-                py: 0.75,
-                display: 'flex',
-                justifyContent: row.isUser ? 'flex-end' : 'flex-start',
-                animation: `skPulse 1.6s ease-in-out ${i * 0.12}s infinite`,
-              }}
-            >
-              {row.isUser ? (
-                /* User bubble */
-                <Box
-                  sx={{
-                    maxWidth: '65%',
-                    bgcolor: 'background.level2',
-                    borderRadius: '16px 16px 4px 16px',
-                    px: 2,
-                    py: 1.25,
-                  }}
-                >
-                  <Stack spacing={0.6}>
-                    {row.lines.map((w, j) => (
-                      <Box key={j} sx={{ height: 10, borderRadius: 5, width: `${w}%`, bgcolor: 'neutral.300' }} />
-                    ))}
-                  </Stack>
-                </Box>
-              ) : (
-                /* AI bubble */
-                <Box sx={{ maxWidth: '72%' }}>
-                  <Stack spacing={0.6}>
-                    {row.lines.map((w, j) => (
-                      <Box key={j} sx={{ height: 10, borderRadius: 5, width: `${w}%`, bgcolor: 'background.level2' }} />
-                    ))}
-                  </Stack>
-                </Box>
-              )}
-            </Box>
-          ))}
-        </Box>
-        {/* Input area placeholder */}
-        <Box sx={{ pb: 2, px: { xs: 1.5, sm: 2.5 }, maxWidth: 768, mx: 'auto', width: '100%' }}>
-          <Box sx={{ height: 52, borderRadius: 'xl', bgcolor: 'background.level1', border: '1px solid', borderColor: 'neutral.outlinedBorder' }} />
-        </Box>
-      </Box>
-    );
-  };
 
   if (isLoading || isLoadingMessages) {
     return <ChatSkeleton />;

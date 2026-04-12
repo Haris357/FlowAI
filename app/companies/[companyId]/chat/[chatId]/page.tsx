@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Box } from '@mui/joy';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,7 +19,6 @@ export default function ChatWithIdPage() {
   const [toolkitOpen, setToolkitOpen] = useState(false);
   const [customizeOpen, setCustomizeOpen] = useState(false);
   const [inputValue, setInputValue] = useState('');
-  const [hasInitialized, setHasInitialized] = useState(false);
   const [focusTrigger, setFocusTrigger] = useState(0);
 
   const {
@@ -48,21 +47,30 @@ export default function ChatWithIdPage() {
     sessionUsage,
   } = useChat();
 
-  // Load the chat from URL when sessions are loaded
-  useEffect(() => {
-    if (!sessionsLoaded || !chatId || hasInitialized) return;
+  // Stable refs — read inside effects without adding to deps
+  const sessionsRef = useRef(sessions);
+  useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
 
-    const chatExists = sessions.some(s => s.id === chatId);
+  // Track which chatId we last initiated a load for, so we never double-call selectChat
+  const initiatedForRef = useRef<string | null>(null);
+
+  // Load the chat when URL chatId doesn't match what's in context (deep link, page refresh, navigation)
+  useEffect(() => {
+    if (!sessionsLoaded || !chatId) return;
+    // Already the right chat and not loading — nothing to do
+    if (currentSessionId === chatId && !isLoadingMessages) return;
+    // Already initiated a load for this chatId — wait for it to finish
+    if (initiatedForRef.current === chatId) return;
+
+    initiatedForRef.current = chatId;
+    const chatExists = sessionsRef.current.some(s => s.id === chatId);
     if (chatExists) {
-      if (currentSessionId !== chatId) {
-        selectChat(chatId);
-      }
+      selectChat(chatId);
     } else {
-      // Chat not found, redirect to main chat page
       router.replace(`/companies/${companyId}/chat`);
     }
-    setHasInitialized(true);
-  }, [sessionsLoaded, sessions, chatId, currentSessionId, selectChat, hasInitialized, router, companyId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionsLoaded, chatId, currentSessionId]);
 
   const handleNewChat = () => {
     startNewChat();
@@ -70,15 +78,15 @@ export default function ChatWithIdPage() {
     router.push(`/companies/${companyId}/chat`);
   };
 
-  const handleSelectChat = async (sessionId: string) => {
-    await selectChat(sessionId);
-    setInputValue('');
+  const handleSelectChat = (sessionId: string) => {
+    initiatedForRef.current = sessionId; // mark as initiated so effect doesn't double-call
+    selectChat(sessionId);
     router.push(`/companies/${companyId}/chat/${sessionId}`);
+    setInputValue('');
   };
 
   const handleDeleteChat = async (sessionId: string) => {
     await deleteChat(sessionId);
-    // If we deleted the current chat, go back to main chat page
     if (sessionId === chatId) {
       router.push(`/companies/${companyId}/chat`);
     }
@@ -99,9 +107,9 @@ export default function ChatWithIdPage() {
     setInputValue(prompt);
   };
 
-  // Show loading state while sessions load or chat initializes (prevents welcome screen flash)
-  // But don't show skeleton if we already have messages — e.g. when navigating from a new chat
-  const isInitializing = !sessionsLoaded || (!hasInitialized && !!chatId && currentMessages.length === 0 && !isSendingMessage);
+  // Skeleton shows whenever: sessions not ready, messages loading, or URL chatId ≠ loaded chatId.
+  // This is purely derived — no local hasInitialized state needed, no race conditions.
+  const isInitializing = !sessionsLoaded || isLoadingMessages || currentSessionId !== chatId;
 
   return (
     <BusinessProfileProvider>

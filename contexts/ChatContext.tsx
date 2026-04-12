@@ -183,6 +183,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   // Stable refs so callbacks don't need mutable values in their deps
   const sessionsRef = React.useRef<Chat[]>([]);
   const refreshDataRef = React.useRef(refreshData);
+  const loadingForSessionRef = React.useRef<string | null>(null); // prevents double-fetch
   React.useEffect(() => { sessionsRef.current = sessions; }, [sessions]);
   React.useEffect(() => { refreshDataRef.current = refreshData; }, [refreshData]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
@@ -296,18 +297,29 @@ export function ChatProvider({ children }: { children: ReactNode }) {
 
   const selectChat = useCallback(async (sessionId: string) => {
     if (!company?.id) return;
+    // Idempotent — if already loading this session, ignore duplicate calls
+    if (loadingForSessionRef.current === sessionId) return;
+    loadingForSessionRef.current = sessionId;
+
+    setCurrentMessages([]);
     setIsLoadingMessages(true);
     setCurrentSessionId(sessionId);
     localStorage.setItem(`last_chat_session_${company.id}`, sessionId);
     try {
       const messages = await getMessages(company.id, sessionId);
-      setCurrentMessages(messages);
+      // Only apply if we're still loading for this session (not superseded by another call)
+      if (loadingForSessionRef.current === sessionId) {
+        setCurrentMessages(messages);
+      }
     } catch (error) {
       console.error('Error loading messages:', error);
       toast.error('Failed to load messages');
       setCurrentMessages([]);
     } finally {
-      setIsLoadingMessages(false);
+      if (loadingForSessionRef.current === sessionId) {
+        loadingForSessionRef.current = null;
+        setIsLoadingMessages(false);
+      }
     }
   }, [company?.id]);
 

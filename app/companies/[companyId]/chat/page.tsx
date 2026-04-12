@@ -49,10 +49,11 @@ export default function ChatPage() {
     setFocusTrigger(prev => prev + 1);
   };
 
-  const handleSelectChat = async (sessionId: string) => {
-    await selectChat(sessionId);
-    setInputValue('');
+  const handleSelectChat = (sessionId: string) => {
+    // Navigate first (instant feel), selectChat runs in parallel — skeleton shows on new URL
     router.push(`/companies/${companyId}/chat/${sessionId}`);
+    selectChat(sessionId);
+    setInputValue('');
   };
 
   const handleDeleteChat = async (sessionId: string) => {
