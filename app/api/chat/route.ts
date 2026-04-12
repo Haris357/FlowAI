@@ -406,7 +406,11 @@ export async function POST(request: NextRequest) {
     let systemPrompt = FLOW_AI_SYSTEM_PROMPT + '\n\n' + FIRESTORE_SCHEMA;
 
     if (snapshotResult.status === 'fulfilled') {
-      systemPrompt += buildSnapshotPrompt(snapshotResult.value);
+      const snap = snapshotResult.value;
+      console.log(`[Flow AI] Snapshot — company:"${snap.companyName}" currency:"${snap.currency}" contact:"${snap.contactName}" taxId:"${snap.taxId}"`);
+      systemPrompt += buildSnapshotPrompt(snap);
+    } else {
+      console.error('[Flow AI] Snapshot FAILED:', snapshotResult.reason);
     }
     if (businessCtxResult.status === 'fulfilled' && businessCtxResult.value) {
       const ctxSnippet = buildBusinessContextPrompt(businessCtxResult.value);

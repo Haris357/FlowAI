@@ -210,33 +210,18 @@ async function buildSnapshot(companyId: string): Promise<CompanySnapshot> {
   );
 
   // All Firestore reads in a single parallel round-trip
+  // NOTE: No compound (status + date) queries — those require composite indexes.
+  //       Month filtering is done in-memory below.
   const [
     companyDoc,
-    // Master data
     bankAccountsSnap,
     accountsSnap,
     customersSnap,
     vendorsSnap,
     employeesSnap,
     recurringSnap,
-    // Invoice status slices (for counts + summaries)
-    draftInvSnap,
-    sentInvSnap,
-    overdueInvSnap,
-    paidInvMonthSnap,
-    cancelledInvSnap,
-    // Bill status slices
-    draftBillSnap,
-    unpaidBillSnap,
-    overdueBillSnap,
-    paidBillMonthSnap,
-    cancelledBillSnap,
-    // Outstanding amounts for receivable/payable totals
-    outstandingInvSnap,
-    outstandingBillSnap,
-    // Document records
-    invoicesSnap,
-    billsSnap,
+    allInvoicesSnap,
+    allBillsSnap,
     quotesSnap,
     purchaseOrdersSnap,
     creditNotesSnap,
@@ -245,31 +230,14 @@ async function buildSnapshot(companyId: string): Promise<CompanySnapshot> {
     salarySlipsSnap,
   ] = await Promise.all([
     db.doc(base).get(),
-    // Master data — get ALL
     db.collection(`${base}/bankAccounts`).get(),
-    db.collection(`${base}/accounts`).where('isActive', '==', true).get(),
-    db.collection(`${base}/customers`).where('isActive', '==', true).limit(500).get(),
-    db.collection(`${base}/vendors`).where('isActive', '==', true).limit(500).get(),
-    db.collection(`${base}/employees`).where('isActive', '==', true).limit(200).get(),
+    db.collection(`${base}/accounts`).limit(500).get(),
+    db.collection(`${base}/customers`).limit(500).get(),
+    db.collection(`${base}/vendors`).limit(500).get(),
+    db.collection(`${base}/employees`).limit(200).get(),
     db.collection(`${base}/recurringTransactions`).get(),
-    // Invoice counts
-    db.collection(`${base}/invoices`).where('status', '==', 'draft').get(),
-    db.collection(`${base}/invoices`).where('status', '==', 'sent').get(),
-    db.collection(`${base}/invoices`).where('status', '==', 'overdue').get(),
-    db.collection(`${base}/invoices`).where('status', '==', 'paid').where('paidAt', '>=', startOfMonth).get(),
-    db.collection(`${base}/invoices`).where('status', '==', 'cancelled').get(),
-    // Bill counts
-    db.collection(`${base}/bills`).where('status', '==', 'draft').get(),
-    db.collection(`${base}/bills`).where('status', '==', 'unpaid').get(),
-    db.collection(`${base}/bills`).where('status', '==', 'overdue').get(),
-    db.collection(`${base}/bills`).where('status', '==', 'paid').where('paidAt', '>=', startOfMonth).get(),
-    db.collection(`${base}/bills`).where('status', '==', 'cancelled').get(),
-    // Outstanding for totals
-    db.collection(`${base}/invoices`).where('status', 'in', ['sent', 'overdue']).get(),
-    db.collection(`${base}/bills`).where('status', 'in', ['unpaid', 'overdue']).get(),
-    // Records — recent 50 for documents, 100 for transactions
-    db.collection(`${base}/invoices`).orderBy('createdAt', 'desc').limit(50).get(),
-    db.collection(`${base}/bills`).orderBy('createdAt', 'desc').limit(50).get(),
+    db.collection(`${base}/invoices`).orderBy('createdAt', 'desc').limit(200).get(),
+    db.collection(`${base}/bills`).orderBy('createdAt', 'desc').limit(200).get(),
     db.collection(`${base}/quotes`).orderBy('createdAt', 'desc').limit(30).get(),
     db.collection(`${base}/purchaseOrders`).orderBy('createdAt', 'desc').limit(30).get(),
     db.collection(`${base}/creditNotes`).orderBy('createdAt', 'desc').limit(30).get(),
@@ -278,7 +246,44 @@ async function buildSnapshot(companyId: string): Promise<CompanySnapshot> {
     db.collection(`${base}/salarySlips`).orderBy('createdAt', 'desc').limit(30).get(),
   ]);
 
+  // Derive invoice/bill status slices in-memory (avoids composite index requirement)
+  const startOfMonthMs = startOfMonth.toMillis();
+  const allInvDocs = allInvoicesSnap.docs;
+  const allBillDocs = allBillsSnap.docs;
+
+  const draftInvDocs   = allInvDocs.filter(d => d.data().status === 'draft');
+  const sentInvDocs    = allInvDocs.filter(d => d.data().status === 'sent');
+  const overdueInvDocs = allInvDocs.filter(d => d.data().status === 'overdue');
+  const cancelledInvDocs = allInvDocs.filter(d => d.data().status === 'cancelled');
+  const paidInvDocs    = allInvDocs.filter(d => d.data().status === 'paid');
+  const paidInvMonthDocs = paidInvDocs.filter(d => {
+    const paidAt = d.data().paidAt;
+    if (!paidAt) return false;
+    const ms = typeof paidAt.toMillis === 'function' ? paidAt.toMillis() : paidAt * 1000;
+    return ms >= startOfMonthMs;
+  });
+  const outstandingInvDocs = allInvDocs.filter(d => ['sent', 'overdue'].includes(d.data().status));
+
+  const draftBillDocs    = allBillDocs.filter(d => d.data().status === 'draft');
+  const unpaidBillDocs   = allBillDocs.filter(d => d.data().status === 'unpaid');
+  const overdueBillDocs  = allBillDocs.filter(d => d.data().status === 'overdue');
+  const cancelledBillDocs = allBillDocs.filter(d => d.data().status === 'cancelled');
+  const paidBillDocs     = allBillDocs.filter(d => d.data().status === 'paid');
+  const paidBillMonthDocs = paidBillDocs.filter(d => {
+    const paidAt = d.data().paidAt;
+    if (!paidAt) return false;
+    const ms = typeof paidAt.toMillis === 'function' ? paidAt.toMillis() : paidAt * 1000;
+    return ms >= startOfMonthMs;
+  });
+  const outstandingBillDocs = allBillDocs.filter(d => ['unpaid', 'overdue'].includes(d.data().status));
+
+  // Limit document records to most recent 50
+  const invoicesSnap    = { docs: allInvDocs.slice(0, 50) };
+  const billsSnap       = { docs: allBillDocs.slice(0, 50) };
+
   const cd = companyDoc.data() ?? {};
+  console.log(`[Snapshot] Raw company doc keys for ${companyId}:`, Object.keys(cd).join(', '));
+  console.log(`[Snapshot] name="${cd.name}" currency="${cd.currency}" contactName="${cd.contactName}" taxId="${cd.taxId}"`);
   const currency: string = cd.currency || 'USD';
 
   // --- Bank accounts ---
@@ -297,7 +302,7 @@ async function buildSnapshot(companyId: string): Promise<CompanySnapshot> {
   const totalCashBalance = bankAccounts.reduce((s, b) => s + b.balance, 0);
 
   // --- Chart of accounts ---
-  const accounts = accountsSnap.docs.map(d => {
+  const accounts = accountsSnap.docs.filter(d => d.data().isActive !== false).map(d => {
     const x = d.data();
     return {
       id: d.id,
@@ -312,7 +317,7 @@ async function buildSnapshot(companyId: string): Promise<CompanySnapshot> {
 
   // --- Customer outstanding amounts ---
   const custMap = new Map<string, { totalOwed: number; overdueAmount: number }>();
-  outstandingInvSnap.docs.forEach(d => {
+  outstandingInvDocs.forEach(d => {
     const { customerId, totalAmount, total, status } = d.data();
     if (!customerId) return;
     const amount = totalAmount ?? total ?? 0;
@@ -322,7 +327,7 @@ async function buildSnapshot(companyId: string): Promise<CompanySnapshot> {
     custMap.set(customerId, cur);
   });
 
-  const customers = customersSnap.docs.map(d => {
+  const customers = customersSnap.docs.filter(d => d.data().isActive !== false).map(d => {
     const x = d.data();
     const inv = custMap.get(d.id) ?? { totalOwed: 0, overdueAmount: 0 };
     return {
@@ -341,12 +346,13 @@ async function buildSnapshot(companyId: string): Promise<CompanySnapshot> {
       overdueAmount: inv.overdueAmount,
     };
   });
+  console.log(`[Snapshot] Customers: ${customersSnap.docs.length} total docs, ${customers.length} active`);
   const totalReceivable = customers.reduce((s, c) => s + c.totalOwed, 0);
   const totalOverdueReceivable = customers.reduce((s, c) => s + c.overdueAmount, 0);
 
   // --- Vendor outstanding amounts ---
   const vendMap = new Map<string, { totalOwed: number; overdueAmount: number }>();
-  outstandingBillSnap.docs.forEach(d => {
+  outstandingBillDocs.forEach(d => {
     const { vendorId, totalAmount, total, status } = d.data();
     if (!vendorId) return;
     const amount = totalAmount ?? total ?? 0;
@@ -356,7 +362,7 @@ async function buildSnapshot(companyId: string): Promise<CompanySnapshot> {
     vendMap.set(vendorId, cur);
   });
 
-  const vendors = vendorsSnap.docs.map(d => {
+  const vendors = vendorsSnap.docs.filter(d => d.data().isActive !== false).map(d => {
     const x = d.data();
     const bill = vendMap.get(d.id) ?? { totalOwed: 0, overdueAmount: 0 };
     return {
@@ -375,12 +381,12 @@ async function buildSnapshot(companyId: string): Promise<CompanySnapshot> {
     };
   });
   const totalPayable = vendors.reduce((s, v) => s + v.totalOwed, 0);
-  const totalOverduePayable = outstandingBillSnap.docs
+  const totalOverduePayable = outstandingBillDocs
     .filter(d => d.data().status === 'overdue')
     .reduce((s, d) => s + (d.data().totalAmount ?? d.data().total ?? 0), 0);
 
   // --- Employees ---
-  const employees = employeesSnap.docs.map(d => {
+  const employees = employeesSnap.docs.filter(d => d.data().isActive !== false).map(d => {
     const x = d.data();
     return {
       id: d.id,
@@ -413,28 +419,28 @@ async function buildSnapshot(companyId: string): Promise<CompanySnapshot> {
 
   // --- Invoice summary ---
   const invoiceSummary = {
-    draft: draftInvSnap.size,
-    sent: sentInvSnap.size,
-    overdue: overdueInvSnap.size,
-    paid: paidInvMonthSnap.size,
-    cancelled: cancelledInvSnap.size,
-    paidThisMonth: paidInvMonthSnap.size,
+    draft: draftInvDocs.length,
+    sent: sentInvDocs.length,
+    overdue: overdueInvDocs.length,
+    paid: paidInvDocs.length,
+    cancelled: cancelledInvDocs.length,
+    paidThisMonth: paidInvMonthDocs.length,
     totalOutstanding: totalReceivable,
     totalOverdue: totalOverdueReceivable,
-    revenueThisMonth: sumDocs(paidInvMonthSnap.docs, 'totalAmount'),
+    revenueThisMonth: paidInvMonthDocs.reduce((s, d) => s + (d.data().totalAmount ?? d.data().total ?? 0), 0),
   };
 
   // --- Bill summary ---
   const billSummary = {
-    draft: draftBillSnap.size,
-    unpaid: unpaidBillSnap.size,
-    overdue: overdueBillSnap.size,
-    paid: paidBillMonthSnap.size,
-    cancelled: cancelledBillSnap.size,
-    paidThisMonth: paidBillMonthSnap.size,
+    draft: draftBillDocs.length,
+    unpaid: unpaidBillDocs.length,
+    overdue: overdueBillDocs.length,
+    paid: paidBillDocs.length,
+    cancelled: cancelledBillDocs.length,
+    paidThisMonth: paidBillMonthDocs.length,
     totalUnpaid: totalPayable,
     totalOverdue: totalOverduePayable,
-    expensesThisMonth: sumDocs(paidBillMonthSnap.docs, 'totalAmount'),
+    expensesThisMonth: paidBillMonthDocs.reduce((s, d) => s + (d.data().totalAmount ?? d.data().total ?? 0), 0),
   };
 
   // --- Invoices (last 50) ---
@@ -627,30 +633,36 @@ export function buildSnapshotPrompt(s: CompanySnapshot): string {
     `${s.currency} ${n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const month = new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
   const lines: string[] = [
-    `\n\n[COMPLETE BUSINESS SNAPSHOT — ${s.companyName || s.companyId} | ${s.currency} | ${month}]`,
+    `\n\n[COMPLETE BUSINESS SNAPSHOT — THIS IS THE ONLY SOURCE OF TRUTH FOR THIS COMPANY]`,
+    `[WARNING: Do NOT invent, guess, or add any field not explicitly listed below. Show ONLY what appears here.]`,
+    `Company: ${s.companyName || '(name not set)'} | ID: ${s.companyId} | Currency: ${s.currency} | As of: ${month}`,
   ];
 
-  // ── Company Profile ──
-  const profile: string[] = [];
-  if (s.description) profile.push(`Description: ${s.description}`);
-  if (s.businessType) profile.push(`Business Type: ${s.businessType}`);
-  if (s.contactName) profile.push(`Contact: ${s.contactName}`);
-  if (s.email) profile.push(`Email: ${s.email}`);
-  if (s.phone) profile.push(`Phone: ${s.phone}`);
-  if (s.website) profile.push(`Website: ${s.website}`);
-  if (s.address) profile.push(`Address: ${[s.address, s.city, s.state, s.zipCode, s.country].filter(Boolean).join(', ')}`);
-  if (s.taxId) profile.push(`Tax ID: ${s.taxId}`);
-  if (s.taxRate != null) profile.push(`Tax Rate: ${s.taxRate}%${s.taxName ? ` (${s.taxName})` : ''}${s.enableTax === false ? ' [DISABLED]' : ''}`);
-  if (s.invoicePrefix) profile.push(`Invoice prefix: ${s.invoicePrefix}${s.invoiceNextNumber != null ? `-${s.invoiceNextNumber}` : ''}${s.billPrefix ? ` | Bill prefix: ${s.billPrefix}${s.billNextNumber != null ? `-${s.billNextNumber}` : ''}` : ''}`);
-  if (s.invoiceDefaultTerms != null) profile.push(`Default payment terms: Net ${s.invoiceDefaultTerms} days`);
-  if (s.billDefaultTerms != null) profile.push(`Default bill terms: Net ${s.billDefaultTerms} days`);
-  if (s.fiscalYearStart != null) profile.push(`Fiscal year starts: Month ${s.fiscalYearStart}`);
-  if (s.dateFormat) profile.push(`Date format: ${s.dateFormat}`);
-  if (s.hasInventory != null) profile.push(`Inventory tracking: ${s.hasInventory ? 'Yes' : 'No'}`);
-  if (s.hasEmployees != null) profile.push(`Has employees: ${s.hasEmployees ? 'Yes' : 'No'}`);
-  if (s.invoiceNotes) profile.push(`Default invoice notes: ${s.invoiceNotes}`);
-  if (s.invoiceFooter) profile.push(`Invoice footer: ${s.invoiceFooter}`);
-  if (profile.length > 0) { lines.push(`\n## Company Profile`); profile.forEach(l => lines.push(l)); }
+  // ── Company Profile — ONLY real fields from Firestore ──
+  lines.push(`\n## Company Profile (verified from database)`);
+  lines.push(`Business Name: ${s.companyName || '(not set)'}`);
+  lines.push(`Currency: ${s.currency}`);
+  if (s.description) lines.push(`Description: ${s.description}`);
+  if (s.businessType) lines.push(`Business Type: ${s.businessType}`);
+  if (s.contactName) lines.push(`Contact Name: ${s.contactName}`);
+  if (s.email) lines.push(`Email: ${s.email}`);
+  if (s.phone) lines.push(`Phone: ${s.phone}`);
+  if (s.website) lines.push(`Website: ${s.website}`);
+  if (s.address || s.city || s.state || s.zipCode || s.country) {
+    lines.push(`Address: ${[s.address, s.city, s.state, s.zipCode, s.country].filter(Boolean).join(', ')}`);
+  }
+  if (s.taxId) lines.push(`Tax ID / Tax Number: ${s.taxId}`);
+  if (s.taxRate != null) lines.push(`Tax Rate: ${s.taxRate}%${s.taxName ? ` (${s.taxName})` : ''}${s.enableTax === false ? ' [DISABLED]' : ''}`);
+  if (s.invoicePrefix) lines.push(`Invoice prefix: ${s.invoicePrefix}${s.invoiceNextNumber != null ? `, next #${s.invoiceNextNumber}` : ''}${s.billPrefix ? ` | Bill prefix: ${s.billPrefix}${s.billNextNumber != null ? `, next #${s.billNextNumber}` : ''}` : ''}`);
+  if (s.invoiceDefaultTerms != null) lines.push(`Default payment terms: Net ${s.invoiceDefaultTerms} days`);
+  if (s.billDefaultTerms != null) lines.push(`Default bill terms: Net ${s.billDefaultTerms} days`);
+  if (s.fiscalYearStart != null) lines.push(`Fiscal year start month: ${s.fiscalYearStart}`);
+  if (s.dateFormat) lines.push(`Date format: ${s.dateFormat}`);
+  if (s.hasInventory != null) lines.push(`Inventory tracking: ${s.hasInventory ? 'Yes' : 'No'}`);
+  if (s.hasEmployees != null) lines.push(`Has employees: ${s.hasEmployees ? 'Yes' : 'No'}`);
+  if (s.invoiceNotes) lines.push(`Default invoice notes: ${s.invoiceNotes}`);
+  if (s.invoiceFooter) lines.push(`Invoice footer: ${s.invoiceFooter}`);
+  lines.push(`[END COMPANY PROFILE — no other company fields exist in the database]`);
 
   // ── Bank Accounts ──
   lines.push(`\n## Bank Accounts`);
