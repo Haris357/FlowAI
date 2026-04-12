@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCompany } from '@/contexts/CompanyContext';
 import { Chat, ChatMessage, ChatAttachment, ChatMessageRichData, ChatSettings, ToolCall, ThinkingStep } from '@/types';
@@ -953,9 +953,10 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           followUp,
           createdAt: { toDate: () => new Date() } as any,
         };
+        const tempId = assistantMessage.id;
         setCurrentMessages(prev => [...prev, assistantMessage]);
 
-        await addMessage(company.id, sessionId, {
+        const realMessageId = await addMessage(company.id, sessionId, {
           role: 'assistant',
           content: finalMessage,
           toolCalls: sanitizeForFirestore(data.toolCalls),
@@ -964,6 +965,8 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           actions: sanitizeForFirestore(actions),
           followUp,
         });
+        // Replace temp ID with the real Firestore document ID so completedActions can be persisted
+        setCurrentMessages(prev => prev.map(m => m.id === tempId ? { ...m, id: realMessageId } : m));
 
         // Increment session counters for periodic modals
         if (typeof window !== 'undefined') {
@@ -1024,12 +1027,14 @@ export function ChatProvider({ children }: { children: ReactNode }) {
             return m;
           }));
 
-          // Persist to Firestore (non-blocking)
-          const srcMsg = currentMessages.find(m => m.id === sourceMessageId);
-          const updatedActions = [...(srcMsg?.completedActions || []), actionKey];
-          updateMessageCompletedActions(company.id, sessionId, sourceMessageId, updatedActions).catch(err =>
-            console.warn('Failed to persist completedActions:', err)
-          );
+          // Persist to Firestore (non-blocking) — skip temp IDs, they haven't been saved yet
+          if (!sourceMessageId.startsWith('temp-')) {
+            const srcMsg = currentMessages.find(m => m.id === sourceMessageId);
+            const updatedActions = [...(srcMsg?.completedActions || []), actionKey];
+            updateMessageCompletedActions(company.id, sessionId, sourceMessageId, updatedActions).catch(err =>
+              console.warn('Failed to persist completedActions:', err)
+            );
+          }
         }
 
         const finalMessage = stripActionPatterns(result.message || '');
@@ -1085,15 +1090,17 @@ export function ChatProvider({ children }: { children: ReactNode }) {
           followUp,
           createdAt: { toDate: () => new Date() } as any,
         };
+        const toolTempId = assistantMessage.id;
         setCurrentMessages(prev => [...prev, assistantMessage]);
 
-        await addMessage(company.id, sessionId, {
+        const toolRealId = await addMessage(company.id, sessionId, {
           role: 'assistant',
           content: finalMessage,
           richData: sanitizeForFirestore(richData),
           actions: sanitizeForFirestore(actions),
           followUp,
         });
+        setCurrentMessages(prev => prev.map(m => m.id === toolTempId ? { ...m, id: toolRealId } : m));
 
         refreshDataRef.current();
       } catch (error: unknown) {
@@ -1319,7 +1326,7 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const updateChatSettings = useCallback((newSettings: Partial<ChatSettings>) => { setChatSettings(prev => ({ ...prev, ...newSettings })); }, []);
   const refreshSessions = useCallback(async () => { await loadSessions(); }, [loadSessions]);
 
-  const value: ChatContextType = {
+  const value: ChatContextType = useMemo(() => ({
     sessions,
     currentSessionId,
     currentMessages,
@@ -1355,7 +1362,18 @@ export function ChatProvider({ children }: { children: ReactNode }) {
     setSelectedModel,
     messageLimitReached,
     dismissMessageLimit,
-  };
+  }), [
+    sessions, currentSessionId, currentMessages,
+    isLoadingSessions, sessionsLoaded, isLoadingMessages,
+    isSendingMessage, isAITyping, thinkingSteps,
+    startNewChat, createNewChat, selectChat, renameChat,
+    deleteChat, starChat, archiveChat, sendMessage,
+    executeToolAction, processAllDocumentEntries, pendingDocumentEntries,
+    clearAllChats, refreshSessions, sidebarCollapsed, toggleSidebar,
+    sessionUsage, resetSessionUsage, chatSettings, updateChatSettings,
+    searchTerm, setSearchTerm, filteredSessions,
+    selectedModel, setSelectedModel, messageLimitReached, dismissMessageLimit,
+  ]);
 
   return <ChatContext.Provider value={value}>{children}</ChatContext.Provider>;
 }

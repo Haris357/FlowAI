@@ -1,7 +1,90 @@
 'use client';
 
 import { useRef, useEffect, useState, useMemo } from 'react';
-import { Box, Stack } from '@mui/joy';
+import { Box, Stack, Typography } from '@mui/joy';
+
+// ── Thinking word pool ──────────────────────────────────────────────────────
+const THINKING_WORDS = [
+  'analyzing', 'processing', 'querying', 'reviewing', 'calculating',
+  'checking', 'loading', 'reading', 'indexing', 'scanning', 'fetching',
+  'invoices', 'accounts', 'transactions', 'customers', 'vendors',
+  'balances', 'entries', 'reports', 'payments', 'records', 'figures',
+  'data', 'history', 'totals', 'context', 'details', 'numbers',
+  'reasoning', 'thinking', 'computing', 'correlating', 'aggregating',
+  'journal', 'ledger', 'currency', 'taxes', 'expenses', 'revenue',
+  'overview', 'summary', 'matching', 'verifying', 'resolving',
+];
+
+function ThinkingAnimation() {
+  const COUNT = 5;
+  const [words, setWords] = useState<string[]>(() =>
+    Array.from({ length: COUNT }, () => THINKING_WORDS[Math.floor(Math.random() * THINKING_WORDS.length)])
+  );
+  const [fading, setFading] = useState<Set<number>>(new Set());
+
+  useEffect(() => {
+    const cycle = () => {
+      const idx = Math.floor(Math.random() * COUNT);
+      setFading(prev => new Set(prev).add(idx));
+      setTimeout(() => {
+        setWords(prev => {
+          const next = [...prev];
+          let w: string;
+          do { w = THINKING_WORDS[Math.floor(Math.random() * THINKING_WORDS.length)]; }
+          while (w === next[idx]);
+          next[idx] = w;
+          return next;
+        });
+        setFading(prev => { const s = new Set(prev); s.delete(idx); return s; });
+      }, 90);
+    };
+    const id = setInterval(cycle, 160);
+    return () => clearInterval(id);
+  }, []);
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        gap: 0.75,
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        py: 0.25,
+      }}
+    >
+      {words.map((word, i) => (
+        <Typography
+          key={i}
+          level="body-xs"
+          sx={{
+            fontFamily: '"JetBrains Mono", "Fira Code", "Consolas", monospace',
+            color: 'text.tertiary',
+            opacity: fading.has(i) ? 0.08 : 0.55,
+            transition: 'opacity 0.09s linear',
+            letterSpacing: '0.01em',
+            userSelect: 'none',
+          }}
+        >
+          {word}
+        </Typography>
+      ))}
+      <Box
+        sx={{
+          width: 5,
+          height: 5,
+          borderRadius: '50%',
+          bgcolor: 'primary.400',
+          flexShrink: 0,
+          animation: 'taPulse 1.2s ease-in-out infinite',
+          '@keyframes taPulse': {
+            '0%, 100%': { opacity: 0.3, transform: 'scale(0.8)' },
+            '50%': { opacity: 1, transform: 'scale(1)' },
+          },
+        }}
+      />
+    </Box>
+  );
+}
 import { ChatMessage as ChatMessageType, ThinkingStep } from '@/types';
 import ChatMessage from './ChatMessage';
 import ThinkingSteps from './ThinkingSteps';
@@ -29,6 +112,7 @@ interface ChatMainProps {
   onClearForm?: () => void;
   sessionUsage?: SessionUsage;
   isLoading?: boolean;
+  isLoadingMessages?: boolean;
   chatId?: string | null;
   focusTrigger?: number;
 }
@@ -50,6 +134,7 @@ export default function ChatMain({
   onClearForm,
   sessionUsage,
   isLoading = false,
+  isLoadingMessages = false,
   chatId,
   focusTrigger,
 }: ChatMainProps) {
@@ -59,6 +144,8 @@ export default function ChatMain({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
   const [internalFocusTrigger, setInternalFocusTrigger] = useState(0);
+  const [cursorMessageId, setCursorMessageId] = useState<string | null>(null);
+  const prevTypingRef = useRef(isAITyping);
 
   // Only show the panel for actions that require a real decision — not just "View Details"
   const ACTIONABLE_TYPES = new Set(['send', 'pay', 'cancel', 'approve', 'confirm']);
@@ -102,6 +189,20 @@ export default function ChatMain({
     }
   }, [messages.length, showWelcome]);
 
+  // Show cursor on last AI message when AI finishes responding
+  useEffect(() => {
+    if (prevTypingRef.current && !isAITyping) {
+      const visible = messages.filter(m => !m.hidden);
+      const lastAI = [...visible].reverse().find(m => m.role === 'assistant');
+      if (lastAI) {
+        setCursorMessageId(lastAI.id);
+        const t = setTimeout(() => setCursorMessageId(null), 1800);
+        return () => clearTimeout(t);
+      }
+    }
+    prevTypingRef.current = isAITyping;
+  }, [isAITyping, messages]);
+
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -119,8 +220,16 @@ export default function ChatMain({
 
   const hasMessages = messages.length > 0;
 
-  // Loading state: show skeleton while chat is being loaded
-  if (isLoading) {
+  // Skeleton UI — used for initial load and switching chats
+  const ChatSkeleton = () => {
+    // Alternating pattern: AI short, user medium, AI long, user short, AI medium
+    const rows = [
+      { isUser: false, lines: [72, 55] },
+      { isUser: true,  lines: [48] },
+      { isUser: false, lines: [88, 66, 42] },
+      { isUser: true,  lines: [60, 38] },
+      { isUser: false, lines: [78, 50] },
+    ];
     return (
       <Box
         sx={{
@@ -130,56 +239,66 @@ export default function ChatMain({
           height: '100%',
           minHeight: 0,
           bgcolor: 'background.body',
+          '@keyframes skPulse': {
+            '0%, 100%': { opacity: 0.35 },
+            '50%': { opacity: 0.7 },
+          },
         }}
       >
-        <Box sx={{ flex: 1, py: 3 }}>
-          {/* Skeleton message bubbles */}
-          {[1, 2, 3].map((i) => (
+        <Box sx={{ flex: 1, overflowY: 'hidden', py: 2 }}>
+          {rows.map((row, i) => (
             <Box
               key={i}
               sx={{
                 maxWidth: 768,
                 mx: 'auto',
                 px: { xs: 1.5, sm: 2.5 },
-                py: 1,
+                py: 0.75,
                 display: 'flex',
-                gap: 1.5,
-                flexDirection: i % 2 === 0 ? 'row-reverse' : 'row',
+                justifyContent: row.isUser ? 'flex-end' : 'flex-start',
+                animation: `skPulse 1.6s ease-in-out ${i * 0.12}s infinite`,
               }}
             >
-              <Box
-                sx={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: '50%',
-                  bgcolor: 'background.level2',
-                  flexShrink: 0,
-                  animation: 'skeletonPulse 1.5s ease-in-out infinite',
-                  '@keyframes skeletonPulse': {
-                    '0%, 100%': { opacity: 0.4 },
-                    '50%': { opacity: 0.8 },
-                  },
-                }}
-              />
-              <Stack spacing={0.75} sx={{ flex: 1, maxWidth: i % 2 === 0 ? '60%' : '70%' }}>
-                {[90, 65, i === 3 ? 40 : 0].filter(Boolean).map((w, j) => (
-                  <Box
-                    key={j}
-                    sx={{
-                      height: 12,
-                      borderRadius: 1,
-                      width: `${w}%`,
-                      bgcolor: 'background.level2',
-                      animation: `skeletonPulse 1.5s ease-in-out ${j * 0.15}s infinite`,
-                    }}
-                  />
-                ))}
-              </Stack>
+              {row.isUser ? (
+                /* User bubble */
+                <Box
+                  sx={{
+                    maxWidth: '65%',
+                    bgcolor: 'background.level2',
+                    borderRadius: '16px 16px 4px 16px',
+                    px: 2,
+                    py: 1.25,
+                  }}
+                >
+                  <Stack spacing={0.6}>
+                    {row.lines.map((w, j) => (
+                      <Box key={j} sx={{ height: 10, borderRadius: 5, width: `${w}%`, bgcolor: 'neutral.300' }} />
+                    ))}
+                  </Stack>
+                </Box>
+              ) : (
+                /* AI bubble */
+                <Box sx={{ maxWidth: '72%' }}>
+                  <Stack spacing={0.6}>
+                    {row.lines.map((w, j) => (
+                      <Box key={j} sx={{ height: 10, borderRadius: 5, width: `${w}%`, bgcolor: 'background.level2' }} />
+                    ))}
+                  </Stack>
+                </Box>
+              )}
             </Box>
           ))}
         </Box>
+        {/* Input area placeholder */}
+        <Box sx={{ pb: 2, px: { xs: 1.5, sm: 2.5 }, maxWidth: 768, mx: 'auto', width: '100%' }}>
+          <Box sx={{ height: 52, borderRadius: 'xl', bgcolor: 'background.level1', border: '1px solid', borderColor: 'neutral.outlinedBorder' }} />
+        </Box>
       </Box>
     );
+  };
+
+  if (isLoading || isLoadingMessages) {
+    return <ChatSkeleton />;
   }
 
   // Empty state: centered welcome + input
@@ -297,6 +416,7 @@ export default function ChatMain({
                     onExecuteToolAction={onExecuteToolAction}
                     showSuggestions={index === lastAiIndex && !isAITyping}
                     precedingUserMessage={precedingUserMessage}
+                    showCursor={message.id === cursorMessageId}
                   />
                 </Box>
               );
@@ -309,25 +429,15 @@ export default function ChatMain({
           ) : (
             <Box sx={{
               maxWidth: 768, mx: 'auto', px: { xs: 1.5, sm: 2.5 }, py: 0.5,
-              animation: 'fadeIn 0.25s ease-out',
-              '@keyframes fadeIn': { from: { opacity: 0, transform: 'translateY(6px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
+              animation: 'fadeIn 0.2s ease-out',
+              '@keyframes fadeIn': { from: { opacity: 0, transform: 'translateY(5px)' }, to: { opacity: 1, transform: 'translateY(0)' } },
             }}>
               <Stack direction="row" spacing={1.5} alignItems="flex-start">
                 <Box sx={{ flexShrink: 0, width: 56, height: 56, mt: 0.25 }}>
                   <FlowAIAvatar size={56} isThinking />
                 </Box>
-                <Box sx={{ pt: 0.5 }}>
-                  <Stack spacing={0.75} sx={{ minWidth: 140 }}>
-                    {[85, 60, 40].map((w, i) => (
-                      <Box key={i} sx={{
-                        height: 6, borderRadius: 3, width: `${w}%`,
-                        background: 'linear-gradient(90deg, var(--joy-palette-neutral-200) 25%, var(--joy-palette-neutral-100) 50%, var(--joy-palette-neutral-200) 75%)',
-                        backgroundSize: '200% 100%',
-                        animation: `shimmer 1.5s ease-in-out ${i * 0.15}s infinite`,
-                        '@keyframes shimmer': { '0%': { backgroundPosition: '200% 0' }, '100%': { backgroundPosition: '-200% 0' } },
-                      }} />
-                    ))}
-                  </Stack>
+                <Box sx={{ pt: 1.5 }}>
+                  <ThinkingAnimation />
                 </Box>
               </Stack>
             </Box>

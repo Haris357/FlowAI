@@ -281,10 +281,14 @@ export async function POST(request: NextRequest) {
     // PARALLEL PRE-FLIGHT: subscription + memory + context all at once
     // ==========================================
 
+    // Determine if this prompt needs financial data (snapshot) or can skip it for speed
+    const SNAPSHOT_SKIP_PATTERNS = /^(hi|hello|hey|what (can|do) you|how (do|can)|who are you|what is|what's|tell me about yourself|help me|what are my options|what should i|quick question|can you|do you)/i;
+    const needsSnapshot = !(!isFollowUp && message && SNAPSHOT_SKIP_PATTERNS.test(message.trim()) && message.trim().length < 120);
+
     const [usageResult, memoryResult, snapshotResult, businessCtxResult, bizProfileResult] = await Promise.allSettled([
       checkUsageBudgetAdmin(userId),
       getConversationMemory(companyId, userId, chatId),
-      getCompanySnapshot(companyId),
+      needsSnapshot ? getCompanySnapshot(companyId) : Promise.resolve(null),
       getUserBusinessContext(companyId, userId),
       getBusinessProfileAdmin(companyId, userId),
     ]);
@@ -405,11 +409,11 @@ export async function POST(request: NextRequest) {
     // Build system prompt using already-fetched context (no extra round-trips)
     let systemPrompt = FLOW_AI_SYSTEM_PROMPT + '\n\n' + FIRESTORE_SCHEMA;
 
-    if (snapshotResult.status === 'fulfilled') {
+    if (snapshotResult.status === 'fulfilled' && snapshotResult.value) {
       const snap = snapshotResult.value;
       console.log(`[Flow AI] Snapshot — company:"${snap.companyName}" currency:"${snap.currency}" contact:"${snap.contactName}" taxId:"${snap.taxId}"`);
       systemPrompt += buildSnapshotPrompt(snap);
-    } else {
+    } else if (snapshotResult.status === 'rejected') {
       console.error('[Flow AI] Snapshot FAILED:', snapshotResult.reason);
     }
     if (businessCtxResult.status === 'fulfilled' && businessCtxResult.value) {
@@ -446,13 +450,15 @@ export async function POST(request: NextRequest) {
           ...contextMessages,
         ];
 
+    // Cap tokens: simple conversational replies don't need 4k, saves latency
+    const isLikelySimple = !isFollowUp && message && message.trim().length < 200 && !needsSnapshot;
     const response = await openai.chat.completions.create({
       model: MODEL,
       messages: openAIMessages as any,
       tools: FLOW_AI_TOOLS as any,
       tool_choice: 'auto',
       temperature: 0.2,
-      max_tokens: 4096,
+      max_tokens: isLikelySimple ? 512 : 2048,
     });
 
     const choice = response.choices[0];

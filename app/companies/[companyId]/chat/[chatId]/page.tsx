@@ -30,6 +30,7 @@ export default function ChatWithIdPage() {
     isSendingMessage,
     thinkingSteps,
     isLoadingSessions,
+    isLoadingMessages,
     sessionsLoaded,
     sidebarCollapsed,
     chatSettings,
@@ -146,6 +147,7 @@ export default function ChatWithIdPage() {
         onSelectAction={handleSelectAction}
         sessionUsage={sessionUsage}
         isLoading={isInitializing}
+        isLoadingMessages={isLoadingMessages}
         focusTrigger={focusTrigger}
       />
 

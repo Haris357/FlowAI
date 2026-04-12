@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Box, Stack, Typography, Avatar, Divider, Chip, Modal, ModalDialog, ModalClose, Textarea, Button } from '@mui/joy';
 import {
   User,
@@ -57,6 +57,7 @@ interface ChatMessageProps {
   onExecuteToolAction?: (toolName: string, args: Record<string, any>, sourceMessageId?: string, actionKey?: string) => void;
   showSuggestions?: boolean;
   precedingUserMessage?: string;
+  showCursor?: boolean;
 }
 
 // Parse {{BUTTONS:...}} tags from message content
@@ -71,33 +72,233 @@ function parseSuggestions(content: string): { text: string; suggestions: string[
   return { text, suggestions };
 }
 
-// Simple markdown-like text renderer
-function RichText({ content }: { content: string }) {
-  // Parse bold (**text**) and newlines
-  const parts = content.split(/(\*\*[^*]+\*\*)/g);
-
+// Inline text segment renderer — handles **bold**, `code`, and plain text
+function InlineText({ text }: { text: string }) {
+  // Split on **bold** and `code` spans
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
   return (
-    <Typography
-      level="body-md"
-      component="div"
-      sx={{
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-        lineHeight: 1.6,
-        color: 'text.primary',
-        '& strong': {
-          fontWeight: 600,
-          color: 'text.primary',
-        },
-      }}
-    >
-      {parts.map((part, index) => {
+    <>
+      {parts.map((part, i) => {
         if (part.startsWith('**') && part.endsWith('**')) {
-          return <strong key={index}>{part.slice(2, -2)}</strong>;
+          return <strong key={i} style={{ fontWeight: 600 }}>{part.slice(2, -2)}</strong>;
         }
-        return part;
+        if (part.startsWith('`') && part.endsWith('`')) {
+          return (
+            <Box
+              key={i}
+              component="code"
+              sx={{
+                fontFamily: 'monospace',
+                fontSize: '0.85em',
+                px: 0.5,
+                py: 0.1,
+                borderRadius: '4px',
+                bgcolor: 'background.level2',
+                color: 'primary.600',
+              }}
+            >
+              {part.slice(1, -1)}
+            </Box>
+          );
+        }
+        return <span key={i}>{part}</span>;
       })}
-    </Typography>
+    </>
+  );
+}
+
+// Full markdown renderer — paragraphs, bullets (- and •), numbered lists, headers
+function RichText({ content, showCursor }: { content: string; showCursor?: boolean }) {
+  const lines = content.split('\n');
+  const nodes: React.ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const raw = lines[i];
+    const trimmed = raw.trim();
+
+    // Skip blank lines — handled as paragraph breaks
+    if (!trimmed) {
+      i++;
+      continue;
+    }
+
+    // ### Heading 3
+    if (trimmed.startsWith('### ')) {
+      nodes.push(
+        <Typography
+          key={i}
+          level="title-sm"
+          sx={{ fontWeight: 700, mt: nodes.length > 0 ? 1.5 : 0, mb: 0.25, color: 'text.primary' }}
+        >
+          <InlineText text={trimmed.slice(4)} />
+        </Typography>
+      );
+      i++;
+      continue;
+    }
+
+    // ## Heading 2
+    if (trimmed.startsWith('## ')) {
+      nodes.push(
+        <Typography
+          key={i}
+          level="title-sm"
+          sx={{ fontWeight: 700, mt: nodes.length > 0 ? 1.5 : 0, mb: 0.5, color: 'text.primary', fontSize: '0.95rem' }}
+        >
+          <InlineText text={trimmed.slice(3)} />
+        </Typography>
+      );
+      i++;
+      continue;
+    }
+
+    // Bullet list — lines starting with "- " or "• "
+    if (/^[-•*]\s/.test(trimmed)) {
+      const bullets: string[] = [];
+      while (i < lines.length && /^[-•*]\s/.test(lines[i].trim())) {
+        bullets.push(lines[i].trim().replace(/^[-•*]\s/, ''));
+        i++;
+      }
+      nodes.push(
+        <Box key={`ul-${i}`} component="ul" sx={{ m: 0, mt: 0.5, pl: 0, listStyle: 'none' }}>
+          {bullets.map((b, bi) => (
+            <Box
+              key={bi}
+              component="li"
+              sx={{
+                display: 'flex',
+                alignItems: 'flex-start',
+                gap: 1,
+                py: 0.2,
+              }}
+            >
+              <Box
+                component="span"
+                sx={{
+                  flexShrink: 0,
+                  mt: '7px',
+                  width: 5,
+                  height: 5,
+                  borderRadius: '50%',
+                  bgcolor: 'primary.400',
+                }}
+              />
+              <Typography level="body-sm" sx={{ lineHeight: 1.65, fontSize: '0.9rem', color: 'text.primary' }}>
+                <InlineText text={b} />
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      );
+      continue;
+    }
+
+    // Numbered list — "1. " "2. " etc.
+    if (/^\d+\.\s/.test(trimmed)) {
+      const items: string[] = [];
+      let num = 1;
+      while (i < lines.length && /^\d+\.\s/.test(lines[i].trim())) {
+        items.push(lines[i].trim().replace(/^\d+\.\s/, ''));
+        i++;
+      }
+      nodes.push(
+        <Box key={`ol-${i}`} component="ol" sx={{ m: 0, mt: 0.5, pl: 0, listStyle: 'none' }}>
+          {items.map((item, ii) => (
+            <Box
+              key={ii}
+              component="li"
+              sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, py: 0.2 }}
+            >
+              <Typography
+                level="body-xs"
+                sx={{
+                  flexShrink: 0,
+                  minWidth: 18,
+                  height: 18,
+                  mt: '2px',
+                  borderRadius: '50%',
+                  bgcolor: 'primary.100',
+                  color: 'primary.600',
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: '0.7rem',
+                }}
+              >
+                {ii + 1}
+              </Typography>
+              <Typography level="body-sm" sx={{ lineHeight: 1.65, color: 'text.primary' }}>
+                <InlineText text={item} />
+              </Typography>
+            </Box>
+          ))}
+        </Box>
+      );
+      continue;
+    }
+
+    // Regular paragraph
+    nodes.push(
+      <Typography
+        key={i}
+        level="body-sm"
+        sx={{ lineHeight: 1.7, fontSize: '0.9rem', color: 'text.primary', mt: nodes.length > 0 ? 0.75 : 0 }}
+      >
+        <InlineText text={trimmed} />
+        {showCursor && i === lines.length - 1 && (
+          <Box
+            component="span"
+            sx={{
+              display: 'inline-block',
+              width: '2px',
+              height: '1em',
+              bgcolor: 'text.primary',
+              ml: '2px',
+              verticalAlign: 'text-bottom',
+              animation: 'cursorBlink 0.7s step-end infinite',
+              '@keyframes cursorBlink': {
+                '0%, 100%': { opacity: 1 },
+                '50%': { opacity: 0 },
+              },
+            }}
+          />
+        )}
+      </Typography>
+    );
+    i++;
+  }
+
+  // Cursor on last list item if needed
+  return (
+    <Box sx={{ '& > * + *': { mt: 0.5 } }}>
+      {nodes}
+      {showCursor && nodes.length > 0 && !content.trimEnd().endsWith('\n') && (
+        // If last line was a list, cursor won't be in a paragraph — append standalone
+        (() => {
+          const lastLine = content.trimEnd().split('\n').pop() || '';
+          if (/^[-•*\d]/.test(lastLine.trim())) {
+            return (
+              <Box
+                component="span"
+                sx={{
+                  display: 'inline-block',
+                  width: '2px',
+                  height: '1em',
+                  bgcolor: 'text.primary',
+                  ml: '2px',
+                  verticalAlign: 'text-bottom',
+                  animation: 'cursorBlink 0.7s step-end infinite',
+                  '@keyframes cursorBlink': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0 } },
+                }}
+              />
+            );
+          }
+          return null;
+        })()
+      )}
+    </Box>
   );
 }
 
@@ -833,10 +1034,15 @@ export default function ChatMessage({
   onExecuteToolAction,
   showSuggestions = true,
   precedingUserMessage = '',
+  showCursor = false,
 }: ChatMessageProps) {
   const [copied, setCopied] = useState(false);
-  const [clickedToolActions, setClickedToolActions] = useState<Set<string>>(
-    new Set(message.completedActions || [])
+  // Track clicks made in this session — merged with persisted completedActions from Firestore
+  const [localClicked, setLocalClicked] = useState<Set<string>>(new Set());
+  // Reactive: always includes both persisted (from DB) and in-session clicks
+  const clickedToolActions = useMemo(
+    () => new Set([...(message.completedActions || []), ...Array.from(localClicked)]),
+    [message.completedActions, localClicked]
   );
   const [viewModal, setViewModal] = useState<{
     open: boolean;
@@ -945,7 +1151,7 @@ export default function ChatMessage({
       // Prevent duplicate clicks
       const key = `${action.toolCall}-${action.entityId}`;
       if (clickedToolActions.has(key)) return;
-      setClickedToolActions(prev => new Set(prev).add(key));
+      setLocalClicked(prev => new Set(prev).add(key));
 
       // Build tool args based on the tool name
       const toolArgs: Record<string, Record<string, any>> = {
@@ -1070,11 +1276,12 @@ export default function ChatMessage({
                 {/* Show message text only if it's not just "Attached ..." auto-text */}
                 {message.content && !(message.attachments && message.attachments.length > 0 && message.content.startsWith('Attached ')) && (
                   <Typography
-                    level="body-md"
+                    level="body-sm"
                     sx={{
                       whiteSpace: 'pre-wrap',
                       wordBreak: 'break-word',
-                      lineHeight: 1.6,
+                      lineHeight: 1.65,
+                      fontSize: '0.9rem',
                       color: 'inherit',
                     }}
                   >
@@ -1134,7 +1341,7 @@ export default function ChatMessage({
                 const { text, suggestions } = parseSuggestions(message.content);
                 return (
                   <>
-                    {text && <RichText content={text} />}
+                    {text && <RichText content={text} showCursor={showCursor} />}
                     {!isUser && suggestions.length > 0 && onSendMessage && showSuggestions && (
                       <SuggestionButtons
                         suggestions={suggestions}
