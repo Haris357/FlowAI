@@ -49,8 +49,8 @@ const nextConfig = {
               "font-src 'self' https://fonts.gstatic.com data:",
               // Google user profile photos from lh3.googleusercontent.com
               "img-src 'self' data: blob: https:",
-              // Firebase, OpenAI, Supabase, Google OAuth endpoints
-              "connect-src 'self' https://api.openai.com https://*.googleapis.com https://*.firebaseio.com https://*.supabase.co wss://*.firebaseio.com https://accounts.google.com https://oauth2.googleapis.com https://securetoken.googleapis.com",
+              // Firebase, OpenAI, PostHog analytics, Lemon Squeezy, exchange rates, Google OAuth
+              "connect-src 'self' https://api.openai.com https://*.googleapis.com https://*.firebaseio.com https://*.firebasestorage.googleapis.com wss://*.firebaseio.com https://accounts.google.com https://oauth2.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://us.i.posthog.com https://us-assets.i.posthog.com https://app.posthog.com https://api.lemonsqueezy.com https://api.frankfurter.app https://v6.exchangerate-api.com https://api.resend.com",
               "object-src 'none'",
               // Google OAuth popup requires framing accounts.google.com
               "frame-src https://accounts.google.com https://*.firebaseapp.com",

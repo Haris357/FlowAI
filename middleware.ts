@@ -21,6 +21,7 @@ function getAllowedOrigins(): string[] {
     'https://flowbooksai.com',
     'https://www.flowbooksai.com',
     'https://admin.flowbooksai.com',
+    'https://status.flowbooksai.com',
     // Vercel preview deployments (any *.vercel.app subdomain for this project)
     // Checked dynamically below.
   ];
@@ -118,7 +119,23 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // ── 4. Admin subdomain routing ───────────────────────────────────────────
+  // ── 4. Status subdomain routing ──────────────────────────────────────────
+  const isStatusSubdomain =
+    hostname.startsWith('status.') ||
+    hostname.startsWith('status-');
+
+  if (isStatusSubdomain) {
+    if (pathname.startsWith('/api') || pathname.startsWith('/status')) {
+      const res = NextResponse.next();
+      if (pathname.startsWith('/api/')) handleCORS(request, res);
+      return res;
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = `/status${pathname === '/' ? '' : pathname}`;
+    return NextResponse.rewrite(url);
+  }
+
+  // ── 5. Admin subdomain routing ───────────────────────────────────────────
   const isAdminSubdomain =
     hostname.startsWith('admin.') ||
     hostname.startsWith('admin-');
@@ -146,7 +163,7 @@ export function middleware(request: NextRequest) {
     }
   }
 
-  // ── 5. Pass through with CORS headers on API routes ─────────────────────
+  // ── 6. Pass through with CORS headers on API routes ─────────────────────
   const res = NextResponse.next();
   if (pathname.startsWith('/api/')) {
     handleCORS(request, res);
