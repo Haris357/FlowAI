@@ -21,14 +21,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid plan' }, { status: 400 });
     }
 
-    // Use server-side env vars (NEXT_PUBLIC_ vars may not be available at runtime in API routes)
     const monthlyVariantIdMap: Record<string, string | undefined> = {
-      pro: process.env.LEMON_SQUEEZY_PRO_VARIANT_ID || process.env.NEXT_PUBLIC_LEMON_SQUEEZY_PRO_VARIANT_ID,
-      max: process.env.LEMON_SQUEEZY_MAX_VARIANT_ID || process.env.NEXT_PUBLIC_LEMON_SQUEEZY_MAX_VARIANT_ID,
+      pro: process.env.LEMON_SQUEEZY_PRO_VARIANT_ID,
+      max: process.env.LEMON_SQUEEZY_MAX_VARIANT_ID,
     };
     const yearlyVariantIdMap: Record<string, string | undefined> = {
-      pro: process.env.LEMON_SQUEEZY_PRO_YEARLY_VARIANT_ID || process.env.NEXT_PUBLIC_LEMON_SQUEEZY_PRO_YEARLY_VARIANT_ID,
-      max: process.env.LEMON_SQUEEZY_MAX_YEARLY_VARIANT_ID || process.env.NEXT_PUBLIC_LEMON_SQUEEZY_MAX_YEARLY_VARIANT_ID,
+      pro: process.env.LEMON_SQUEEZY_PRO_YEARLY_VARIANT_ID,
+      max: process.env.LEMON_SQUEEZY_MAX_YEARLY_VARIANT_ID,
     };
     const variantId = isYearly
       ? (yearlyVariantIdMap[planId] || plan.yearlyLemonSqueezyVariantId)
@@ -73,7 +72,7 @@ export async function POST(request: NextRequest) {
               },
             },
             product_options: {
-              redirect_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/settings/billing?success=true`,
+              redirect_url: `${process.env.APP_URL || 'http://localhost:3000'}/settings/billing?success=true`,
             },
           },
           relationships: {

@@ -15,7 +15,7 @@ function getIP(req: NextRequest): string {
 
 /** Allowed origins for CORS / request-origin validation. */
 function getAllowedOrigins(): string[] {
-  const base = process.env.NEXT_PUBLIC_APP_URL || 'https://flowbooksai.com';
+  const base = process.env.APP_URL || 'https://flowbooksai.com';
   return [
     base,
     'https://flowbooksai.com',

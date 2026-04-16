@@ -63,8 +63,8 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
       payroll: true,
       customBranding: true,
     },
-    lemonSqueezyVariantId: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_PRO_VARIANT_ID || process.env.LEMON_SQUEEZY_PRO_VARIANT_ID || '',
-    yearlyLemonSqueezyVariantId: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_PRO_YEARLY_VARIANT_ID || process.env.LEMON_SQUEEZY_PRO_YEARLY_VARIANT_ID || '',
+    lemonSqueezyVariantId: process.env.LEMON_SQUEEZY_PRO_VARIANT_ID || '',
+    yearlyLemonSqueezyVariantId: process.env.LEMON_SQUEEZY_PRO_YEARLY_VARIANT_ID || '',
   },
   max: {
     id: 'max',
@@ -91,8 +91,8 @@ export const PLANS: Record<PlanId, PlanDefinition> = {
       payroll: true,
       customBranding: true,
     },
-    lemonSqueezyVariantId: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_MAX_VARIANT_ID || process.env.LEMON_SQUEEZY_MAX_VARIANT_ID || '',
-    yearlyLemonSqueezyVariantId: process.env.NEXT_PUBLIC_LEMON_SQUEEZY_MAX_YEARLY_VARIANT_ID || process.env.LEMON_SQUEEZY_MAX_YEARLY_VARIANT_ID || '',
+    lemonSqueezyVariantId: process.env.LEMON_SQUEEZY_MAX_VARIANT_ID || '',
+    yearlyLemonSqueezyVariantId: process.env.LEMON_SQUEEZY_MAX_YEARLY_VARIANT_ID || '',
   },
 };
 

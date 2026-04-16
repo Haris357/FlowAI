@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify credentials via Firebase REST API (does NOT affect client-side auth state)
-    const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
+    const apiKey = process.env.FIREBASE_API_KEY;
     if (!apiKey) {
       return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }

@@ -3047,7 +3047,7 @@ async function sendInvoiceViaEmail(args: Record<string, any>, companyId: string)
     }
 
     // Call the comprehensive status API
-    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.APP_URL || 'http://localhost:3000');
     const response = await fetch(`${baseUrl}/api/invoices/status`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3102,7 +3102,7 @@ async function sendSalarySlipEmail(args: Record<string, any>, companyId: string)
     const { slipId } = args;
     if (!slipId) return { success: false, message: 'Salary slip ID is required.' };
 
-    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.APP_URL || 'http://localhost:3000');
     const response = await fetch(`${baseUrl}/api/payroll/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3128,7 +3128,7 @@ async function sendBillEmail(args: Record<string, any>, companyId: string): Prom
     const { billId, type = 'created' } = args;
     if (!billId) return { success: false, message: 'Bill ID is required.' };
 
-    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.APP_URL || 'http://localhost:3000');
     const response = await fetch(`${baseUrl}/api/bills/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3154,7 +3154,7 @@ async function sendQuoteEmail(args: Record<string, any>, companyId: string): Pro
     const { quoteId, type = 'sent' } = args;
     if (!quoteId) return { success: false, message: 'Quote ID is required.' };
 
-    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.APP_URL || 'http://localhost:3000');
     const response = await fetch(`${baseUrl}/api/quotes/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3180,7 +3180,7 @@ async function sendPurchaseOrderEmail(args: Record<string, any>, companyId: stri
     const { poId, type = 'sent' } = args;
     if (!poId) return { success: false, message: 'Purchase order ID is required.' };
 
-    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+    const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXTAUTH_URL || process.env.APP_URL || 'http://localhost:3000');
     const response = await fetch(`${baseUrl}/api/purchase-orders/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -3273,7 +3273,7 @@ async function changeInvoiceStatus(args: Record<string, any>, companyId: string)
 
     // Use the comprehensive status API for all transitions (handles accounting + email)
     try {
-      const baseUrl = typeof window !== 'undefined' ? '' : (process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000');
+      const baseUrl = typeof window !== 'undefined' ? '' : (process.env.APP_URL || 'http://localhost:3000');
       const res = await fetch(`${baseUrl}/api/invoices/status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

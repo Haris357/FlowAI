@@ -87,7 +87,7 @@ async function checkFirebaseStorage(): Promise<CheckResult> {
   const t0 = Date.now();
   try {
     const { getStorage } = await import('firebase-admin/storage');
-    const bucket = process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET;
+    const bucket = process.env.FIREBASE_STORAGE_BUCKET;
     if (!bucket) {
       return { healthy: false, latencyMs: 0, error: 'Storage bucket env var not set', errorType: 'config' };
     }
@@ -180,7 +180,7 @@ async function checkFrankfurter(): Promise<CheckResult> {
 
 async function checkWebApp(): Promise<CheckResult> {
   const t0 = Date.now();
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://flowbooksai.com').replace(/\/$/, '');
+  const appUrl = (process.env.APP_URL ?? 'https://flowbooksai.com').replace(/\/$/, '');
   try {
     const res = await withTimeout(fetch(`${appUrl}/api/health`, { cache: 'no-store' }));
     if (!res.ok) throw new Error(`HTTP ${res.status}`);

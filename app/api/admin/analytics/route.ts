@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
 import { verifyAdminRequest } from '@/lib/admin-server';
 
-const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST || 'https://us.i.posthog.com';
+const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
 const POSTHOG_API_KEY = process.env.POSTHOG_PERSONAL_API_KEY;
-const POSTHOG_PROJECT_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+const POSTHOG_PROJECT_KEY = process.env.POSTHOG_KEY;
 
 async function posthogQuery(query: string) {
   if (!POSTHOG_API_KEY) return null;
