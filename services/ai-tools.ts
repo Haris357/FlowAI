@@ -3251,10 +3251,11 @@ async function changeInvoiceStatus(args: Record<string, any>, companyId: string)
     // Show allowed transitions if requested
     if (!newStatus || newStatus === 'help' || newStatus === '?') {
       const allowedStatuses = getAllowedTransitions('invoice', currentStatus);
+      const displayId = invoice.invoiceNumber || invoiceId;
       if (allowedStatuses.length === 0) {
         return {
           success: true,
-          message: `Invoice **${invoiceId}** is currently **${formatStatus('invoice', currentStatus)}**. No status changes are allowed from this status.`,
+          message: `Invoice **${displayId}** is currently **${formatStatus('invoice', currentStatus)}**. No status changes are allowed from this status.`,
         };
       }
 
@@ -3265,7 +3266,7 @@ async function changeInvoiceStatus(args: Record<string, any>, companyId: string)
 
       return {
         success: true,
-        message: `Invoice **${invoiceId}** is currently **${formatStatus('invoice', currentStatus)}**.\n\nYou can change it to:\n${statusList}`,
+        message: `Invoice **${displayId}** is currently **${formatStatus('invoice', currentStatus)}**.\n\nYou can change it to:\n${statusList}`,
         followUp: 'Which status would you like to set?',
       };
     }
@@ -3288,7 +3289,8 @@ async function changeInvoiceStatus(args: Record<string, any>, companyId: string)
         return { success: false, message: result.error || `Failed to change status to ${newStatus}` };
       }
 
-      let message = `✓ Invoice **${invoiceId}** status changed from **${formatStatus('invoice', currentStatus)}** to **${formatStatus('invoice', newStatus)}**`;
+      const displayInvoiceId = invoice.invoiceNumber || invoiceId;
+      let message = `✓ Invoice **${displayInvoiceId}** status changed from **${formatStatus('invoice', currentStatus)}** to **${formatStatus('invoice', newStatus)}**`;
       if (result.emailSent) {
         message += ` Notification email sent to **${invoice.customerEmail}**.`;
       }
@@ -3319,7 +3321,7 @@ async function changeInvoiceStatus(args: Record<string, any>, companyId: string)
       await updateInvoiceStatus(companyId, invoiceDoc.id, newStatus);
       return {
         success: true,
-        message: `✓ Invoice **${invoiceId}** status changed to **${formatStatus('invoice', newStatus)}** (accounting entries may not have been created)`,
+        message: `✓ Invoice **${invoice.invoiceNumber || invoiceId}** status changed to **${formatStatus('invoice', newStatus)}** (accounting entries may not have been created)`,
         data: {
           type: 'entity',
           entityType: 'invoice',

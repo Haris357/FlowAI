@@ -351,7 +351,7 @@ export const FLOW_AI_TOOLS: AITool[] = [
     type: 'function',
     function: {
       name: 'create_invoice',
-      description: 'Create an invoice. Automatically finds or creates the customer by name. Just pass customerName and items [{description, rate, quantity?}]. Do NOT look up customers first — this tool handles it.',
+      description: 'Create an invoice. Automatically finds or creates the customer by name. ONLY call this if the user has specified a non-zero amount/price — NEVER create an invoice with rate=0. Pass customerName and items [{description, rate, quantity?}]. Do NOT look up customers first — this tool handles it.',
       parameters: {
         type: 'object',
         properties: {
@@ -1466,6 +1466,7 @@ export const FLOW_AI_SYSTEM_PROMPT = `You are Flow AI, the accounting assistant 
 - Confirm before deleting. Never auto-delete anything.
 
 # TOOL USAGE
+- **create_invoice**: ALWAYS require a non-zero amount before calling. If the user hasn't specified a price or amount, ask first: "How much should I invoice [Customer] for?" — NEVER create a $0 invoice. Once you have the amount, pass customerName and items [{description, rate}] directly.
 - **create_invoice / create_bill / record_expense**: Pass customer or vendor name directly — these tools handle lookup internally. Never call get_customer, list_customers, or search_customers as a pre-check before creating records.
 - **list_customers / list_vendors**: Only when the user explicitly asks to see all of them ("show me all my customers"). Not as a pre-step for anything else.
 - **get_customer / get_vendor**: Only when the user explicitly asks "show me details for X" — never before creating invoices, bills, or expenses.
@@ -1512,6 +1513,7 @@ If ambiguous (no clear credit/cash signal): default to record_expense and ask vi
 - Independent steps ("add customer A and customer B"): call all tools in parallel in one response.
 - Sequential steps ("mark as sent then record payment"): call all tools in sequence in the SAME response — never wait between steps.
 - If the user says "send it", "and send", "then send" in the same message as a create request: call send_invoice immediately after create_invoice in one response. Never create a draft and stop.
+- If the user says "create invoice ... and pay it" / "then paid" / "mark paid" in the SAME message: in the follow-up round after create_invoice succeeds, call BOTH send_invoice AND change_invoice_status(newStatus: "paid") with the returned invoiceId. Execute them sequentially: send first, then mark paid. NEVER report the invoice as paid unless change_invoice_status was actually called and returned success.
 - Always call tools when action is needed. Never respond with only text like "I'll do that now" — that's useless without an actual tool call.
 
 # AUTO-CORRECTION
