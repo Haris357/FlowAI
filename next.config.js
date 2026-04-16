@@ -19,9 +19,10 @@ const nextConfig = {
   async headers() {
     // In dev, Next.js HMR (React Fast Refresh) requires 'unsafe-eval'.
     // In production it is not needed — keep it out for a tighter policy.
+    // PostHog dynamically loads scripts (session recording, feature flags) from us-assets.i.posthog.com.
     const scriptSrc = isDev
-      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval'"
-      : "script-src 'self' 'unsafe-inline'";
+      ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com https://us-assets.i.posthog.com"
+      : "script-src 'self' 'unsafe-inline' https://apis.google.com https://us-assets.i.posthog.com";
 
     return [
       {
@@ -43,8 +44,8 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              // Google APIs script needed for Firebase Google Sign-In popup
-              `${scriptSrc} https://apis.google.com`,
+              // Google APIs (Firebase Sign-In) + PostHog dynamic scripts
+              scriptSrc,
               "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
               "font-src 'self' https://fonts.gstatic.com data:",
               // Google user profile photos from lh3.googleusercontent.com
