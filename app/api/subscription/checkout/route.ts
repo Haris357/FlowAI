@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const err = await response.text();
       console.error(`[Checkout] Lemon Squeezy error (${response.status}):`, err);
-      console.error(`[Checkout] Used variantId: ${variantId}, storeId: ${storeId}`);
+      console.error(`[Checkout] variantId="${variantId}" storeId="${storeId}" planId="${planId}" isYearly=${isYearly}`);
       return NextResponse.json({ error: 'Failed to create checkout' }, { status: 500 });
     }
 
