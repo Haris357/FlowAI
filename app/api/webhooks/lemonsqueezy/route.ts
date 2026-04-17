@@ -2,9 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
-import { getPlanByVariantId } from '@/lib/plans';
+import { getPlanByVariantId, PLANS } from '@/lib/plans';
 import { sendEmail } from '@/lib/email';
-import { getEmailTemplate } from '@/lib/email-templates';
+import { getEmailTemplate, EmailTemplateData, EmailTemplateType } from '@/lib/email-templates';
+import {
+  generateSubscriptionInvoicePdf,
+  makeSubscriptionInvoiceNumber,
+  SubscriptionInvoiceData,
+} from '@/lib/subscription-invoice-pdf';
 
 initAdmin();
 const adminDb = getFirestore();
@@ -75,9 +80,13 @@ export async function POST(request: NextRequest) {
           break;
         }
 
-        // Get existing subscription to preserve trial timestamps for audit
         const existingUserDoc = await adminDb.doc(`users/${userId}`).get();
         const existingSub = existingUserDoc.data()?.subscription || {};
+
+        const periodStart = Timestamp.now();
+        const periodEnd = attrs.renews_at ? Timestamp.fromDate(new Date(attrs.renews_at)) : null;
+        const billingPeriod = getBillingPeriodFromVariant(plan, variantId);
+        const effectivePrice = getEffectivePrice(plan, billingPeriod);
 
         await adminDb.doc(`users/${userId}`).update({
           subscription: {
@@ -86,37 +95,71 @@ export async function POST(request: NextRequest) {
             lemonSqueezyCustomerId: String(attrs.customer_id || ''),
             lemonSqueezySubscriptionId: String(payload.data?.id || ''),
             lemonSqueezyVariantId: variantId,
-            currentPeriodStart: Timestamp.now(),
-            currentPeriodEnd: attrs.renews_at ? Timestamp.fromDate(new Date(attrs.renews_at)) : null,
+            currentPeriodStart: periodStart,
+            currentPeriodEnd: periodEnd,
             cancelAt: null,
-            // Preserve trial start for audit, clear trial end (no longer trialing)
             trialStartedAt: existingSub.trialStartedAt || null,
             trialEndsAt: null,
+            billingPeriod,
             createdAt: existingSub.createdAt || Timestamp.now(),
             updatedAt: Timestamp.now(),
           },
         });
 
+        const orderId = String(payload.data?.id || eventId);
+        const invoiceNumber = makeSubscriptionInvoiceNumber(orderId);
+
         await addBillingEvent(userId, {
           type: 'subscription_created',
           description: `Subscribed to ${plan.name} plan`,
-          amount: plan.price,
+          amount: effectivePrice,
           currency: 'USD',
           lemonSqueezyEventId: eventId,
           invoiceUrl: attrs.urls?.customer_portal || null,
+          invoiceNumber,
         });
 
-        // Send subscription confirmation email + payment receipt
-        notifyUser(userId, 'payment_receipt', {
-          amount: `$${plan.price.toFixed(2)}`,
-          planName: plan.name,
-          invoiceId: eventId,
-        }, {
-          type: 'success',
-          title: `Welcome to ${plan.name}!`,
-          message: `Your ${plan.name} subscription is now active. Enjoy your upgraded features!`,
-          category: 'subscription',
-        });
+        const user = await getUserInfo(userId);
+        const attachments = user
+          ? await buildInvoiceAttachment({
+              invoiceNumber,
+              issueDate: new Date(),
+              paidDate: new Date(),
+              billingPeriodStart: periodStart.toDate(),
+              billingPeriodEnd: periodEnd?.toDate() ?? null,
+              customerName: user.name,
+              customerEmail: user.email,
+              customerAddress: null,
+              planName: plan.name,
+              billingPeriod,
+              subtotal: effectivePrice,
+              tax: 0,
+              total: effectivePrice,
+              paymentMethod: attrs.card_brand
+                ? `${capitalize(attrs.card_brand)} ending in ${attrs.card_last_four || '****'}`
+                : null,
+              lemonSqueezyOrderId: orderId,
+            })
+          : undefined;
+
+        await notifyUser(
+          userId,
+          'subscription_started',
+          {
+            planName: plan.name,
+            amount: `$${effectivePrice.toFixed(2)}`,
+            billingPeriod,
+            renewalDate: fmtDate(periodEnd?.toDate()),
+            invoiceNumber,
+          },
+          {
+            type: 'success',
+            title: `Welcome to ${plan.name}!`,
+            message: `Your ${plan.name} subscription is now active. Enjoy your upgraded features!`,
+            category: 'subscription',
+          },
+          attachments,
+        );
         break;
       }
 
@@ -124,6 +167,9 @@ export async function POST(request: NextRequest) {
         const variantId = String(attrs.variant_id);
         const plan = getPlanByVariantId(variantId);
         const status = mapLSStatus(attrs.status);
+
+        const prevSnap = await adminDb.doc(`users/${userId}`).get();
+        const prevPlanId = prevSnap.data()?.subscription?.planId;
 
         const updateData: Record<string, any> = {
           'subscription.status': status,
@@ -135,13 +181,13 @@ export async function POST(request: NextRequest) {
         if (plan) {
           updateData['subscription.planId'] = plan.id;
           updateData['subscription.lemonSqueezyVariantId'] = variantId;
+          updateData['subscription.billingPeriod'] = getBillingPeriodFromVariant(plan, variantId);
         }
 
         if (attrs.renews_at) {
           updateData['subscription.currentPeriodEnd'] = Timestamp.fromDate(new Date(attrs.renews_at));
         }
 
-        // Clear trial fields when subscription becomes active
         if (status === 'active') {
           updateData['subscription.trialEndsAt'] = null;
         }
@@ -157,23 +203,35 @@ export async function POST(request: NextRequest) {
           invoiceUrl: null,
         });
 
-        // Send plan change email if plan changed
-        if (plan) {
-          notifyUser(userId, 'plan_changed', {
-            planName: plan.name,
-            previousPlan: 'Previous Plan',
-          }, {
-            type: 'info',
-            title: 'Plan Updated',
-            message: `Your subscription has been updated to the ${plan.name} plan.`,
-            category: 'subscription',
-          });
+        // Only send plan_changed email if plan actually changed
+        if (plan && prevPlanId && prevPlanId !== plan.id) {
+          const prevPlan = PLANS[prevPlanId as keyof typeof PLANS];
+          await notifyUser(
+            userId,
+            'plan_changed',
+            {
+              planName: plan.name,
+              previousPlan: prevPlan?.name || 'Previous Plan',
+            },
+            {
+              type: 'info',
+              title: 'Plan Updated',
+              message: `Your subscription has been updated to the ${plan.name} plan.`,
+              category: 'subscription',
+            },
+          );
         }
         break;
       }
 
       case 'subscription_cancelled': {
+        // In Lemon Squeezy, "cancelled" schedules end-of-period termination.
+        // The subscription remains usable until `ends_at`.
         const endsAt = attrs.ends_at ? Timestamp.fromDate(new Date(attrs.ends_at)) : null;
+
+        const snap = await adminDb.doc(`users/${userId}`).get();
+        const planId = snap.data()?.subscription?.planId;
+        const plan = PLANS[planId as keyof typeof PLANS];
 
         await adminDb.doc(`users/${userId}`).update({
           'subscription.status': 'cancelled',
@@ -183,58 +241,98 @@ export async function POST(request: NextRequest) {
 
         await addBillingEvent(userId, {
           type: 'subscription_cancelled',
-          description: 'Subscription cancelled',
+          description: 'Subscription cancelled — access continues until period end',
           amount: 0,
           currency: 'USD',
           lemonSqueezyEventId: eventId,
           invoiceUrl: null,
         });
 
-        // Send cancellation email
-        notifyUser(userId, 'subscription_cancelled', {
-          planName: 'your plan',
-        }, {
-          type: 'warning',
-          title: 'Subscription Cancelled',
-          message: 'Your subscription has been cancelled. You can resubscribe anytime from your billing settings.',
-          category: 'subscription',
-        });
+        await notifyUser(
+          userId,
+          'subscription_cancelled_scheduled',
+          {
+            planName: plan?.name || 'your plan',
+            endDate: fmtDate(endsAt?.toDate()),
+          },
+          {
+            type: 'warning',
+            title: 'Subscription Cancelled',
+            message: `Your subscription will end on ${fmtDate(endsAt?.toDate())}. You can resume anytime before then.`,
+            category: 'subscription',
+          },
+        );
         break;
       }
 
       case 'subscription_resumed': {
+        const snap = await adminDb.doc(`users/${userId}`).get();
+        const planId = snap.data()?.subscription?.planId;
+        const plan = PLANS[planId as keyof typeof PLANS];
+
         await adminDb.doc(`users/${userId}`).update({
           'subscription.status': 'active',
           'subscription.cancelAt': null,
           'subscription.updatedAt': Timestamp.now(),
         });
 
-        notifyUser(userId, 'custom', {
-          customSubject: 'Your Flowbooks subscription has been resumed',
-          customMessage: 'Great news! Your subscription is active again. All premium features have been restored. Thank you for continuing with Flowbooks!',
-        }, {
-          type: 'success',
-          title: 'Subscription Resumed',
-          message: 'Your subscription is active again. All features have been restored.',
-          category: 'subscription',
-        });
+        await notifyUser(
+          userId,
+          'subscription_resumed',
+          {
+            planName: plan?.name || 'your plan',
+            renewalDate: fmtDate(attrs.renews_at ? new Date(attrs.renews_at) : null),
+          },
+          {
+            type: 'success',
+            title: 'Subscription Resumed',
+            message: 'Your subscription is active again. All features have been restored.',
+            category: 'subscription',
+          },
+        );
         break;
       }
 
+      case 'subscription_expired': {
+        // Fires when a cancelled subscription's period actually ends
+        const snap = await adminDb.doc(`users/${userId}`).get();
+        const planId = snap.data()?.subscription?.planId;
+        const plan = PLANS[planId as keyof typeof PLANS];
+
+        await adminDb.doc(`users/${userId}`).update({
+          'subscription.status': 'ended',
+          'subscription.planId': 'free',
+          'subscription.updatedAt': Timestamp.now(),
+        });
+
+        await addBillingEvent(userId, {
+          type: 'subscription_ended',
+          description: 'Subscription period ended — moved to Free plan',
+          amount: 0,
+          currency: 'USD',
+          lemonSqueezyEventId: eventId,
+          invoiceUrl: null,
+        });
+
+        await notifyUser(
+          userId,
+          'subscription_ended',
+          { planName: plan?.name || 'your plan' },
+          {
+            type: 'warning',
+            title: 'Subscription Ended',
+            message: 'Your subscription has ended. You can resubscribe anytime to restore full access.',
+            category: 'subscription',
+          },
+        );
+        break;
+      }
+
+      // Paused/unpaused still persisted for accuracy, but no emails are sent.
       case 'subscription_paused': {
         await adminDb.doc(`users/${userId}`).update({
           'subscription.status': 'paused',
           'subscription.updatedAt': Timestamp.now(),
-        });
-
-        notifyUser(userId, 'custom', {
-          customSubject: 'Your Flowbooks subscription has been paused',
-          customMessage: 'Your subscription is now paused. You won\'t be charged during this time. You can resume your subscription anytime from your billing settings.',
-        }, {
-          type: 'warning',
-          title: 'Subscription Paused',
-          message: 'Your subscription has been paused. Resume anytime from billing settings.',
-          category: 'subscription',
         });
         break;
       }
@@ -244,52 +342,104 @@ export async function POST(request: NextRequest) {
           'subscription.status': 'active',
           'subscription.updatedAt': Timestamp.now(),
         });
-
-        notifyUser(userId, 'custom', {
-          customSubject: 'Your Flowbooks subscription has been unpaused',
-          customMessage: 'Your subscription is active again! All premium features have been restored.',
-        }, {
-          type: 'success',
-          title: 'Subscription Unpaused',
-          message: 'Your subscription is active again. All features restored.',
-          category: 'subscription',
-        });
         break;
       }
 
       case 'subscription_payment_success': {
+        const variantId = String(attrs.variant_id);
+        const plan = getPlanByVariantId(variantId);
+
+        const periodStart = Timestamp.now();
+        const periodEnd = attrs.renews_at ? Timestamp.fromDate(new Date(attrs.renews_at)) : null;
+
         await adminDb.doc(`users/${userId}`).update({
           'subscription.status': 'active',
           'subscription.trialEndsAt': null,
-          'subscription.currentPeriodStart': Timestamp.now(),
-          'subscription.currentPeriodEnd': attrs.renews_at
-            ? Timestamp.fromDate(new Date(attrs.renews_at))
-            : null,
+          'subscription.currentPeriodStart': periodStart,
+          'subscription.currentPeriodEnd': periodEnd,
           'subscription.updatedAt': Timestamp.now(),
         });
 
         const paymentAmount = parseFloat(attrs.total || '0') / 100;
+        const orderId = String(attrs.order_id || payload.data?.id || eventId);
+        const invoiceNumber = makeSubscriptionInvoiceNumber(orderId);
 
         await addBillingEvent(userId, {
           type: 'subscription_renewed',
-          description: 'Subscription payment successful',
+          description: `${plan?.name || 'Subscription'} renewed`,
           amount: paymentAmount,
           currency: 'USD',
           lemonSqueezyEventId: eventId,
           invoiceUrl: attrs.urls?.invoice || null,
+          invoiceNumber,
         });
 
-        // Send payment receipt email
-        notifyUser(userId, 'payment_receipt', {
-          amount: `$${paymentAmount.toFixed(2)}`,
-          planName: 'Flowbooks',
-          invoiceId: eventId,
-        }, {
-          type: 'success',
-          title: 'Payment Received',
-          message: `Your payment of $${paymentAmount.toFixed(2)} has been processed successfully.`,
-          category: 'subscription',
-        });
+        // Determine whether this is the first payment (created event already
+        // sent the welcome email) or a renewal — skip email if we just emitted
+        // subscription_created for the same order.
+        const recentCreated = await adminDb
+          .collection(`users/${userId}/billingHistory`)
+          .where('type', '==', 'subscription_created')
+          .orderBy('createdAt', 'desc')
+          .limit(1)
+          .get();
+
+        const firstPayment = !recentCreated.empty &&
+          (Date.now() - (recentCreated.docs[0].data().createdAt?.toMillis?.() || 0)) < 60_000;
+
+        if (firstPayment) {
+          // The 'subscription_started' email already went out — no double email.
+          break;
+        }
+
+        const user = await getUserInfo(userId);
+        const planName = plan?.name || 'Flowbooks';
+        const billingPeriod: 'monthly' | 'yearly' = plan
+          ? getBillingPeriodFromVariant(plan, variantId)
+          : 'monthly';
+        const attachments = user
+          ? await buildInvoiceAttachment({
+              invoiceNumber,
+              issueDate: new Date(),
+              paidDate: new Date(),
+              billingPeriodStart: periodStart.toDate(),
+              billingPeriodEnd: periodEnd?.toDate() ?? null,
+              customerName: user.name,
+              customerEmail: user.email,
+              customerAddress: null,
+              planName,
+              billingPeriod,
+              subtotal: paymentAmount,
+              tax: 0,
+              total: paymentAmount,
+              paymentMethod: attrs.card_brand
+                ? `${capitalize(attrs.card_brand)} ending in ${attrs.card_last_four || '****'}`
+                : null,
+              lemonSqueezyOrderId: orderId,
+            })
+          : undefined;
+
+        await notifyUser(
+          userId,
+          'subscription_renewed',
+          {
+            planName,
+            amount: `$${paymentAmount.toFixed(2)}`,
+            billingPeriod,
+            renewalDate: fmtDate(periodEnd?.toDate()),
+            invoiceNumber,
+            paymentMethod: attrs.card_brand
+              ? `${capitalize(attrs.card_brand)} ending in ${attrs.card_last_four || '****'}`
+              : undefined,
+          },
+          {
+            type: 'success',
+            title: 'Payment Received',
+            message: `Your payment of $${paymentAmount.toFixed(2)} has been processed successfully.`,
+            category: 'subscription',
+          },
+          attachments,
+        );
         break;
       }
 
@@ -308,22 +458,31 @@ export async function POST(request: NextRequest) {
           invoiceUrl: null,
         });
 
-        // Send payment failed warning email
-        notifyUser(userId, 'account_warning', {
-          warningType: 'Payment Failed',
-          warningMessage: 'Your latest subscription payment could not be processed. Please update your payment method to avoid service interruption. Visit your billing settings to resolve this issue.',
-        }, {
-          type: 'warning',
-          title: 'Payment Failed',
-          message: 'Your subscription payment failed. Please update your payment method to continue your service.',
-          category: 'subscription',
-        });
+        const snap = await adminDb.doc(`users/${userId}`).get();
+        const planId = snap.data()?.subscription?.planId;
+        const plan = PLANS[planId as keyof typeof PLANS];
+
+        await notifyUser(
+          userId,
+          'subscription_payment_failed',
+          {
+            planName: plan?.name || 'your plan',
+            failureReason: attrs.status_formatted || 'the card on file was declined',
+            updatePaymentUrl: attrs.urls?.update_payment_method || 'https://flowbooks.app/settings/billing',
+          },
+          {
+            type: 'warning',
+            title: 'Payment Failed',
+            message: 'Your subscription payment failed. Please update your payment method to continue your service.',
+            category: 'subscription',
+          },
+        );
         break;
       }
 
       // ── Order Events ──
       case 'order_created': {
-        console.log(`[LS Webhook] Unhandled order_created event for user ${userId}`);
+        console.log(`[LS Webhook] order_created for user ${userId} (logged only — subscription_created handles activation)`);
         break;
       }
 
@@ -339,16 +498,24 @@ export async function POST(request: NextRequest) {
           invoiceUrl: null,
         });
 
-        // Send refund notification email
-        notifyUser(userId, 'custom', {
-          customSubject: 'Refund Processed — Flowbooks',
-          customMessage: `A refund of $${refundAmount.toFixed(2)} has been processed for your account. Please allow 3–5 business days for the amount to appear in your payment method.\n\nIf you have any questions about this refund, please contact our support team.`,
-        }, {
-          type: 'info',
-          title: 'Refund Processed',
-          message: `A refund of $${refundAmount.toFixed(2)} has been processed to your account.`,
-          category: 'subscription',
-        });
+        const snap = await adminDb.doc(`users/${userId}`).get();
+        const planId = snap.data()?.subscription?.planId;
+        const plan = PLANS[planId as keyof typeof PLANS];
+
+        await notifyUser(
+          userId,
+          'subscription_refunded',
+          {
+            planName: plan?.name || 'your plan',
+            refundAmount: `$${refundAmount.toFixed(2)}`,
+          },
+          {
+            type: 'info',
+            title: 'Refund Processed',
+            message: `A refund of $${refundAmount.toFixed(2)} has been processed to your account.`,
+            category: 'subscription',
+          },
+        );
         break;
       }
 
@@ -367,6 +534,23 @@ export async function POST(request: NextRequest) {
 // HELPERS
 // ==========================================
 
+/** Determine whether a given variant id corresponds to monthly or yearly billing. */
+function getBillingPeriodFromVariant(
+  plan: { lemonSqueezyVariantId?: string; yearlyLemonSqueezyVariantId?: string },
+  variantId: string,
+): 'monthly' | 'yearly' {
+  return plan.yearlyLemonSqueezyVariantId && plan.yearlyLemonSqueezyVariantId === variantId
+    ? 'yearly'
+    : 'monthly';
+}
+
+function getEffectivePrice(
+  plan: { price: number; yearlyPrice?: number },
+  period: 'monthly' | 'yearly',
+): number {
+  return period === 'yearly' && plan.yearlyPrice ? plan.yearlyPrice : plan.price;
+}
+
 function mapLSStatus(lsStatus: string): string {
   const map: Record<string, string> = {
     active: 'active',
@@ -374,10 +558,41 @@ function mapLSStatus(lsStatus: string): string {
     past_due: 'past_due',
     paused: 'paused',
     on_trial: 'trialing',
-    expired: 'cancelled',
+    expired: 'ended',
     unpaid: 'past_due',
   };
   return map[lsStatus] || 'active';
+}
+
+function fmtDate(d?: Date | null): string {
+  if (!d) return '—';
+  try {
+    return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+  } catch {
+    return '—';
+  }
+}
+
+function capitalize(s: string): string {
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+async function buildInvoiceAttachment(
+  data: SubscriptionInvoiceData,
+): Promise<Array<{ filename: string; content: Buffer; contentType?: string }> | undefined> {
+  try {
+    const pdf = generateSubscriptionInvoicePdf(data);
+    return [
+      {
+        filename: `${data.invoiceNumber}.pdf`,
+        content: pdf,
+        contentType: 'application/pdf',
+      },
+    ];
+  } catch (err) {
+    console.error('[LS Webhook] Failed to generate invoice PDF:', err);
+    return undefined;
+  }
 }
 
 async function addBillingEvent(userId: string, event: {
@@ -387,6 +602,7 @@ async function addBillingEvent(userId: string, event: {
   currency: string;
   lemonSqueezyEventId: string;
   invoiceUrl: string | null;
+  invoiceNumber?: string;
 }) {
   await adminDb.collection(`users/${userId}/billingHistory`).add({
     ...event,
@@ -412,16 +628,17 @@ async function getUserInfo(userId: string): Promise<{ email: string; name: strin
 /** Send an email + in-app notification (non-blocking, won't fail the webhook) */
 async function notifyUser(
   userId: string,
-  templateType: Parameters<typeof getEmailTemplate>[0],
-  templateData: Parameters<typeof getEmailTemplate>[1],
+  templateType: EmailTemplateType,
+  templateData: EmailTemplateData,
   notification: { type: 'info' | 'success' | 'warning'; title: string; message: string; category: string },
+  attachments?: Array<{ filename: string; content: Buffer; contentType?: string }>,
 ) {
   try {
     const user = await getUserInfo(userId);
     if (!user?.email) return;
 
     const { subject, html } = getEmailTemplate(templateType, { ...templateData, userName: user.name });
-    await sendEmail(user.email, subject, html);
+    await sendEmail(user.email, subject, html, attachments);
 
     await adminDb.collection(`users/${userId}/notifications`).add({
       ...notification,

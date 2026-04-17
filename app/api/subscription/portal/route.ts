@@ -16,36 +16,65 @@ export async function POST(request: NextRequest) {
     const userDoc = await adminDb.doc(`users/${userId}`).get();
     const userData = userDoc.data();
     const subscriptionId = userData?.subscription?.lemonSqueezySubscriptionId;
+    const customerId = userData?.subscription?.lemonSqueezyCustomerId;
 
-    if (!subscriptionId) {
+    if (!subscriptionId && !customerId) {
       return NextResponse.json({ error: 'No active subscription found' }, { status: 404 });
     }
 
     const apiKey = process.env.LEMON_SQUEEZY_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: 'Lemon Squeezy not configured' }, { status: 500 });
+      console.error('[Portal] LEMON_SQUEEZY_API_KEY is not set');
+      return NextResponse.json({ error: 'Payment portal is not configured' }, { status: 500 });
     }
 
-    // Get subscription details to find customer portal URL
-    const response = await fetch(
-      `https://api.lemonsqueezy.com/v1/subscriptions/${subscriptionId}`,
-      {
-        headers: {
-          'Accept': 'application/vnd.api+json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
+    const lsHeaders = {
+      Accept: 'application/vnd.api+json',
+      Authorization: `Bearer ${apiKey}`,
+    } as const;
+
+    let portalUrl: string | null = null;
+
+    // Try to get a signed URL from the subscription first (most reliable)
+    if (subscriptionId) {
+      const subRes = await fetch(
+        `https://api.lemonsqueezy.com/v1/subscriptions/${subscriptionId}`,
+        { headers: lsHeaders },
+      );
+      if (!subRes.ok) {
+        const text = await subRes.text().catch(() => '');
+        console.error(`[Portal] Subscription fetch failed (${subRes.status}):`, text);
+      } else {
+        const result = await subRes.json();
+        const urls = result?.data?.attributes?.urls || {};
+        portalUrl =
+          urls.customer_portal ||
+          urls.customer_portal_update_subscription ||
+          urls.update_payment_method ||
+          null;
       }
-    );
-
-    if (!response.ok) {
-      return NextResponse.json({ error: 'Failed to fetch subscription' }, { status: 500 });
     }
 
-    const result = await response.json();
-    const portalUrl = result.data?.attributes?.urls?.customer_portal;
+    // Fall back to the customer-level portal
+    if (!portalUrl && customerId) {
+      const custRes = await fetch(
+        `https://api.lemonsqueezy.com/v1/customers/${customerId}`,
+        { headers: lsHeaders },
+      );
+      if (!custRes.ok) {
+        const text = await custRes.text().catch(() => '');
+        console.error(`[Portal] Customer fetch failed (${custRes.status}):`, text);
+      } else {
+        const result = await custRes.json();
+        portalUrl = result?.data?.attributes?.urls?.customer_portal || null;
+      }
+    }
 
     if (!portalUrl) {
-      return NextResponse.json({ error: 'Customer portal URL not available' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'Billing portal is not available for this subscription yet. Please try again in a minute.' },
+        { status: 404 },
+      );
     }
 
     return NextResponse.json({ portalUrl });

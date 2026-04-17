@@ -291,7 +291,7 @@ export default function CompaniesPage() {
 
   const handleSelectCompany = async (company: CompanyData) => {
     if (isTrial && trialExpired) {
-      openSettings('subscription');
+      router.push('/settings/billing');
       return;
     }
     if (!company.accountsCreated) {
@@ -497,7 +497,7 @@ export default function CompaniesPage() {
                   {[PLANS.pro, PLANS.max].map(p => (
                     <Box
                       key={p.id}
-                      onClick={() => openSettings('subscription')}
+                      onClick={() => router.push('/settings/billing')}
                       sx={{
                         flex: 1, p: 2, borderRadius: '12px', cursor: 'pointer',
                         border: p.id === 'pro' ? '2px solid #D97757' : '1px solid',
@@ -534,7 +534,7 @@ export default function CompaniesPage() {
                   fullWidth
                   size="lg"
                   endDecorator={<ArrowRight size={16} />}
-                  onClick={() => openSettings('subscription')}
+                  onClick={() => router.push('/settings/billing')}
                   sx={{
                     borderRadius: '10px', fontWeight: 700, py: 1.25,
                     background: 'linear-gradient(135deg, #D97757 0%, #C4694D 100%)',

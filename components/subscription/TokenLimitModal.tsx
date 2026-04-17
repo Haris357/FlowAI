@@ -5,8 +5,8 @@ import {
 } from '@mui/joy';
 import { AlertTriangle, Zap, ArrowRight, Check, Crown, Clock } from 'lucide-react';
 import { useSubscription } from '@/contexts/SubscriptionContext';
-import { useSettingsModal } from '@/contexts/SettingsModalContext';
 import { useChat } from '@/contexts/ChatContext';
+import { useRouter } from 'next/navigation';
 import { PLANS, formatMessages, getPlan } from '@/lib/plans';
 
 function getUpgradeFeatures(currentPlanId: string, isTrial: boolean): string[] {
@@ -36,7 +36,7 @@ function getUpgradeFeatures(currentPlanId: string, isTrial: boolean): string[] {
 export default function TokenLimitModal() {
   const { messageLimitReached, dismissMessageLimit } = useChat();
   const { plan, usage, blockedBy, sessionRemaining, weeklyRemaining, sessionTimeLeft, isTrial, isTrialExpired: trialExpired, trialTimeLeft } = useSubscription();
-  const { openSettings } = useSettingsModal();
+  const router = useRouter();
 
   if (!messageLimitReached) return null;
 
@@ -48,7 +48,7 @@ export default function TokenLimitModal() {
 
   const handleUpgrade = () => {
     dismissMessageLimit();
-    openSettings('subscription');
+    router.push('/settings/billing');
   };
 
   // Determine header text

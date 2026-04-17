@@ -525,7 +525,18 @@ export type EmailTemplateType =
   | 'newsletter'
   | 'feedback_acknowledged'
   | 'ticket_in_progress'
-  | 'message_reset';
+  | 'message_reset'
+  // Subscription lifecycle (Lemon Squeezy)
+  | 'subscription_started'
+  | 'subscription_renewed'
+  | 'subscription_cancelled_scheduled'
+  | 'subscription_ended'
+  | 'subscription_renewal_reminder'
+  | 'subscription_resumed'
+  | 'subscription_payment_failed'
+  | 'subscription_refunded'
+  | 'trial_ending'
+  | 'trial_expired';
 
 export interface EmailTemplateData {
   userName?: string;
@@ -561,6 +572,17 @@ export interface EmailTemplateData {
   feedbackResponse?: string;
   // Message reset
   weeklyMessageLimit?: string; // @deprecated — kept for template compatibility
+  // Subscription lifecycle
+  invoiceNumber?: string;
+  billingPeriod?: 'monthly' | 'yearly';
+  renewalDate?: string;        // ISO or pretty
+  endDate?: string;            // ISO or pretty
+  nextRenewalAmount?: string;  // e.g. "$29.00"
+  paymentMethod?: string;      // e.g. "Visa ending in 4242"
+  updatePaymentUrl?: string;
+  trialEndDate?: string;
+  refundAmount?: string;
+  failureReason?: string;
 }
 
 export interface EmailTemplateResult {
@@ -920,6 +942,157 @@ function pReceiptRow(label: string, value: string, isBold = false, valueColor = 
                       </tr>`;
 }
 
+// ==========================================
+// ICON LIBRARY — inline SVGs for email
+// Embedded inline so no external asset fetches are needed.
+// Renders in Gmail, Apple Mail, Outlook Web, Fastmail, etc.
+// Outlook Desktop falls back gracefully to the colored badge.
+// ==========================================
+
+type IconName =
+  | 'check-circle'
+  | 'x-circle'
+  | 'credit-card'
+  | 'receipt'
+  | 'calendar'
+  | 'clock'
+  | 'sparkles'
+  | 'alert-triangle'
+  | 'refresh'
+  | 'crown'
+  | 'heart'
+  | 'mail'
+  | 'arrow-right'
+  | 'shield'
+  | 'info';
+
+function iconSvg(name: IconName, color: string, size = 20): string {
+  const s = `width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:block;"`;
+  switch (name) {
+    case 'check-circle':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`;
+    case 'x-circle':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`;
+    case 'credit-card':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>`;
+    case 'receipt':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><path d="M4 2v20l3-2 3 2 3-2 3 2 3-2V2"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="17" x2="13" y2="17"/></svg>`;
+    case 'calendar':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`;
+    case 'clock':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`;
+    case 'sparkles':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><path d="M12 3l1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9z"/><path d="M19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>`;
+    case 'alert-triangle':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`;
+    case 'refresh':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>`;
+    case 'crown':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><path d="M2 18h20l-2-12-5 4-5-7-5 7-5-4z"/><line x1="2" y1="22" x2="22" y2="22"/></svg>`;
+    case 'heart':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>`;
+    case 'mail':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>`;
+    case 'arrow-right':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>`;
+    case 'shield':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>`;
+    case 'info':
+      return `<svg xmlns="http://www.w3.org/2000/svg" ${s}><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>`;
+  }
+}
+
+/**
+ * Circular colored badge containing an inline SVG icon.
+ * Works as a visual anchor at the top of callout boxes and section headers.
+ */
+function pIconBadge(icon: IconName, bgColor: string, iconColor: string, size = 44): string {
+  const iconSize = Math.round(size * 0.5);
+  return `<div style="display:inline-block;width:${size}px;height:${size}px;background:${bgColor};border-radius:50%;text-align:center;line-height:${size}px;vertical-align:middle;">
+    <div style="display:inline-block;vertical-align:middle;line-height:0;padding-top:${Math.round(size / 2 - iconSize / 2)}px;">${iconSvg(icon, iconColor, iconSize)}</div>
+  </div>`;
+}
+
+/**
+ * Full-width hero callout with an icon badge, title and subtitle.
+ * Used for primary status moments: subscription started, renewed, cancelled, etc.
+ */
+function pHeroCallout(
+  icon: IconName,
+  title: string,
+  subtitle: string,
+  accent: string,
+  accentBg: string,
+): string {
+  return `
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                <tr>
+                  <td style="padding:28px 24px;background:${accentBg};border-radius:12px;text-align:center;border:1px solid ${accent}22;">
+                    <div style="margin:0 auto 14px;">${pIconBadge(icon, '#FFFFFF', accent, 56)}</div>
+                    <h2 style="margin:0;font-size:20px;font-weight:700;color:${C.text};letter-spacing:-0.01em;">${esc(title)}</h2>
+                    <p style="margin:8px 0 0;font-size:14px;color:${C.textMid};line-height:1.6;">${subtitle}</p>
+                  </td>
+                </tr>
+              </table>`;
+}
+
+/**
+ * Section header with an inline icon on the left, for grouping details below.
+ */
+function pSectionHeader(icon: IconName, label: string, color = C.brand): string {
+  return `
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 12px;">
+                <tr>
+                  <td style="vertical-align:middle;padding-right:10px;line-height:0;">${iconSvg(icon, color, 18)}</td>
+                  <td style="vertical-align:middle;">
+                    <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;color:${color};font-weight:700;">${esc(label)}</p>
+                  </td>
+                </tr>
+              </table>`;
+}
+
+/**
+ * Box with an icon on the left and stacked label/value content on the right.
+ * Used for compact info callouts (e.g., renewal date, payment method).
+ */
+function pIconInfoBox(icon: IconName, label: string, value: string, color = C.brand): string {
+  return `
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;">
+                <tr>
+                  <td style="padding:16px 20px;background:${C.brandBg};border-radius:10px;border-left:4px solid ${color};">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td width="40" style="vertical-align:middle;line-height:0;padding-right:14px;">${pIconBadge(icon, '#FFFFFF', color, 36)}</td>
+                        <td style="vertical-align:middle;">
+                          <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:${C.textLight};font-weight:600;">${esc(label)}</p>
+                          <p style="margin:4px 0 0;font-size:16px;font-weight:700;color:${C.text};">${value}</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>`;
+}
+
+/**
+ * Icon + text bullet row — replaces pBulletItem when an icon fits better.
+ */
+function pIconBullet(icon: IconName, text: string, color = C.green): string {
+  return `
+                <tr>
+                  <td style="padding:10px 0;">
+                    <table role="presentation" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td width="28" style="vertical-align:top;padding-top:2px;line-height:0;">${iconSvg(icon, color, 18)}</td>
+                        <td style="vertical-align:top;padding-left:4px;">
+                          <p style="margin:0;font-size:14px;color:${C.textMid};line-height:1.6;">${text}</p>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>`;
+}
+
 // ------------------------------------------
 // Individual template functions
 // ------------------------------------------
@@ -1088,24 +1261,9 @@ function tplPaymentReceipt(d: EmailTemplateData): EmailTemplateResult {
 
   const body = `
 ${pGreeting(d.userName)}
-${pParagraph('Thank you for your payment. Here is your receipt for your records.')}
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;border-radius:10px;overflow:hidden;border:1px solid ${C.border};">
-                <!-- Receipt header -->
-                <tr>
-                  <td style="padding:18px 24px;background:${C.slateBg};border-bottom:1px solid ${C.border};">
-                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td>
-                          <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:${C.textLight};font-weight:600;">Payment Receipt</p>
-                        </td>
-                        <td style="text-align:right;">
-                          <span style="display:inline-block;padding:4px 12px;background:${C.greenBg};color:${C.greenDark};font-size:11px;font-weight:700;border-radius:20px;letter-spacing:0.04em;text-transform:uppercase;">Paid</span>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-                <!-- Receipt details -->
+${pHeroCallout('check-circle', 'Payment Received', `Thank you for your payment of <strong>${esc(amount)}</strong>.`, C.green, C.greenBg)}
+${pSectionHeader('receipt', 'Receipt Details', C.brand)}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border-radius:10px;overflow:hidden;border:1px solid ${C.border};">
                 <tr>
                   <td style="padding:20px 24px;">
                     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -1120,7 +1278,7 @@ ${pReceiptRow('Plan', esc(plan))}
                   </td>
                 </tr>
               </table>
-${pParagraph('This payment has been processed and your subscription is active. You can view your full billing history and manage your subscription from your account settings.')}
+${pParagraph('Your subscription is active. You can view your full billing history and manage your subscription from your account settings.')}
 ${pButton('View Billing', 'https://flowbooks.app/settings/billing')}
 ${pSignOff()}`;
 
@@ -1133,21 +1291,12 @@ function tplSubscriptionCancelled(d: EmailTemplateData): EmailTemplateResult {
 
   const body = `
 ${pGreeting(d.userName)}
-${pParagraph(`Your <strong>${esc(plan)}</strong> subscription to Flowbooks has been cancelled.`)}
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0;">
-                <tr>
-                  <td style="padding:24px;background:${C.slateBg};border-radius:10px;border:1px solid ${C.border};text-align:center;">
-                    <p style="margin:0;font-size:11px;text-transform:uppercase;letter-spacing:0.06em;color:${C.textLight};font-weight:600;">Cancelled Plan</p>
-                    <p style="margin:10px 0 0;font-size:22px;font-weight:700;color:${C.slateDark};text-decoration:line-through;">${esc(plan)}</p>
-                    <p style="margin:12px 0 0;font-size:13px;color:${C.textLight};">You have been moved to the Free plan</p>
-                  </td>
-                </tr>
-              </table>
+${pHeroCallout('x-circle', 'Subscription Cancelled', `Your <strong>${esc(plan)}</strong> plan has been cancelled.`, C.slateDark, C.slateBg)}
 ${pParagraph('Here is what this means for your account:')}
               <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
-${pBulletItem('Your data and invoices remain safely stored in your account.')}
-${pBulletItem('Premium features are no longer available on the Free plan.')}
-${pBulletItem('You can resubscribe at any time to regain full access.')}
+${pIconBullet('shield', 'Your data and invoices remain safely stored in your account.', C.green)}
+${pIconBullet('info', 'Premium features are no longer available on the Free plan.', C.slateDark)}
+${pIconBullet('refresh', 'You can resubscribe at any time to regain full access.', C.brand)}
               </table>
 ${pParagraph('We are sorry to see you go. If there is anything we can do to improve your experience, please let us know.')}
 ${pButton('Resubscribe', 'https://flowbooks.app/settings/billing')}
@@ -1287,6 +1436,238 @@ ${pSignOff()}`;
   return { subject, html: pShell(subject, body) };
 }
 
+// ==========================================
+// SUBSCRIPTION LIFECYCLE TEMPLATES
+// ==========================================
+
+function tplSubscriptionStarted(d: EmailTemplateData): EmailTemplateResult {
+  const plan = d.planName || 'Pro';
+  const amount = d.amount || '$0.00';
+  const period = d.billingPeriod === 'yearly' ? 'yearly' : 'monthly';
+  const renewal = d.renewalDate || '—';
+  const invoiceNumber = d.invoiceNumber || '—';
+  const subject = `Welcome to Flowbooks ${plan}`;
+
+  const body = `
+${pGreeting(d.userName)}
+${pHeroCallout('sparkles', `You're on ${plan}!`, `Your subscription is live — thanks for choosing Flowbooks.`, C.brand, C.brandBg)}
+${pParagraph(`Your <strong>${esc(plan)}</strong> plan is now active, billed ${esc(period)} at <strong>${esc(amount)}</strong>. A copy of your invoice is attached to this email.`)}
+
+${pSectionHeader('receipt', 'Subscription Details', C.brand)}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid ${C.border};border-radius:10px;overflow:hidden;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+${pReceiptRow('Plan', esc(plan))}
+${pReceiptRow('Billing', `${period === 'yearly' ? 'Yearly' : 'Monthly'} — ${esc(amount)}`)}
+${pReceiptRow('Next Renewal', esc(renewal))}
+${pReceiptRow('Invoice #', esc(invoiceNumber))}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+${pSectionHeader('crown', 'What\'s unlocked for you', C.brand)}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+${pIconBullet('sparkles', 'Extended AI usage per session and across the week.', C.brand)}
+${pIconBullet('shield', 'All financial reports, payroll, and exports.', C.green)}
+${pIconBullet('crown', 'Higher company and team member allowances.', C.brand)}
+${pIconBullet('mail', 'Priority support when you need a hand.', C.brandDark)}
+              </table>
+
+${pButton('Manage Subscription', 'https://flowbooks.app/settings/billing')}
+${pSignOff()}`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
+function tplSubscriptionRenewed(d: EmailTemplateData): EmailTemplateResult {
+  const plan = d.planName || 'Pro';
+  const amount = d.amount || '$0.00';
+  const period = d.billingPeriod === 'yearly' ? 'yearly' : 'monthly';
+  const renewal = d.renewalDate || '—';
+  const invoiceNumber = d.invoiceNumber || '—';
+  const subject = `Flowbooks ${plan} renewed — ${amount}`;
+
+  const body = `
+${pGreeting(d.userName)}
+${pHeroCallout('check-circle', 'Subscription Renewed', `Your <strong>${esc(plan)}</strong> plan has been renewed for another ${esc(period === 'yearly' ? 'year' : 'month')}.`, C.green, C.greenBg)}
+${pParagraph(`Thanks for continuing with Flowbooks. A PDF invoice is attached to this email for your records.`)}
+
+${pSectionHeader('receipt', 'Renewal Details', C.brand)}
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;border:1px solid ${C.border};border-radius:10px;overflow:hidden;">
+                <tr>
+                  <td style="padding:20px 24px;">
+                    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+${pReceiptRow('Plan', esc(plan))}
+${pReceiptRow('Amount Charged', esc(amount))}
+${pReceiptRow('Next Renewal', esc(renewal))}
+${pReceiptRow('Invoice #', esc(invoiceNumber))}
+${d.paymentMethod ? pReceiptRow('Payment Method', esc(d.paymentMethod)) : ''}
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+${pButton('View Billing', 'https://flowbooks.app/settings/billing')}
+${pSignOff()}`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
+function tplSubscriptionCancelledScheduled(d: EmailTemplateData): EmailTemplateResult {
+  const plan = d.planName || 'your plan';
+  const endDate = d.endDate || 'the end of your billing period';
+  const subject = 'Your Flowbooks subscription is cancelled';
+
+  const body = `
+${pGreeting(d.userName)}
+${pHeroCallout('clock', 'Cancellation Scheduled', `Your <strong>${esc(plan)}</strong> subscription will end on <strong>${esc(endDate)}</strong>.`, C.amberDark, C.amberBg)}
+${pParagraph(`You'll keep full access to every <strong>${esc(plan)}</strong> feature until that date. After that, your account will be moved to the Free plan.`)}
+
+${pIconInfoBox('calendar', 'Access ends on', esc(endDate), C.amber)}
+
+${pSectionHeader('info', 'Changed your mind?', C.brand)}
+${pParagraph('You can resume your subscription at any time before the end date — no re-payment needed, and your plan simply continues.')}
+
+${pButton('Resume Subscription', 'https://flowbooks.app/settings/billing')}
+${pSignOff()}`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
+function tplSubscriptionEnded(d: EmailTemplateData): EmailTemplateResult {
+  const plan = d.planName || 'your plan';
+  const subject = 'Your Flowbooks subscription has ended';
+
+  const body = `
+${pGreeting(d.userName)}
+${pHeroCallout('x-circle', 'Subscription Ended', `Your <strong>${esc(plan)}</strong> plan has ended and your account is now on the Free plan.`, C.slateDark, C.slateBg)}
+${pParagraph('Your data, invoices, and companies remain safely stored. You can come back and pick up where you left off anytime.')}
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+${pIconBullet('shield', 'All your data is preserved — nothing has been deleted.', C.green)}
+${pIconBullet('info', 'Paid features are paused until you resubscribe.', C.slateDark)}
+${pIconBullet('refresh', 'Resubscribe anytime to restore full access instantly.', C.brand)}
+              </table>
+
+${pButton('Resubscribe', 'https://flowbooks.app/settings/billing')}
+${pSignOff()}`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
+function tplSubscriptionRenewalReminder(d: EmailTemplateData): EmailTemplateResult {
+  const plan = d.planName || 'your plan';
+  const amount = d.nextRenewalAmount || d.amount || '$0.00';
+  const renewal = d.renewalDate || 'soon';
+  const subject = `Your Flowbooks subscription renews on ${renewal}`;
+
+  const body = `
+${pGreeting(d.userName)}
+${pHeroCallout('calendar', 'Renewal Coming Up', `Your <strong>${esc(plan)}</strong> subscription will renew on <strong>${esc(renewal)}</strong>.`, C.brand, C.brandBg)}
+${pParagraph(`We'll charge <strong>${esc(amount)}</strong> to your payment method on file. No action is needed — this is just a heads-up.`)}
+
+${pIconInfoBox('credit-card', 'Payment Method', esc(d.paymentMethod || 'Card on file'), C.brand)}
+
+${pSectionHeader('info', 'Want to make changes?', C.brand)}
+${pParagraph('You can update your payment method, change plans, or cancel at any time from your billing settings.')}
+
+${pButton('Manage Subscription', 'https://flowbooks.app/settings/billing')}
+${pSignOff()}`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
+function tplSubscriptionResumed(d: EmailTemplateData): EmailTemplateResult {
+  const plan = d.planName || 'your plan';
+  const renewal = d.renewalDate || '—';
+  const subject = 'Welcome back — your Flowbooks subscription is active';
+
+  const body = `
+${pGreeting(d.userName)}
+${pHeroCallout('check-circle', 'Subscription Resumed', `Your <strong>${esc(plan)}</strong> plan is active again.`, C.green, C.greenBg)}
+${pParagraph(`Your subscription has been reactivated. Full ${esc(plan)} features are back, and your next renewal is on <strong>${esc(renewal)}</strong>.`)}
+
+${pButton('Go to Flowbooks', 'https://flowbooks.app/companies')}
+${pSignOff()}`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
+function tplSubscriptionPaymentFailed(d: EmailTemplateData): EmailTemplateResult {
+  const plan = d.planName || 'your plan';
+  const reason = d.failureReason || 'the card on file was declined';
+  const updateUrl = d.updatePaymentUrl || 'https://flowbooks.app/settings/billing';
+  const subject = 'Payment issue with your Flowbooks subscription';
+
+  const body = `
+${pGreeting(d.userName)}
+${pHeroCallout('alert-triangle', 'Payment Failed', `We couldn't process the latest payment for your <strong>${esc(plan)}</strong> plan.`, C.redDark, C.redBg)}
+${pParagraph(`Reason: <strong>${esc(reason)}</strong>. We'll retry automatically, but to keep things running smoothly it's best to update your payment method.`)}
+
+${pWarningBox('If payment is not received before the end of your billing period, your subscription will be suspended and your account moved to the Free plan.')}
+
+${pButton('Update Payment Method', updateUrl)}
+${pSignOff()}`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
+function tplSubscriptionRefunded(d: EmailTemplateData): EmailTemplateResult {
+  const plan = d.planName || 'your plan';
+  const refund = d.refundAmount || d.amount || '$0.00';
+  const subject = 'Your Flowbooks refund has been processed';
+
+  const body = `
+${pGreeting(d.userName)}
+${pHeroCallout('refresh', 'Refund Processed', `A refund of <strong>${esc(refund)}</strong> has been issued for your <strong>${esc(plan)}</strong> plan.`, C.brand, C.brandBg)}
+${pParagraph('The refund should appear on your statement within 3–5 business days, depending on your bank.')}
+
+${pIconInfoBox('credit-card', 'Refund Amount', esc(refund), C.brand)}
+
+${pParagraph('If you have any questions, reach out to our support team and we\'ll be happy to help.')}
+${pButton('Contact Support', 'https://flowbooks.app/settings?section=support')}
+${pSignOff()}`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
+function tplTrialEnding(d: EmailTemplateData): EmailTemplateResult {
+  const trialEnd = d.trialEndDate || 'soon';
+  const subject = 'Your Flowbooks free trial ends soon';
+
+  const body = `
+${pGreeting(d.userName)}
+${pHeroCallout('clock', 'Your Trial Is Ending', `Your Flowbooks free trial ends on <strong>${esc(trialEnd)}</strong>.`, C.amberDark, C.amberBg)}
+${pParagraph('Subscribe now to keep using all the features you\'ve been enjoying — no interruption to your work.')}
+
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 20px;">
+${pIconBullet('sparkles', 'Extended AI usage and advanced models.', C.brand)}
+${pIconBullet('shield', 'All reports, payroll, and exports — unlocked.', C.green)}
+${pIconBullet('crown', 'Multiple companies and team members.', C.brandDark)}
+              </table>
+
+${pButton('Subscribe Now', 'https://flowbooks.app/settings/billing')}
+${pSignOff()}`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
+function tplTrialExpired(d: EmailTemplateData): EmailTemplateResult {
+  const subject = 'Your Flowbooks free trial has ended';
+
+  const body = `
+${pGreeting(d.userName)}
+${pHeroCallout('x-circle', 'Trial Expired', 'Your 3-day free trial has ended. To keep using Flowbooks, please subscribe to a plan.', C.redDark, C.redBg)}
+${pParagraph('Your data is safe — everything you created during the trial is still there. Pick a plan to pick up right where you left off.')}
+
+${pButton('View Plans', 'https://flowbooks.app/settings/billing')}
+${pSignOff()}`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
 function tplMessageReset(d: EmailTemplateData): EmailTemplateResult {
   const limit = d.weeklyMessageLimit || '150';
   const plan = d.planName || 'your';
@@ -1355,6 +1736,26 @@ export function getEmailTemplate(
       return tplTicketInProgress(data);
     case 'message_reset':
       return tplMessageReset(data);
+    case 'subscription_started':
+      return tplSubscriptionStarted(data);
+    case 'subscription_renewed':
+      return tplSubscriptionRenewed(data);
+    case 'subscription_cancelled_scheduled':
+      return tplSubscriptionCancelledScheduled(data);
+    case 'subscription_ended':
+      return tplSubscriptionEnded(data);
+    case 'subscription_renewal_reminder':
+      return tplSubscriptionRenewalReminder(data);
+    case 'subscription_resumed':
+      return tplSubscriptionResumed(data);
+    case 'subscription_payment_failed':
+      return tplSubscriptionPaymentFailed(data);
+    case 'subscription_refunded':
+      return tplSubscriptionRefunded(data);
+    case 'trial_ending':
+      return tplTrialEnding(data);
+    case 'trial_expired':
+      return tplTrialExpired(data);
     default: {
       // Fallback to custom template for any unknown type
       const fallback: EmailTemplateData = {

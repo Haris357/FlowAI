@@ -50,11 +50,17 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'cancel': {
+        // Lemon Squeezy DELETE schedules cancellation at the end of the billing period.
+        // The subscription remains active until `ends_at`, then is terminated.
         await lsRequest(path, 'DELETE');
-        return NextResponse.json({ success: true, message: 'Subscription will cancel at end of billing period' });
+        return NextResponse.json({
+          success: true,
+          message: 'Your subscription has been cancelled. You will keep access until the end of your current billing period.',
+        });
       }
 
       case 'resume': {
+        // Reactivate a cancelled-but-still-active subscription before the period ends.
         await lsRequest(path, 'PATCH', {
           data: {
             type: 'subscriptions',
@@ -63,28 +69,6 @@ export async function POST(request: NextRequest) {
           },
         });
         return NextResponse.json({ success: true, message: 'Subscription resumed' });
-      }
-
-      case 'pause': {
-        await lsRequest(path, 'PATCH', {
-          data: {
-            type: 'subscriptions',
-            id: subscriptionId,
-            attributes: { pause: { mode: 'void' } },
-          },
-        });
-        return NextResponse.json({ success: true, message: 'Subscription paused' });
-      }
-
-      case 'unpause': {
-        await lsRequest(path, 'PATCH', {
-          data: {
-            type: 'subscriptions',
-            id: subscriptionId,
-            attributes: { pause: null },
-          },
-        });
-        return NextResponse.json({ success: true, message: 'Subscription unpaused' });
       }
 
       default:

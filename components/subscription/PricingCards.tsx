@@ -9,11 +9,20 @@ import type { PlanId, PlanDefinition } from '@/types/subscription';
 interface PricingCardsProps {
   onSelectPlan: (planId: PlanId, billingPeriod: 'monthly' | 'yearly') => void;
   loading?: boolean;
+  currentBillingPeriod?: 'monthly' | 'yearly';
 }
 
-export default function PricingCards({ onSelectPlan, loading }: PricingCardsProps) {
-  const { plan: currentPlan, isTrial, isTrialExpired: trialExpired } = useSubscription();
-  const [isAnnual, setIsAnnual] = useState(false);
+export default function PricingCards({ onSelectPlan, loading, currentBillingPeriod }: PricingCardsProps) {
+  const { plan: currentPlan, subscription, isTrial, isPaidSubscriber, isTrialExpired: trialExpired } = useSubscription();
+
+  const detectedPeriod: 'monthly' | 'yearly' =
+    currentBillingPeriod
+    ?? (currentPlan.yearlyLemonSqueezyVariantId &&
+        subscription?.lemonSqueezyVariantId === currentPlan.yearlyLemonSqueezyVariantId
+          ? 'yearly'
+          : 'monthly');
+
+  const [isAnnual, setIsAnnual] = useState(detectedPeriod === 'yearly');
 
   const plans: PlanDefinition[] = [PLANS.pro, PLANS.max];
 
@@ -63,7 +72,12 @@ export default function PricingCards({ onSelectPlan, loading }: PricingCardsProp
       {/* Plan Cards */}
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: 'stretch' }}>
         {plans.map((plan) => {
-          const isCurrent = currentPlan.id === plan.id;
+          const selectedPeriod: 'monthly' | 'yearly' = isAnnual ? 'yearly' : 'monthly';
+          const isSamePlan = currentPlan.id === plan.id;
+          const isExactlyCurrent =
+            isPaidSubscriber && isSamePlan && detectedPeriod === selectedPeriod;
+          const isPeriodSwitch =
+            isPaidSubscriber && isSamePlan && detectedPeriod !== selectedPeriod;
           const isPopular = plan.id === 'pro';
           const isMax = plan.id === 'max';
           const displayPrice = isAnnual && plan.yearlyPrice ? plan.yearlyPrice : plan.price;
@@ -75,7 +89,7 @@ export default function PricingCards({ onSelectPlan, loading }: PricingCardsProp
               sx={{
                 flex: 1,
                 position: 'relative',
-                borderColor: isPopular ? 'primary.400' : isCurrent ? 'primary.200' : 'divider',
+                borderColor: isExactlyCurrent ? 'primary.500' : isPopular ? 'primary.400' : 'divider',
                 transform: isPopular ? 'scale(1.02)' : undefined,
                 boxShadow: isPopular ? 'md' : undefined,
               }}
@@ -114,8 +128,13 @@ export default function PricingCards({ onSelectPlan, loading }: PricingCardsProp
                         }
                       </Box>
                       <Typography level="title-md" fontWeight={700}>{plan.name}</Typography>
-                      {isCurrent && (
-                        <Chip size="sm" variant="outlined" color="neutral" sx={{ fontSize: '10px' }}>Current</Chip>
+                      {isExactlyCurrent && (
+                        <Chip size="sm" variant="soft" color="primary" sx={{ fontSize: '10px', fontWeight: 700 }}>Current</Chip>
+                      )}
+                      {isPeriodSwitch && (
+                        <Chip size="sm" variant="outlined" color="neutral" sx={{ fontSize: '10px', fontWeight: 700 }}>
+                          Your plan · {detectedPeriod === 'yearly' ? 'annual' : 'monthly'}
+                        </Chip>
                       )}
                     </Stack>
                     <Stack direction="row" alignItems="baseline" spacing={0.5}>
@@ -173,21 +192,27 @@ export default function PricingCards({ onSelectPlan, loading }: PricingCardsProp
                   </Stack>
 
                   <Button
-                    variant={isCurrent && !isTrial ? 'outlined' : isPopular ? 'solid' : 'soft'}
-                    color={isCurrent && !isTrial ? 'neutral' : 'primary'}
-                    disabled={(isCurrent && !isTrial && !trialExpired) || loading}
+                    variant={isExactlyCurrent ? 'outlined' : isPopular ? 'solid' : 'soft'}
+                    color={isExactlyCurrent ? 'neutral' : 'primary'}
+                    disabled={isExactlyCurrent || loading}
                     loading={loading}
                     fullWidth
-                    onClick={() => onSelectPlan(plan.id, isAnnual ? 'yearly' : 'monthly')}
+                    onClick={() => onSelectPlan(plan.id, selectedPeriod)}
                     sx={{ mt: 'auto' }}
                   >
-                    {isCurrent && !isTrial && !trialExpired
-                      ? 'Current Plan'
-                      : isTrial && currentPlan.id === plan.id
-                      ? 'Subscribe Now'
+                    {isExactlyCurrent
+                      ? 'Current plan'
+                      : isPeriodSwitch
+                      ? `Switch to ${selectedPeriod === 'yearly' ? 'annual' : 'monthly'}`
+                      : isTrial && isSamePlan
+                      ? 'Subscribe now'
                       : trialExpired
                       ? 'Subscribe'
-                      : 'Upgrade'}
+                      : !isPaidSubscriber
+                      ? 'Choose plan'
+                      : isSamePlan
+                      ? 'Current plan'
+                      : 'Switch plan'}
                   </Button>
                 </Stack>
               </CardContent>

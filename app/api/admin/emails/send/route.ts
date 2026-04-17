@@ -65,6 +65,16 @@ async function createNotification(
     feedback_acknowledged: 'system',
     ticket_in_progress: 'support',
     message_reset: 'system',
+    subscription_started: 'subscription',
+    subscription_renewed: 'subscription',
+    subscription_cancelled_scheduled: 'subscription',
+    subscription_ended: 'subscription',
+    subscription_renewal_reminder: 'subscription',
+    subscription_resumed: 'subscription',
+    subscription_payment_failed: 'subscription',
+    subscription_refunded: 'subscription',
+    trial_ending: 'subscription',
+    trial_expired: 'subscription',
   };
 
   const typeMap: Record<EmailTemplateType, string> = {
@@ -82,6 +92,16 @@ async function createNotification(
     feedback_acknowledged: 'success',
     ticket_in_progress: 'info',
     message_reset: 'info',
+    subscription_started: 'success',
+    subscription_renewed: 'success',
+    subscription_cancelled_scheduled: 'warning',
+    subscription_ended: 'warning',
+    subscription_renewal_reminder: 'info',
+    subscription_resumed: 'success',
+    subscription_payment_failed: 'warning',
+    subscription_refunded: 'info',
+    trial_ending: 'warning',
+    trial_expired: 'warning',
   };
 
   await db.collection('users').doc(userId).collection('notifications').doc().set({

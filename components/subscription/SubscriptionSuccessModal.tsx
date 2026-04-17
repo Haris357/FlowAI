@@ -9,11 +9,13 @@ import { CheckCircle, Crown, ArrowRight, Sparkles, Shield, Zap, Users } from 'lu
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useSettingsModal } from '@/contexts/SettingsModalContext';
 import { useColorScheme } from '@mui/joy/styles';
+import { useRouter } from 'next/navigation';
 import { PLANS, formatMessages } from '@/lib/plans';
 
 export default function SubscriptionSuccessModal() {
   const { plan, subscription, isPaidSubscriber } = useSubscription();
-  const { subscriptionSuccess, dismissSubscriptionSuccess, openSettings } = useSettingsModal();
+  const { subscriptionSuccess, dismissSubscriptionSuccess } = useSettingsModal();
+  const router = useRouter();
   const { mode } = useColorScheme();
   const [waitingForWebhook, setWaitingForWebhook] = useState(true);
 
@@ -42,7 +44,7 @@ export default function SubscriptionSuccessModal() {
 
   const handleViewPlan = () => {
     dismissSubscriptionSuccess();
-    openSettings('subscription');
+    router.push('/settings/billing');
   };
 
   return (

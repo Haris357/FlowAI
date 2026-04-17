@@ -9,6 +9,7 @@ import {
   Mail, Send, Eye, Search, Users, CreditCard, Zap, AlertTriangle,
   MessageCircle, Megaphone, PenTool, Receipt, XCircle, KeyRound,
   Handshake, CheckCircle, Inbox, Newspaper, ThumbsUp, Clock, RefreshCw,
+  Sparkles, Crown, Calendar, DollarSign, Hourglass, BellRing,
 } from 'lucide-react';
 import { EMAIL_TEMPLATE_OPTIONS, type EmailTemplateType } from '@/lib/email-templates';
 import StatCard from '@/components/admin/StatCard';
@@ -130,6 +131,89 @@ const TEMPLATE_UI: Record<EmailTemplateType, {
     fields: [
       { key: 'weeklyTokenLimit', label: 'Weekly Token Limit', type: 'text', required: true, placeholder: '1000000' },
     ],
+  },
+  subscription_started: {
+    icon: Sparkles,
+    color: '#D97757',
+    fields: [
+      { key: 'planName', label: 'Plan Name', type: 'text', required: true, placeholder: 'Pro' },
+      { key: 'amount', label: 'Amount', type: 'text', required: true, placeholder: '$29.99' },
+      { key: 'billingPeriod', label: 'Billing Period', type: 'text', required: true, placeholder: 'monthly' },
+      { key: 'renewalDate', label: 'Next Renewal Date', type: 'text', required: true, placeholder: 'May 17, 2026' },
+      { key: 'invoiceNumber', label: 'Invoice Number', type: 'text', placeholder: 'FB-INV-2026-XXXXXXXX' },
+    ],
+  },
+  subscription_renewed: {
+    icon: RefreshCw,
+    color: '#10B981',
+    fields: [
+      { key: 'planName', label: 'Plan Name', type: 'text', required: true, placeholder: 'Pro' },
+      { key: 'amount', label: 'Amount Charged', type: 'text', required: true, placeholder: '$29.99' },
+      { key: 'renewalDate', label: 'Next Renewal Date', type: 'text', required: true, placeholder: 'May 17, 2026' },
+      { key: 'invoiceNumber', label: 'Invoice Number', type: 'text', placeholder: 'FB-INV-2026-XXXXXXXX' },
+    ],
+  },
+  subscription_cancelled_scheduled: {
+    icon: Clock,
+    color: '#F59E0B',
+    fields: [
+      { key: 'planName', label: 'Plan Name', type: 'text', required: true, placeholder: 'Pro' },
+      { key: 'endDate', label: 'End Date', type: 'text', required: true, placeholder: 'May 17, 2026' },
+    ],
+  },
+  subscription_ended: {
+    icon: XCircle,
+    color: '#64748B',
+    fields: [
+      { key: 'planName', label: 'Plan Name', type: 'text', required: true, placeholder: 'Pro' },
+    ],
+  },
+  subscription_renewal_reminder: {
+    icon: BellRing,
+    color: '#D97757',
+    fields: [
+      { key: 'planName', label: 'Plan Name', type: 'text', required: true, placeholder: 'Pro' },
+      { key: 'nextRenewalAmount', label: 'Next Charge Amount', type: 'text', required: true, placeholder: '$29.99' },
+      { key: 'renewalDate', label: 'Renewal Date', type: 'text', required: true, placeholder: 'May 17, 2026' },
+      { key: 'paymentMethod', label: 'Payment Method', type: 'text', placeholder: 'Visa ending in 4242' },
+    ],
+  },
+  subscription_resumed: {
+    icon: CheckCircle,
+    color: '#10B981',
+    fields: [
+      { key: 'planName', label: 'Plan Name', type: 'text', required: true, placeholder: 'Pro' },
+      { key: 'renewalDate', label: 'Next Renewal Date', type: 'text', required: true, placeholder: 'May 17, 2026' },
+    ],
+  },
+  subscription_payment_failed: {
+    icon: AlertTriangle,
+    color: '#EF4444',
+    fields: [
+      { key: 'planName', label: 'Plan Name', type: 'text', required: true, placeholder: 'Pro' },
+      { key: 'failureReason', label: 'Failure Reason', type: 'text', placeholder: 'card declined' },
+      { key: 'updatePaymentUrl', label: 'Update Payment URL', type: 'text', placeholder: 'https://...' },
+    ],
+  },
+  subscription_refunded: {
+    icon: DollarSign,
+    color: '#D97757',
+    fields: [
+      { key: 'planName', label: 'Plan Name', type: 'text', required: true, placeholder: 'Pro' },
+      { key: 'refundAmount', label: 'Refund Amount', type: 'text', required: true, placeholder: '$29.99' },
+    ],
+  },
+  trial_ending: {
+    icon: Hourglass,
+    color: '#F59E0B',
+    fields: [
+      { key: 'trialEndDate', label: 'Trial End Date', type: 'text', required: true, placeholder: 'May 17, 2026' },
+    ],
+  },
+  trial_expired: {
+    icon: XCircle,
+    color: '#EF4444',
+    fields: [],
   },
 };
 

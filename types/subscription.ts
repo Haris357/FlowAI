@@ -130,6 +130,7 @@ export type BillingEventType =
   | 'subscription_renewed'
   | 'subscription_cancelled'
   | 'subscription_updated'
+  | 'subscription_ended'
   | 'token_purchase' // @deprecated — kept for historical billing data
   | 'payment_failed'
   | 'refund';
@@ -142,6 +143,7 @@ export interface BillingEvent {
   currency: string;
   lemonSqueezyEventId: string;
   invoiceUrl: string | null;
+  invoiceNumber?: string | null;
   createdAt: Timestamp;
 }
 

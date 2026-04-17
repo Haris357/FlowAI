@@ -4,8 +4,8 @@ import {
   ListItemContent, Typography, Stack,
 } from '@mui/joy';
 import {
-  User, Settings, Bell, Shield, CreditCard, Zap,
-  FileText, GraduationCap, HelpCircle, MessageSquare, Sparkles, Info,
+  User, Settings, Bell, Shield, CreditCard,
+  FileText, GraduationCap, HelpCircle, MessageSquare,
   ArrowLeft,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -13,9 +13,8 @@ import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
 
 export type SettingsSection =
   | 'profile' | 'preferences' | 'notifications' | 'security'
-  | 'subscription' | 'usage'
-  | 'docs' | 'tutorials' | 'support' | 'feedback'
-  | 'whats-new' | 'about';
+  | 'billing'
+  | 'docs' | 'tutorials' | 'support' | 'feedback';
 
 interface NavGroup {
   label: string;
@@ -30,13 +29,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'preferences', label: 'Preferences', icon: Settings },
       { id: 'notifications', label: 'Notifications', icon: Bell },
       { id: 'security', label: 'Security', icon: Shield },
-    ],
-  },
-  {
-    label: 'Billing',
-    items: [
-      { id: 'subscription', label: 'Subscription', icon: CreditCard },
-      { id: 'usage', label: 'Usage & AI', icon: Zap },
+      { id: 'billing', label: 'Billing', icon: CreditCard },
     ],
   },
   {
@@ -46,13 +39,6 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'tutorials', label: 'Tutorials', icon: GraduationCap },
       { id: 'support', label: 'Support', icon: HelpCircle },
       { id: 'feedback', label: 'Feedback', icon: MessageSquare },
-    ],
-  },
-  {
-    label: 'About',
-    items: [
-      { id: 'whats-new', label: "What's New", icon: Sparkles },
-      { id: 'about', label: 'About', icon: Info },
     ],
   },
 ];

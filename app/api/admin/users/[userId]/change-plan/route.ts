@@ -57,7 +57,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ userId:
       message: `Your plan has been changed from ${previousPlanLabel} to ${newPlanLabel} by the admin team.`,
       read: false,
       category: 'subscription',
-      actionUrl: '/settings?section=subscription',
+      actionUrl: '/settings/billing',
       createdAt: new Date(),
     });
 

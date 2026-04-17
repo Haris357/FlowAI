@@ -2,13 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Modal, ModalDialog, ModalClose, Box, Typography, Stack,
+  Modal, ModalDialog, Box, Typography, Stack,
   List, ListItem, ListItemButton, ListItemDecorator, ListItemContent,
   IconButton, Divider,
 } from '@mui/joy';
 import {
-  User, Settings, Bell, Shield, CreditCard, Zap,
-  FileText, GraduationCap, HelpCircle, MessageSquare, Sparkles, Info,
+  User, Settings, Bell, Shield, CreditCard,
+  FileText, GraduationCap, HelpCircle, MessageSquare,
   ChevronLeft, ChevronRight, X,
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -16,20 +16,16 @@ import ProfileSection from './ProfileSection';
 import PreferencesSection from './PreferencesSection';
 import NotificationsSection from './NotificationsSection';
 import SecuritySection from './SecuritySection';
-import SubscriptionSection from './SubscriptionSection';
-import UsageSection from './UsageSection';
+import BillingLinkSection from './BillingLinkSection';
 import DocsSection from './DocsSection';
 import TutorialsSection from './TutorialsSection';
 import SupportSection from './SupportSection';
 import FeedbackSection from './FeedbackSection';
-import WhatsNewSection from './WhatsNewSection';
-import AboutSection from './AboutSection';
 
 type SettingsSection =
   | 'profile' | 'preferences' | 'notifications' | 'security'
-  | 'subscription' | 'usage'
-  | 'docs' | 'tutorials' | 'support' | 'feedback'
-  | 'whats-new' | 'about';
+  | 'billing'
+  | 'docs' | 'tutorials' | 'support' | 'feedback';
 
 interface NavGroup {
   label: string;
@@ -44,13 +40,7 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'preferences', label: 'Preferences', icon: Settings },
       { id: 'notifications', label: 'Notifications', icon: Bell },
       { id: 'security', label: 'Security', icon: Shield },
-    ],
-  },
-  {
-    label: 'Billing',
-    items: [
-      { id: 'subscription', label: 'Subscription', icon: CreditCard },
-      { id: 'usage', label: 'Usage & AI', icon: Zap },
+      { id: 'billing', label: 'Billing', icon: CreditCard },
     ],
   },
   {
@@ -62,13 +52,6 @@ const NAV_GROUPS: NavGroup[] = [
       { id: 'feedback', label: 'Feedback', icon: MessageSquare },
     ],
   },
-  {
-    label: 'About',
-    items: [
-      { id: 'whats-new', label: "What's New", icon: Sparkles },
-      { id: 'about', label: 'About', icon: Info },
-    ],
-  },
 ];
 
 const SECTION_META: Record<SettingsSection, { label: string; description: string }> = {
@@ -76,14 +59,11 @@ const SECTION_META: Record<SettingsSection, { label: string; description: string
   preferences: { label: 'Preferences', description: 'Customize how Flowbooks looks and formats data.' },
   notifications: { label: 'Notifications', description: 'Control which email notifications you receive.' },
   security: { label: 'Security', description: 'Manage your password and account security.' },
-  subscription: { label: 'Subscription', description: 'Manage your plan, billing, and payment history.' },
-  usage: { label: 'Usage & AI', description: 'Monitor your AI usage and session limits.' },
+  billing: { label: 'Billing', description: 'Manage your subscription, payment method, invoices, and billing history.' },
   docs: { label: 'Documentation', description: 'Learn how to use every feature of Flowbooks.' },
   tutorials: { label: 'Tutorials', description: 'Step-by-step guides to help you get started.' },
   support: { label: 'Support', description: 'Submit a ticket and get help from our team.' },
   feedback: { label: 'Feedback', description: 'Share your thoughts and help us improve Flowbooks.' },
-  'whats-new': { label: "What's New", description: 'Latest updates, features, and improvements.' },
-  about: { label: 'About', description: 'Application information and version details.' },
 };
 
 interface SettingsModalProps {
@@ -310,14 +290,11 @@ export default function SettingsModal({ open, onClose, initialSection = 'profile
             {activeSection === 'preferences' && <PreferencesSection />}
             {activeSection === 'notifications' && <NotificationsSection />}
             {activeSection === 'security' && <SecuritySection />}
-            {activeSection === 'subscription' && <SubscriptionSection />}
-            {activeSection === 'usage' && <UsageSection />}
+            {activeSection === 'billing' && <BillingLinkSection />}
             {activeSection === 'docs' && <DocsSection />}
             {activeSection === 'tutorials' && <TutorialsSection />}
             {activeSection === 'support' && <SupportSection />}
             {activeSection === 'feedback' && <FeedbackSection />}
-            {activeSection === 'whats-new' && <WhatsNewSection />}
-            {activeSection === 'about' && <AboutSection />}
           </Box>
         </Box>
       </ModalDialog>
