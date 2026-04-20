@@ -65,11 +65,9 @@ function AccordionItem({ question, answer, isOpen, onClick, index }: { question:
 }
 
 // ─── Data ─────────────────────────────────────────────────────────────────────
-const chatExamples = [
-  { user: 'Create invoice for Acme Inc, web development, $3,500', ai: 'Invoice #INV-001 created for Acme Inc ($3,500). Due in 30 days.' },
-  { user: 'Record office rent payment $1,200', ai: 'Expense recorded: Office Rent - $1,200. Categorized under Operating Expenses.' },
-  { user: 'How much profit did we make last month?', ai: "Last month's Net Profit was $8,300. Revenue increased by 12% compared to the previous period." },
-];
+const DEMO_MSG_1 = 'Create invoice for Acme Inc, web design $3,500';
+const DEMO_MSG_2 = 'Record AWS subscription — $199/month';
+const DEMO_MSG_3 = 'Acme Inc just sent payment!';
 
 const faqs = [
   { q: "Is my financial data secure?", a: "Absolutely. Your data is encrypted in transit and at rest using 256-bit AES encryption, secured by Google Cloud infrastructure. We never sell your data to third parties." },
@@ -85,11 +83,16 @@ export default function LandingPage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const [currentExample, setCurrentExample] = useState(0);
-  const [typedText, setTypedText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const [showResponse, setShowResponse] = useState(false);
+  const [demoPhase, setDemoPhase] = useState(0);
+  const [invoiceStatus, setInvoiceStatus] = useState<'draft' | 'sent' | 'paid'>('draft');
+  const [emailFlying, setEmailFlying] = useState(false);
+  const [demoFading, setDemoFading] = useState(false);
+  const [typedMsg, setTypedMsg] = useState('');
+  const [isTyping, setIsTyping] = useState(true);
   const [openFaqIndex, setOpenFaqIndex] = useState(0);
+  const typerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const chatScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -98,22 +101,44 @@ export default function LandingPage() {
   }, []);
 
   useEffect(() => {
-    const example = chatExamples[currentExample];
-    setShowResponse(false);
-    setTypedText('');
-    setIsTyping(true);
-    let i = 0;
-    const t = setInterval(() => {
-      if (i < example.user.length) { setTypedText(example.user.slice(0, ++i)); }
-      else {
-        clearInterval(t);
-        setIsTyping(false);
-        setTimeout(() => setShowResponse(true), 600);
-        setTimeout(() => setCurrentExample(p => (p + 1) % chatExamples.length), 5000);
-      }
-    }, 50);
-    return () => clearInterval(t);
-  }, [currentExample]);
+    const runDemo = () => {
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+      if (typerRef.current) clearInterval(typerRef.current);
+      const wait = (fn: () => void, ms: number) => { timersRef.current.push(setTimeout(fn, ms)); };
+
+      setDemoPhase(0); setInvoiceStatus('draft'); setEmailFlying(false); setDemoFading(false);
+      setTypedMsg(''); setIsTyping(true);
+
+      let i = 0;
+      typerRef.current = setInterval(() => {
+        if (i < DEMO_MSG_1.length) { setTypedMsg(DEMO_MSG_1.slice(0, ++i)); }
+        else { clearInterval(typerRef.current!); typerRef.current = null; setIsTyping(false); }
+      }, 45);
+
+      wait(() => setDemoPhase(1), 3000);
+      wait(() => setEmailFlying(true), 4500);
+      wait(() => { setEmailFlying(false); setInvoiceStatus('sent'); setDemoPhase(3); }, 6300);
+      wait(() => setDemoPhase(4), 7800);
+      wait(() => setDemoPhase(5), 9300);
+      wait(() => setDemoPhase(6), 10800);
+      wait(() => { setDemoPhase(7); setInvoiceStatus('paid'); }, 12300);
+      wait(() => setDemoFading(true), 15500);
+      wait(runDemo, 16400);
+    };
+
+    runDemo();
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+      if (typerRef.current) clearInterval(typerRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [demoPhase, emailFlying]);
 
   return (
     <div className="min-h-screen w-full bg-white dark:bg-[#1A1915] font-sans text-slate-900 dark:text-[#EEECE8] selection:bg-brand-100 selection:text-brand-900 overflow-x-hidden text-[15px]">
@@ -268,11 +293,13 @@ export default function LandingPage() {
             </div>
           </div>
 
-          {/* Chat Preview */}
+          {/* Enhanced Chat Preview */}
           <div className="mt-14 relative max-w-3xl mx-auto hero-anim" style={{ animationDelay: '0.42s' }}>
             <div className="absolute -inset-px rounded-[20px] bg-gradient-to-b from-brand-500/20 via-brand-500/5 to-transparent pointer-events-none" />
             <div className="absolute -inset-8 bg-gradient-to-b from-brand-500/8 to-transparent rounded-3xl blur-2xl pointer-events-none" />
             <div className="relative rounded-[20px] overflow-hidden liquid-glass-strong">
+
+              {/* Title bar */}
               <div className="flex items-center gap-2.5 px-4 py-2.5 bg-slate-50/80 dark:bg-[#232220] border-b border-slate-200/60 dark:border-white/[0.06]">
                 <div className="flex gap-1.5">
                   <div className="w-2.5 h-2.5 rounded-full bg-red-400/70" />
@@ -280,62 +307,268 @@ export default function LandingPage() {
                   <div className="w-2.5 h-2.5 rounded-full bg-green-400/70" />
                 </div>
                 <div className="flex-1 h-6 rounded-full bg-slate-100 dark:bg-white/[0.06] border border-slate-200/60 dark:border-white/[0.06] flex items-center px-3 text-[11px] text-slate-400 dark:text-[#5C5752]">flowbooks.com/chat</div>
+                <AnimatePresence>
+                  {demoPhase >= 3 && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.7, x: 8 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.7 }}
+                      transition={{ type: 'spring', stiffness: 420, damping: 26 }}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-100 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700/30 flex-shrink-0"
+                    >
+                      <motion.div
+                        animate={{ scale: [1, 1.4, 1] }}
+                        transition={{ duration: 1.2, repeat: Infinity }}
+                        className="w-1.5 h-1.5 rounded-full bg-blue-500"
+                      />
+                      <span className="text-[10px] font-semibold text-blue-700 dark:text-blue-400 whitespace-nowrap">Email sent</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               <div className="flex flex-col">
-                <div className="p-4 sm:p-5 space-y-4 max-h-[420px] overflow-hidden">
+                {/* Messages */}
+                <div
+                  ref={chatScrollRef}
+                  className="p-4 sm:p-5 space-y-3 [&::-webkit-scrollbar]:hidden"
+                  style={{
+                    opacity: demoFading ? 0 : 1,
+                    transition: 'opacity 0.7s ease',
+                    height: 380,
+                    overflowY: 'auto',
+                    scrollbarWidth: 'none',
+                  }}
+                >
+                  {/* User message 1 — invoice request (typed) */}
                   <div className="flex justify-end">
-                    <div className="bg-gradient-to-r from-brand-500 to-brand-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-md text-[13px] shadow-md shadow-brand-500/15 max-w-[80%]">Create invoice for Acme Inc, web design, $3,500</div>
+                    <div className="bg-gradient-to-r from-brand-500 to-brand-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-md text-[13px] shadow-md shadow-brand-500/15 max-w-[82%]">
+                      {typedMsg}
+                      {isTyping && <span className="inline-block w-0.5 h-3.5 ml-0.5 bg-white/70 animate-pulse align-middle rounded-full" />}
+                    </div>
                   </div>
 
-                  <div className="flex gap-2.5">
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-brand-500/20 mt-0.5"><Sparkles className="w-3.5 h-3.5 text-white" /></div>
-                    <div className="flex-1 min-w-0 space-y-2.5">
-                      <div className="bg-slate-50/80 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] px-4 py-3 rounded-2xl rounded-tl-md text-[13px] text-slate-600 dark:text-[#A8A29E]">
-                        <div className="flex items-center gap-1.5 mb-1.5 text-brand-600 dark:text-brand-400 font-semibold text-[11px]"><CheckCircle2 className="w-3 h-3" /> Done</div>
-                        Invoice created successfully for <strong className="text-slate-800 dark:text-[#EEECE8]">Acme Inc</strong>. Due in 30 days.
-                      </div>
-                      <div className="border border-slate-200 dark:border-[#3D3A37] rounded-xl overflow-hidden bg-white dark:bg-[#232220]/50">
-                        <div className="px-4 py-3 flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0"><FileText className="w-4 h-4 text-brand-600 dark:text-brand-400" /></div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-[13px] font-semibold text-slate-800 dark:text-[#EEECE8]">INV-0042</span>
-                              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">Draft</span>
+                  {/* AI Invoice response */}
+                  <AnimatePresence>
+                    {demoPhase >= 1 && (
+                      <motion.div
+                        key="invoice-response"
+                        initial={{ opacity: 0, y: 14 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                        className="flex gap-2.5"
+                      >
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-brand-500/20 mt-0.5">
+                          <Sparkles className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-2.5">
+                          <div className="bg-slate-50/80 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] px-4 py-3 rounded-2xl rounded-tl-md text-[13px] text-slate-600 dark:text-[#A8A29E]">
+                            <div className="flex items-center gap-1.5 mb-1 text-brand-600 dark:text-brand-400 font-semibold text-[11px]">
+                              <CheckCircle2 className="w-3 h-3" /> Done
                             </div>
-                            <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-[#78736D] mt-0.5">
-                              <span>Acme Inc</span>
-                              <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Due Mar 15</span>
+                            Invoice created for <strong className="text-slate-800 dark:text-[#EEECE8]">Acme Inc</strong>. Due in 30 days.
+                          </div>
+                          {/* Invoice card with live status badge */}
+                          <div className="border border-slate-200 dark:border-[#3D3A37] rounded-xl overflow-hidden bg-white dark:bg-[#232220]/50">
+                            <div className="px-4 py-3 flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-xl bg-brand-100 dark:bg-brand-900/30 flex items-center justify-center flex-shrink-0">
+                                <FileText className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-[13px] font-semibold text-slate-800 dark:text-[#EEECE8]">INV-0042</span>
+                                  <AnimatePresence mode="wait">
+                                    {invoiceStatus === 'draft' && (
+                                      <motion.span key="draft" initial={{ opacity: 0, scale: 0.75 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.75 }} transition={{ duration: 0.22 }}
+                                        className="px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">Draft</motion.span>
+                                    )}
+                                    {invoiceStatus === 'sent' && (
+                                      <motion.span key="sent" initial={{ opacity: 0, scale: 0.75 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.75 }} transition={{ duration: 0.22 }}
+                                        className="px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400">Sent</motion.span>
+                                    )}
+                                    {invoiceStatus === 'paid' && (
+                                      <motion.span key="paid" initial={{ opacity: 0, scale: 0.75 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.75 }} transition={{ duration: 0.22 }}
+                                        className="px-1.5 py-0.5 rounded-full text-[10px] font-bold uppercase bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">Paid</motion.span>
+                                    )}
+                                  </AnimatePresence>
+                                </div>
+                                <div className="flex items-center gap-3 text-[11px] text-slate-500 dark:text-[#78736D] mt-0.5">
+                                  <span>Acme Inc</span>
+                                  <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Due Mar 15</span>
+                                </div>
+                              </div>
+                              <div className="text-[15px] font-bold text-slate-800 dark:text-[#EEECE8] flex-shrink-0">$3,500.00</div>
                             </div>
                           </div>
-                          <div className="text-[15px] font-bold text-slate-800 dark:text-[#EEECE8] flex-shrink-0">$3,500.00</div>
+                          {/* Action buttons */}
+                          <div className="flex flex-wrap gap-1.5">
+                            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400 border border-brand-200/60 dark:border-brand-700/30">
+                              <Eye className="w-3 h-3" /> View
+                            </button>
+                            <motion.button
+                              animate={emailFlying ? { scale: [1, 0.95, 1], opacity: [1, 0.6, 1] } : {}}
+                              transition={{ duration: 0.65, repeat: emailFlying ? Infinity : 0 }}
+                              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-700/30"
+                            >
+                              <Send className="w-3 h-3" />
+                              {emailFlying ? 'Sending...' : 'Send Invoice'}
+                            </motion.button>
+                            <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-700/30">
+                              <Download className="w-3 h-3" /> Download PDF
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium bg-brand-50 dark:bg-brand-900/20 text-brand-700 dark:text-brand-400 border border-brand-200/60 dark:border-brand-700/30"><Eye className="w-3 h-3" /> View</button>
-                        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 border border-blue-200/60 dark:border-blue-700/30"><Send className="w-3 h-3" /> Send Invoice</button>
-                        <button className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-medium bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200/60 dark:border-emerald-700/30"><Download className="w-3 h-3" /> Download PDF</button>
-                      </div>
-                    </div>
-                  </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                  <div className="flex justify-end">
-                    <div className="bg-gradient-to-r from-brand-500 to-brand-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-md text-[13px] shadow-md shadow-brand-500/15 max-w-[80%]">
-                      {typedText}{isTyping && <span className="inline-block w-0.5 h-3.5 ml-1 bg-white/70 animate-pulse align-middle rounded-full" />}
-                    </div>
-                  </div>
+                  {/* Email sending animation */}
+                  <AnimatePresence>
+                    {emailFlying && (
+                      <motion.div
+                        key="email-fly"
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: [0, 1, 1, 0], y: [6, 0, -6, -36] }}
+                        transition={{ duration: 1.9, times: [0, 0.15, 0.72, 1] }}
+                        className="flex justify-center"
+                      >
+                        <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-2xl bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/40 text-blue-600 dark:text-blue-400">
+                          <motion.div animate={{ x: [0, 4, 0] }} transition={{ duration: 0.55, repeat: Infinity }}>
+                            <Mail className="w-4 h-4" />
+                          </motion.div>
+                          <span className="text-[12px] font-medium">Sending to billing@acme.com</span>
+                          <div className="flex gap-0.5">
+                            {[0, 1, 2].map(i => (
+                              <motion.div key={i} className="w-1 h-1 rounded-full bg-blue-500"
+                                animate={{ opacity: [0.25, 1, 0.25] }}
+                                transition={{ duration: 0.8, repeat: Infinity, delay: i * 0.22 }}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                  <div className={`flex gap-2.5 transition-all duration-500 ${showResponse ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3 pointer-events-none'}`}>
-                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-brand-500/20 mt-0.5"><Sparkles className="w-3.5 h-3.5 text-white" /></div>
-                    <div className="flex-1 min-w-0">
-                      <div className="bg-slate-50/80 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] px-4 py-3 rounded-2xl rounded-tl-md text-[13px] text-slate-600 dark:text-[#A8A29E]">
-                        <div className="flex items-center gap-1.5 mb-1.5 text-brand-600 dark:text-brand-400 font-semibold text-[11px]"><CheckCircle2 className="w-3 h-3" /> Done</div>
-                        {chatExamples[currentExample].ai}
-                      </div>
-                    </div>
-                  </div>
+                  {/* Email delivered notification */}
+                  <AnimatePresence>
+                    {demoPhase >= 3 && (
+                      <motion.div
+                        key="email-delivered"
+                        initial={{ opacity: 0, y: -10, scale: 0.93 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ type: 'spring', stiffness: 380, damping: 28 }}
+                        className="flex justify-center"
+                      >
+                        <div className="inline-flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-blue-50 dark:bg-blue-950/30 border border-blue-200/70 dark:border-blue-800/40">
+                          <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0">
+                            <Mail className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                          </div>
+                          <div>
+                            <div className="text-[12px] font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-1.5">
+                              Invoice delivered <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                            </div>
+                            <div className="text-[10px] text-blue-500/70 dark:text-blue-400/60 mt-0.5">billing@acme.com · just now · via Flow AI</div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* User message 2 — expense */}
+                  <AnimatePresence>
+                    {demoPhase >= 4 && (
+                      <motion.div key="expense-msg" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="flex justify-end">
+                        <div className="bg-gradient-to-r from-brand-500 to-brand-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-md text-[13px] shadow-md shadow-brand-500/15">
+                          {DEMO_MSG_2}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Expense card */}
+                  <AnimatePresence>
+                    {demoPhase >= 5 && (
+                      <motion.div key="expense-card" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }} className="flex gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-brand-500/20 mt-0.5">
+                          <Sparkles className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="bg-slate-50/80 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] px-4 py-3 rounded-2xl rounded-tl-md text-[13px] text-slate-600 dark:text-[#A8A29E]">
+                            <div className="flex items-center gap-1.5 mb-1 text-brand-600 dark:text-brand-400 font-semibold text-[11px]">
+                              <CheckCircle2 className="w-3 h-3" /> Expense logged
+                            </div>
+                            <strong className="text-slate-800 dark:text-[#EEECE8]">AWS subscription</strong> added under <span className="text-violet-600 dark:text-violet-400 font-medium">Cloud Services</span>.
+                          </div>
+                          <div className="border border-slate-200 dark:border-[#3D3A37] rounded-xl bg-white dark:bg-[#232220]/50 px-4 py-3 flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-900/30 flex items-center justify-center flex-shrink-0">
+                              <Receipt className="w-4 h-4 text-violet-600 dark:text-violet-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[13px] font-semibold text-slate-800 dark:text-[#EEECE8]">AWS Subscription</div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="px-1.5 py-0.5 rounded-full bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 text-[9px] font-semibold">Cloud Services</span>
+                                <span className="text-[11px] text-slate-500 dark:text-[#78736D]">Recurring · Monthly</span>
+                              </div>
+                            </div>
+                            <div className="text-[15px] font-bold text-slate-800 dark:text-[#EEECE8] flex-shrink-0">$199.00</div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* User message 3 — payment */}
+                  <AnimatePresence>
+                    {demoPhase >= 6 && (
+                      <motion.div key="payment-msg" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }} className="flex justify-end">
+                        <div className="bg-gradient-to-r from-brand-500 to-brand-600 text-white px-4 py-2.5 rounded-2xl rounded-tr-md text-[13px] shadow-md shadow-brand-500/15">
+                          {DEMO_MSG_3}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  {/* Payment confirmation */}
+                  <AnimatePresence>
+                    {demoPhase >= 7 && (
+                      <motion.div key="payment-card" initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }} className="flex gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-br from-brand-500 to-brand-600 flex items-center justify-center flex-shrink-0 shadow-md shadow-brand-500/20 mt-0.5">
+                          <Sparkles className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="bg-slate-50/80 dark:bg-white/[0.03] border border-slate-200/60 dark:border-white/[0.06] px-4 py-3 rounded-2xl rounded-tl-md text-[13px] text-slate-600 dark:text-[#A8A29E]">
+                            <div className="flex items-center gap-1.5 mb-1 text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">
+                              <CheckCircle2 className="w-3 h-3" /> Payment received!
+                            </div>
+                            <strong className="text-slate-800 dark:text-[#EEECE8]">$3,500</strong> from Acme Inc recorded. INV-0042 marked as <span className="text-emerald-600 dark:text-emerald-400 font-semibold">Paid</span>.
+                          </div>
+                          <div className="border border-emerald-200/60 dark:border-emerald-800/40 rounded-xl bg-emerald-50/50 dark:bg-emerald-950/20 px-4 py-3 flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                              <Banknote className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[13px] font-semibold text-slate-800 dark:text-[#EEECE8]">Payment Received</div>
+                              <div className="text-[11px] text-slate-500 dark:text-[#78736D] mt-0.5">Acme Inc · INV-0042 · just now</div>
+                            </div>
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.6 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ type: 'spring', delay: 0.3, stiffness: 300, damping: 22 }}
+                              className="text-[15px] font-bold text-emerald-600 dark:text-emerald-400 flex-shrink-0"
+                            >
+                              +$3,500
+                            </motion.div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
+                  <div className="h-1" />
                 </div>
 
+                {/* Input bar */}
                 <div className="px-4 sm:px-5 pb-3 pt-2 border-t border-slate-200/60 dark:border-white/[0.06]">
                   <div className="flex flex-wrap gap-1.5 mb-2.5 justify-center">
                     {[{ icon: FileText, label: 'Create Invoice' }, { icon: Receipt, label: 'Record Expense' }, { icon: BarChart3, label: 'View Reports' }, { icon: Users, label: 'Add Customer' }].map((a, i) => (
@@ -357,20 +590,6 @@ export default function LandingPage() {
                 </div>
               </div>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ═══════════ SOCIAL PROOF ═══════════ */}
-      <section className="relative z-10 py-12">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {[{ value: '12K+', label: 'Active businesses' }, { value: '$2.4B', label: 'Invoices processed' }, { value: '99.9%', label: 'Uptime SLA' }, { value: '4.9/5', label: 'User rating' }].map((s, i) => (
-              <FadeUp key={i} delay={i * 0.08} className="text-center liquid-glass-subtle rounded-2xl py-5 px-4">
-                <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{s.value}</div>
-                <div className="text-xs text-slate-500 dark:text-[#78736D] mt-1">{s.label}</div>
-              </FadeUp>
-            ))}
           </div>
         </div>
       </section>
