@@ -13,52 +13,15 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [seedNotice, setSeedNotice] = useState<string | null>(null);
   const { mode, toggleMode } = useTheme();
   const router = useRouter();
   const { refresh: refreshAdminContext } = useAdminAuth();
 
   // If already has a valid admin session, redirect to dashboard.
-  // Skip the seed check in this case to avoid a burst of wasted calls.
   useEffect(() => {
     const session = getAdminSession();
-    if (session) {
-      router.replace('/admin');
-      return;
-    }
-    // Only check seed status when there's no active session.
-    fetch('/api/admin/auth/seed', { method: 'GET' })
-      .then(r => r.json())
-      .then(d => {
-        if (d && d.seeded === false) {
-          setSeedNotice(
-            'No admin users found. Click "Create default admin" to bootstrap username "admin" with password "Admin@123".'
-          );
-        }
-      })
-      .catch(() => {});
+    if (session) router.replace('/admin');
   }, [router]);
-
-  const handleSeed = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const res = await fetch('/api/admin/auth/seed', { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || 'Failed to seed default admin.');
-        return;
-      }
-      setSeedNotice(null);
-      setUsername('admin');
-      setPassword('Admin@123');
-      setError('');
-    } catch {
-      setError('Failed to seed default admin.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -86,7 +49,7 @@ export default function AdminLoginPage() {
       });
 
       // Populate the admin context BEFORE navigating so /admin doesn't see a
-      // stale `admin=null` and bounce us back here (redirect loop bug).
+      // stale `admin=null` and bounce us back here (redirect loop guard).
       await refreshAdminContext();
 
       router.replace('/admin');
@@ -155,29 +118,12 @@ export default function AdminLoginPage() {
             <p className="text-sm text-slate-500 dark:text-[#A8A29E]">Sign in with your admin credentials</p>
           </div>
 
-          {/* Seed notice */}
-          {seedNotice && (
-            <div className="mb-5 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl text-amber-700 dark:text-amber-300 text-xs">
-              <p className="mb-2">{seedNotice}</p>
-              <button
-                type="button"
-                onClick={handleSeed}
-                disabled={loading}
-                className="text-[11px] font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
-              >
-                Create default admin
-              </button>
-            </div>
-          )}
-
-          {/* Error */}
           {error && (
             <div className="mb-5 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-xl text-red-600 dark:text-red-400 text-sm text-center">
               {error}
             </div>
           )}
 
-          {/* Form */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-medium text-slate-600 dark:text-[#A8A29E] mb-1.5">Username</label>
