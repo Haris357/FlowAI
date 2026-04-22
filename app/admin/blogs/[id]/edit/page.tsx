@@ -37,7 +37,6 @@ import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { getPostById, updatePost, deletePost } from '@/services/blog';
 import { adminFetch } from '@/lib/admin-fetch';
-import { serverTimestamp } from 'firebase/firestore';
 import type { BlogPost } from '@/types/blog';
 
 const CATEGORIES = ['News', 'Updates', 'Guides', 'Tips', 'Engineering'];
@@ -161,13 +160,10 @@ export default function AdminEditBlogPage() {
         readTime: estimateReadTime(content),
       };
 
-      // If transitioning from draft to published, set publishedAt
-      if (published && !originalPost?.published) {
-        updateData.publishedAt = serverTimestamp();
-      }
-      // If unpublishing, clear publishedAt
+      // publishedAt transitions are handled server-side in the API
+      // based on the published flag change (see /api/admin/blogs/[id]/route.ts)
       if (!published && originalPost?.published) {
-        updateData.publishedAt = null;
+        updateData.publishedAt = null; // explicitly clear on unpublish (clearPublishedAt flag)
       }
 
       await updatePost(postId, updateData);

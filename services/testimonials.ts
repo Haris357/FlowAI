@@ -1,11 +1,16 @@
 import {
-  collection, doc, getDocs, addDoc, updateDoc, deleteDoc,
-  query, orderBy, serverTimestamp, where,
+  collection, doc, getDocs,
+  query, orderBy, where,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { adminFetch } from '@/lib/admin-fetch';
 import type { Testimonial, TestimonialInput } from '@/types/testimonial';
 
 const COLLECTION = 'testimonials';
+
+// ==========================================
+// PUBLIC reads — client SDK (rules: allow read: if true)
+// ==========================================
 
 export async function getTestimonials(): Promise<Testimonial[]> {
   const q = query(collection(db, COLLECTION), orderBy('order', 'asc'));
@@ -23,22 +28,40 @@ export async function getFeaturedTestimonials(): Promise<Testimonial[]> {
   return snap.docs.map(d => ({ id: d.id, ...d.data() } as Testimonial));
 }
 
+// ==========================================
+// ADMIN writes — server API (rules: allow write: if false on client)
+// ==========================================
+
 export async function addTestimonial(data: TestimonialInput): Promise<string> {
-  const ref = await addDoc(collection(db, COLLECTION), {
-    ...data,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
+  const res = await adminFetch('/api/admin/testimonials', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
   });
-  return ref.id;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to create testimonial');
+  }
+  const json = await res.json();
+  return json.id;
 }
 
 export async function updateTestimonial(id: string, data: Partial<TestimonialInput>): Promise<void> {
-  await updateDoc(doc(db, COLLECTION, id), {
-    ...data,
-    updatedAt: serverTimestamp(),
+  const res = await adminFetch(`/api/admin/testimonials/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to update testimonial');
+  }
 }
 
 export async function deleteTestimonial(id: string): Promise<void> {
-  await deleteDoc(doc(db, COLLECTION, id));
+  const res = await adminFetch(`/api/admin/testimonials/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to delete testimonial');
+  }
 }

@@ -34,7 +34,6 @@ import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { createPost } from '@/services/blog';
 import { adminFetch } from '@/lib/admin-fetch';
-import { serverTimestamp } from 'firebase/firestore';
 
 const CATEGORIES = ['News', 'Updates', 'Guides', 'Tips', 'Engineering'];
 
@@ -155,7 +154,6 @@ export default function AdminNewBlogPage() {
         published,
         featured,
         readTime: estimateReadTime(content),
-        publishedAt: published ? (serverTimestamp() as any) : undefined,
       });
 
       setToast({ type: 'success', message: 'Blog post created successfully!' });

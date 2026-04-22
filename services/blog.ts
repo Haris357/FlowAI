@@ -3,23 +3,20 @@ import {
   doc,
   getDocs,
   getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
   query,
   where,
   orderBy,
   increment,
-  serverTimestamp,
-  Timestamp,
+  updateDoc,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { adminFetch } from '@/lib/admin-fetch';
 import type { BlogPost } from '@/types/blog';
 
 const COLLECTION = 'blogPosts';
 
 // ==========================================
-// PUBLIC
+// PUBLIC — client SDK (rules: allow read: if true)
 // ==========================================
 
 /** Get all published blog posts ordered by publishedAt desc */
@@ -54,18 +51,18 @@ export async function getPostBySlug(slug: string): Promise<BlogPost | null> {
   }
 }
 
-/** Increment view count for a post */
+/** Increment view count for a post (public, silently fails if blocked) */
 export async function incrementViews(id: string): Promise<void> {
   try {
     const ref = doc(db, COLLECTION, id);
     await updateDoc(ref, { views: increment(1) });
-  } catch (error) {
-    console.error('Error incrementing views:', error);
+  } catch {
+    // Silently ignore — rules block client writes; counts are best-effort
   }
 }
 
 // ==========================================
-// ADMIN
+// ADMIN reads — client SDK (rules: allow read: if true)
 // ==========================================
 
 /** Get all posts (published + drafts) ordered by updatedAt desc */
@@ -94,20 +91,27 @@ export async function getPostById(id: string): Promise<BlogPost | null> {
   }
 }
 
+// ==========================================
+// ADMIN writes — server API (rules: allow write: if false on client)
+// ==========================================
+
 /** Create a new blog post and return its id */
 export async function createPost(
   data: Omit<BlogPost, 'id' | 'createdAt' | 'updatedAt' | 'views'>
 ): Promise<string> {
-  const ref = doc(collection(db, COLLECTION));
-  const now = serverTimestamp();
-  await setDoc(ref, {
-    ...data,
-    views: 0,
-    publishedAt: data.published ? (data.publishedAt ?? now) : null,
-    createdAt: now,
-    updatedAt: now,
+  // Strip publishedAt — the API sets it server-side based on the published flag
+  const { publishedAt, ...payload } = data as any;
+  const res = await adminFetch('/api/admin/blogs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
-  return ref.id;
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to create post');
+  }
+  const json = await res.json();
+  return json.id;
 }
 
 /** Update an existing blog post */
@@ -115,15 +119,30 @@ export async function updatePost(
   id: string,
   data: Partial<Omit<BlogPost, 'id' | 'createdAt'>>
 ): Promise<void> {
-  const ref = doc(db, COLLECTION, id);
-  await updateDoc(ref, {
-    ...data,
-    updatedAt: serverTimestamp(),
+  // publishedAt from serverTimestamp() cannot be JSON-serialised.
+  // Strip it and send a clearPublishedAt flag when explicitly nulled.
+  // The API derives publishedAt transitions from the published field change.
+  const { publishedAt, ...rest } = data as any;
+  const payload: Record<string, any> = { ...rest };
+  if (publishedAt === null) {
+    payload.clearPublishedAt = true;
+  }
+  const res = await adminFetch(`/api/admin/blogs/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to update post');
+  }
 }
 
 /** Delete a blog post */
 export async function deletePost(id: string): Promise<void> {
-  const ref = doc(db, COLLECTION, id);
-  await deleteDoc(ref);
+  const res = await adminFetch(`/api/admin/blogs/${id}`, { method: 'DELETE' });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || 'Failed to delete post');
+  }
 }

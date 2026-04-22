@@ -168,8 +168,8 @@ export default function AdminSidebar({ collapsed = false, onToggle }: AdminSideb
             {collapsed ? (
               <Tooltip title="Back to Flowbooks" placement="right">
                 <ListItemButton
-                  component={NextLink}
-                  href="/companies"
+                  component="a"
+                  href="https://flowbooksai.com/companies"
                   sx={{ borderRadius: 'sm', justifyContent: 'center', px: 1 }}
                 >
                   <ListItemDecorator sx={{ minInlineSize: 'auto' }}>
@@ -179,8 +179,8 @@ export default function AdminSidebar({ collapsed = false, onToggle }: AdminSideb
               </Tooltip>
             ) : (
               <ListItemButton
-                component={NextLink}
-                href="/companies"
+                component="a"
+                href="https://flowbooksai.com/companies"
                 sx={{ borderRadius: 'sm' }}
               >
                 <ListItemDecorator>
