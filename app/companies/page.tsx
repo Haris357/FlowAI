@@ -461,93 +461,94 @@ export default function CompaniesPage() {
       <Box sx={{ maxWidth: 1152, mx: 'auto', px: { xs: 2, sm: 3 }, py: { xs: 3, md: 4 } }}>
         <Stack spacing={3}>
 
-          {/* Trial Expired Block */}
+          {/* Trial Expired — clean compact banner */}
           {isTrial && trialExpired && (
-            <Box sx={{
-              borderRadius: '16px',
-              overflow: 'hidden',
-              border: '1px solid',
-              borderColor: 'divider',
-              boxShadow: 'sm',
-            }}>
-              {/* Gradient banner */}
-              <Box sx={{
-                px: { xs: 3, sm: 4 }, py: 3,
-                background: 'linear-gradient(135deg, #B91C1C 0%, #D97757 100%)',
-                textAlign: 'center',
-              }}>
-                <Box sx={{
-                  width: 48, height: 48, borderRadius: '50%', mx: 'auto', mb: 1.5,
-                  bgcolor: 'rgba(255,255,255,0.2)', display: 'flex',
-                  alignItems: 'center', justifyContent: 'center',
-                }}>
-                  <Clock size={22} color="white" />
-                </Box>
-                <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: '1.15rem' }}>
-                  Your trial has ended
-                </Typography>
-                <Typography sx={{ color: 'rgba(255,255,255,0.85)', fontSize: '0.85rem', mt: 0.5 }}>
-                  Subscribe to continue managing your companies
-                </Typography>
-              </Box>
-
-              {/* Plan cards + CTA */}
-              <Box sx={{ p: { xs: 2.5, sm: 3 }, bgcolor: 'background.surface' }}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2.5 }}>
-                  {[PLANS.pro, PLANS.max].map(p => (
-                    <Box
-                      key={p.id}
-                      onClick={() => router.push('/settings/billing')}
-                      sx={{
-                        flex: 1, p: 2, borderRadius: '12px', cursor: 'pointer',
-                        border: p.id === 'pro' ? '2px solid #D97757' : '1px solid',
-                        borderColor: p.id === 'pro' ? '#D97757' : 'divider',
-                        bgcolor: p.id === 'pro' ? 'rgba(217,119,87,0.04)' : 'transparent',
-                        textAlign: 'center',
-                        transition: 'all 0.2s',
-                        position: 'relative',
-                        '&:hover': { borderColor: '#D97757', boxShadow: 'md' },
-                      }}
-                    >
-                      {p.id === 'pro' && (
-                        <Chip size="sm" sx={{
-                          position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
-                          bgcolor: '#D97757', color: '#fff',
-                          fontSize: '0.6rem', fontWeight: 700,
-                        }}>
-                          RECOMMENDED
-                        </Chip>
-                      )}
-                      <Typography level="body-sm" fontWeight={700}>{p.name}</Typography>
-                      <Stack direction="row" alignItems="baseline" justifyContent="center" spacing={0.25} sx={{ my: 0.5 }}>
-                        <Typography sx={{ fontSize: '1.5rem', fontWeight: 800 }}>${p.price}</Typography>
-                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>/mo</Typography>
-                      </Stack>
-                      <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                        {p.id === 'max' ? '3x AI + advanced models' : p.id === 'pro' ? 'Extended AI (4h sessions)' : 'Limited AI usage'}
+            <Card
+              variant="outlined"
+              sx={{
+                p: 0, overflow: 'hidden',
+                borderRadius: '16px',
+                borderColor: 'divider',
+                boxShadow: 'none',
+                background: `radial-gradient(900px 220px at 0% 0%, rgba(217,119,87,0.10) 0%, transparent 60%), radial-gradient(700px 180px at 100% 100%, rgba(217,119,87,0.06) 0%, transparent 55%)`,
+              }}
+            >
+              <Box sx={{ px: { xs: 2.5, sm: 3 }, py: { xs: 2.25, sm: 2.5 } }}>
+                <Stack
+                  direction={{ xs: 'column', md: 'row' }}
+                  spacing={{ xs: 2, md: 3 }}
+                  alignItems={{ md: 'center' }}
+                  justifyContent="space-between"
+                >
+                  {/* Left: icon + text */}
+                  <Stack direction="row" spacing={1.75} alignItems="center" sx={{ minWidth: 0, flex: 1 }}>
+                    <Box sx={{
+                      width: 40, height: 40, borderRadius: '10px', flexShrink: 0,
+                      bgcolor: mode === 'dark' ? 'rgba(217,119,87,0.15)' : '#FFF0E8',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Lock size={18} color="#D97757" />
+                    </Box>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 700, fontSize: '0.98rem', lineHeight: 1.25 }}>
+                        Your trial has ended
+                      </Typography>
+                      <Typography level="body-xs" sx={{ color: 'text.secondary', mt: 0.25 }}>
+                        Your data is safe — pick a plan to keep going.
                       </Typography>
                     </Box>
-                  ))}
-                </Stack>
+                  </Stack>
 
-                <Button
-                  fullWidth
-                  size="lg"
-                  endDecorator={<ArrowRight size={16} />}
-                  onClick={() => router.push('/settings/billing')}
-                  sx={{
-                    borderRadius: '10px', fontWeight: 700, py: 1.25,
-                    background: 'linear-gradient(135deg, #D97757 0%, #C4694D 100%)',
-                    '&:hover': { background: 'linear-gradient(135deg, #C4694D 0%, #B85A3D 100%)' },
-                  }}
-                >
-                  Choose a Plan
-                </Button>
-                <Typography level="body-xs" sx={{ color: 'text.tertiary', textAlign: 'center', mt: 1.5 }}>
-                  Your data is safe and waiting for you
-                </Typography>
+                  {/* Right: plan pills + CTA */}
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1.25}
+                    alignItems={{ sm: 'center' }}
+                    sx={{ flexShrink: 0 }}
+                  >
+                    <Stack direction="row" spacing={0.625}>
+                      <Chip
+                        size="sm"
+                        variant="soft"
+                        sx={{
+                          fontWeight: 600, fontSize: '0.7rem',
+                          bgcolor: mode === 'dark' ? 'rgba(217,119,87,0.18)' : '#FFE8DD',
+                          color: '#D97757',
+                          '--Chip-minHeight': '22px',
+                        }}
+                      >
+                        Pro · ${PLANS.pro.price}/mo
+                      </Chip>
+                      <Chip
+                        size="sm"
+                        variant="outlined"
+                        sx={{
+                          fontWeight: 600, fontSize: '0.7rem',
+                          color: 'text.secondary',
+                          '--Chip-minHeight': '22px',
+                        }}
+                      >
+                        Max · ${PLANS.max.price}/mo
+                      </Chip>
+                    </Stack>
+                    <Button
+                      size="sm"
+                      onClick={() => router.push('/settings/billing')}
+                      endDecorator={<ArrowRight size={14} />}
+                      sx={{
+                        bgcolor: '#D97757',
+                        '&:hover': { bgcolor: '#C4694D' },
+                        borderRadius: '9px', fontWeight: 700,
+                        px: 1.75, fontSize: '0.82rem',
+                        flexShrink: 0,
+                      }}
+                    >
+                      Choose a plan
+                    </Button>
+                  </Stack>
+                </Stack>
               </Box>
-            </Box>
+            </Card>
           )}
 
           {/* Pending Invitations */}

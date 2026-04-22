@@ -4,16 +4,16 @@ import { useState, useEffect } from 'react';
 import {
   Modal, ModalDialog, Typography, Stack, Button, Box, Chip,
 } from '@mui/joy';
-import { Crown, Check, ArrowRight, X, Lock, Zap } from 'lucide-react';
+import { Check, ArrowRight, X, Lock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useColorScheme } from '@mui/joy/styles';
 import { useRouter } from 'next/navigation';
-import { PLANS, formatMessages } from '@/lib/plans';
+import { PLANS } from '@/lib/plans';
 
 export default function PremiumModal() {
   const { user } = useAuth();
-  const { isTrial, isTrialExpired: trialExpired } = useSubscription();
+  const { isTrialExpired: trialExpired } = useSubscription();
   const router = useRouter();
   const { mode } = useColorScheme();
   const [open, setOpen] = useState(false);
@@ -40,99 +40,138 @@ export default function PremiumModal() {
   const max = PLANS.max;
 
   const proFeatures = [
-    'Extended AI usage (4h sessions)',
+    'Extended AI usage',
     `Up to ${pro.maxCompanies} companies`,
     'Unlimited customers & vendors',
-    'All reports, payroll & exports',
+    'All reports & exports',
   ];
 
   const maxFeatures = [
     '3x AI + advanced models',
     `Up to ${max.maxCompanies} companies`,
-    'Unlimited team members & emails',
-    'Priority support (24h)',
+    'Unlimited team members',
+    'Priority support',
   ];
+
+  const textPrimary = isDark ? '#EEECE8' : '#1A1915';
+  const textSecondary = isDark ? '#A8A29E' : '#78736D';
+  const textMuted = isDark ? '#5C5752' : '#A8A29E';
+  const softBrandBg = isDark ? 'rgba(217,119,87,0.1)' : '#FFF8F5';
+  const borderSoft = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const neutralSoftBg = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)';
 
   return (
     <Modal open={open} onClose={() => setOpen(false)}>
       <ModalDialog
         sx={{
-          maxWidth: { xs: '95vw', sm: 480 },
+          maxWidth: { xs: '95vw', sm: 460 },
           width: '100%',
           p: 0,
           overflow: 'hidden',
-          borderRadius: '16px',
-          bgcolor: isDark ? 'neutral.900' : '#fff',
+          borderRadius: '20px',
+          bgcolor: isDark ? '#1C1B19' : '#fff',
           border: '1px solid',
-          borderColor: isDark ? 'neutral.700' : 'neutral.200',
-          boxShadow: '0 24px 80px rgba(0,0,0,0.18)',
+          borderColor: borderSoft,
+          boxShadow: isDark
+            ? '0 32px 64px rgba(0,0,0,0.5)'
+            : '0 32px 64px rgba(0,0,0,0.12)',
         }}
       >
+        {/* Close button */}
+        <Button
+          size="sm"
+          variant="plain"
+          onClick={() => setOpen(false)}
+          sx={{
+            position: 'absolute', top: 10, right: 10, zIndex: 2,
+            minWidth: 0, p: 0.5, borderRadius: '50%',
+            color: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)',
+            '&:hover': {
+              color: isDark ? '#EEECE8' : '#1A1915',
+              bgcolor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.05)',
+            },
+          }}
+        >
+          <X size={16} />
+        </Button>
+
         {/* Header */}
-        <Box sx={{
-          position: 'relative',
-          px: 3, pt: 4, pb: 3,
-          background: 'linear-gradient(135deg, #B91C1C 0%, #D97757 100%)',
-          textAlign: 'center',
-        }}>
-          <Button
-            size="sm" variant="plain"
-            onClick={() => setOpen(false)}
-            sx={{
-              position: 'absolute', top: 10, right: 10,
-              minWidth: 0, p: 0.5, color: 'rgba(255,255,255,0.7)',
-              '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.15)' },
-            }}
-          >
-            <X size={18} />
-          </Button>
-
-          <Box sx={{
-            width: 56, height: 56, borderRadius: '50%', mx: 'auto', mb: 2,
-            bgcolor: 'rgba(255,255,255,0.2)', display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
-            boxShadow: '0 0 0 8px rgba(255,255,255,0.08)',
-          }}>
-            <Lock size={26} color="white" />
-          </Box>
-
-          <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: '1.35rem', lineHeight: 1.2 }}>
-            Your Trial Has Ended
-          </Typography>
-          <Typography sx={{ color: 'rgba(255,255,255,0.85)', mt: 0.75, fontSize: '0.875rem' }}>
-            Subscribe to continue using Flowbooks
-          </Typography>
+        <Box sx={{ px: 3, pt: 3.25, pb: 2.25 }}>
+          <Stack direction="row" spacing={1.75} alignItems="flex-start">
+            <Box sx={{
+              width: 44, height: 44, borderRadius: '12px', flexShrink: 0,
+              background: 'linear-gradient(135deg, #D97757 0%, #C4694D 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              boxShadow: '0 4px 12px rgba(217,119,87,0.3)',
+            }}>
+              <Lock size={20} color="white" />
+            </Box>
+            <Box sx={{ pt: 0.25, pr: 3 }}>
+              <Typography sx={{
+                fontWeight: 700, fontSize: '1.05rem', lineHeight: 1.25,
+                color: textPrimary,
+              }}>
+                Your trial has ended
+              </Typography>
+              <Typography sx={{
+                fontSize: '0.82rem', color: textSecondary, mt: 0.35, lineHeight: 1.45,
+              }}>
+                Pick a plan to keep using Flowbooks — your data is safe.
+              </Typography>
+            </Box>
+          </Stack>
         </Box>
 
-        <Box sx={{ px: 3, py: 2.5 }}>
-          {/* Plan Cards */}
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2.5 }}>
+        {/* Plan cards */}
+        <Box sx={{ px: 3, pb: 2 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
             {/* Pro */}
             <Box sx={{
-              flex: 1, p: 2, borderRadius: '12px',
-              border: '2px solid', borderColor: '#D97757',
-              bgcolor: isDark ? 'rgba(217,119,87,0.08)' : '#FFF8F5',
-              position: 'relative',
+              flex: 1, p: 1.75, borderRadius: '12px', position: 'relative',
+              border: '1.5px solid #D97757',
+              bgcolor: softBrandBg,
             }}>
               <Chip size="sm" sx={{
-                position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
+                position: 'absolute', top: -9, left: '50%', transform: 'translateX(-50%)',
                 bgcolor: '#D97757', color: '#fff',
-                fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.04em',
+                fontSize: '0.58rem', fontWeight: 700, letterSpacing: '0.06em',
+                '--Chip-minHeight': '18px', px: 0.875,
               }}>
                 POPULAR
               </Chip>
-              <Box sx={{ textAlign: 'center', mb: 1.5 }}>
-                <Typography level="body-sm" fontWeight={700}>Pro</Typography>
-                <Stack direction="row" alignItems="baseline" justifyContent="center" spacing={0.25}>
-                  <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.3 }}>${pro.price}</Typography>
-                  <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>/mo</Typography>
+              <Stack direction="row" alignItems="baseline" sx={{ mb: 1.25, mt: 0.25 }}>
+                <Typography sx={{
+                  fontWeight: 700, fontSize: '0.88rem', color: textPrimary, flex: 1,
+                }}>
+                  Pro
+                </Typography>
+                <Stack direction="row" alignItems="baseline" spacing={0.15}>
+                  <Typography sx={{
+                    fontWeight: 800, fontSize: '1.05rem', color: textPrimary,
+                    letterSpacing: '-0.01em',
+                  }}>
+                    ${pro.price}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.7rem', color: textSecondary }}>
+                    /mo
+                  </Typography>
                 </Stack>
-              </Box>
-              <Stack spacing={0.75}>
+              </Stack>
+              <Stack spacing={0.625}>
                 {proFeatures.map((f, i) => (
                   <Stack key={i} direction="row" spacing={0.75} alignItems="center">
-                    <Check size={12} color="#D97757" style={{ flexShrink: 0 }} />
-                    <Typography level="body-xs">{f}</Typography>
+                    <Box sx={{
+                      width: 16, height: 16, borderRadius: '4px', flexShrink: 0,
+                      bgcolor: isDark ? 'rgba(217,119,87,0.2)' : 'rgba(217,119,87,0.18)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Check size={10} color="#D97757" strokeWidth={3} />
+                    </Box>
+                    <Typography sx={{
+                      fontSize: '0.76rem', color: textPrimary, lineHeight: 1.35,
+                    }}>
+                      {f}
+                    </Typography>
                   </Stack>
                 ))}
               </Stack>
@@ -140,54 +179,84 @@ export default function PremiumModal() {
 
             {/* Max */}
             <Box sx={{
-              flex: 1, p: 2, borderRadius: '12px',
-              border: '1px solid',
-              borderColor: isDark ? 'neutral.700' : 'neutral.200',
+              flex: 1, p: 1.75, borderRadius: '12px',
+              border: '1px solid', borderColor: borderSoft,
             }}>
-              <Box sx={{ textAlign: 'center', mb: 1.5, mt: 0.5 }}>
-                <Typography level="body-sm" fontWeight={700}>Max</Typography>
-                <Stack direction="row" alignItems="baseline" justifyContent="center" spacing={0.25}>
-                  <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, lineHeight: 1.3 }}>${max.price}</Typography>
-                  <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>/mo</Typography>
+              <Stack direction="row" alignItems="baseline" sx={{ mb: 1.25, mt: 0.25 }}>
+                <Typography sx={{
+                  fontWeight: 700, fontSize: '0.88rem', color: textPrimary, flex: 1,
+                }}>
+                  Max
+                </Typography>
+                <Stack direction="row" alignItems="baseline" spacing={0.15}>
+                  <Typography sx={{
+                    fontWeight: 800, fontSize: '1.05rem', color: textPrimary,
+                    letterSpacing: '-0.01em',
+                  }}>
+                    ${max.price}
+                  </Typography>
+                  <Typography sx={{ fontSize: '0.7rem', color: textSecondary }}>
+                    /mo
+                  </Typography>
                 </Stack>
-              </Box>
-              <Stack spacing={0.75}>
+              </Stack>
+              <Stack spacing={0.625}>
                 {maxFeatures.map((f, i) => (
                   <Stack key={i} direction="row" spacing={0.75} alignItems="center">
-                    <Check size={12} style={{ color: 'var(--joy-palette-success-500)', flexShrink: 0 }} />
-                    <Typography level="body-xs">{f}</Typography>
+                    <Box sx={{
+                      width: 16, height: 16, borderRadius: '4px', flexShrink: 0,
+                      bgcolor: neutralSoftBg,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    }}>
+                      <Check size={10} color={textSecondary} strokeWidth={3} />
+                    </Box>
+                    <Typography sx={{
+                      fontSize: '0.76rem', color: textPrimary, lineHeight: 1.35,
+                    }}>
+                      {f}
+                    </Typography>
                   </Stack>
                 ))}
               </Stack>
             </Box>
           </Stack>
+        </Box>
 
-          {/* Actions */}
-          <Button
-            fullWidth
-            size="lg"
-            endDecorator={<ArrowRight size={16} />}
-            onClick={handleUpgrade}
-            sx={{
-              borderRadius: '10px', fontWeight: 700, py: 1.25, mb: 1,
-              background: 'linear-gradient(135deg, #D97757 0%, #C4694D 100%)',
-              '&:hover': { background: 'linear-gradient(135deg, #C4694D 0%, #B85A3D 100%)' },
-            }}
-          >
-            Subscribe Now
-          </Button>
-          <Button
-            fullWidth
-            variant="plain"
-            color="neutral"
-            size="sm"
-            onClick={() => setOpen(false)}
-            sx={{ fontWeight: 500 }}
-          >
-            Maybe Later
-          </Button>
-
-          <Typography level="body-xs" sx={{ color: 'text.tertiary', textAlign: 'center', mt: 1.5 }}>
+        {/* Actions */}
+        <Box sx={{ px: 3, pb: 2.5, pt: 0.5 }}>
+          <Stack direction="row" spacing={1}>
+            <Button
+              variant="plain"
+              onClick={() => setOpen(false)}
+              sx={{
+                flex: 1, borderRadius: '10px',
+                fontWeight: 600, fontSize: '0.82rem',
+                color: textSecondary,
+                '&:hover': {
+                  bgcolor: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+                  color: textPrimary,
+                },
+              }}
+            >
+              Maybe later
+            </Button>
+            <Button
+              endDecorator={<ArrowRight size={15} />}
+              onClick={handleUpgrade}
+              sx={{
+                flex: 1.5, borderRadius: '10px',
+                fontWeight: 700, fontSize: '0.82rem',
+                bgcolor: '#D97757',
+                '&:hover': { bgcolor: '#C4694D' },
+              }}
+            >
+              Subscribe now
+            </Button>
+          </Stack>
+          <Typography sx={{
+            fontSize: '0.68rem', color: textMuted,
+            textAlign: 'center', mt: 1.25,
+          }}>
             Your data is safe and waiting for you
           </Typography>
         </Box>
