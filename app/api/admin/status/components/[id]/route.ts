@@ -7,7 +7,7 @@ initAdmin();
 const db = getFirestore();
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const auth = await verifyAdminRequest(req);
+  const auth = await verifyAdminRequest(req, 'status:manage');
   if (!auth.authorized) return auth.response;
 
   const { id } = params;
@@ -24,7 +24,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 }
 
 export async function DELETE(req: Request, { params }: { params: { id: string } }) {
-  const auth = await verifyAdminRequest(req);
+  const auth = await verifyAdminRequest(req, 'status:manage');
   if (!auth.authorized) return auth.response;
 
   await db.collection('statusComponents').doc(params.id).delete();

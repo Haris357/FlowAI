@@ -254,20 +254,6 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* Stats Bar */}
-      <section className="relative z-10 py-12">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-            {stats.map((stat, i) => (
-              <div key={i} className="text-center liquid-glass-subtle rounded-2xl py-5 px-4">
-                <div className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">{stat.value}</div>
-                <div className="text-xs text-slate-500 dark:text-[#78736D] mt-1">{stat.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* Mission Statement */}
       <section className="relative z-10 py-16">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">

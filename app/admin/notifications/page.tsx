@@ -1,55 +1,70 @@
 'use client';
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box, Typography, Stack, Card, CardContent, Chip, Button, Skeleton,
-  Select, Option, Input, Modal, ModalDialog, ModalClose, FormControl,
-  FormLabel, Textarea, Divider,
+  Modal, ModalDialog, ModalClose, Sheet, Table, IconButton, Tooltip,
+  Select, Option, Input, Divider, FormControl, FormLabel, Textarea,
 } from '@mui/joy';
 import {
   Bell, Trash2, Inbox, Send, Info, AlertTriangle, CheckCircle2,
-  MousePointerClick, Filter, Plus, Mail,
+  MousePointerClick, Filter, Plus, Search, RefreshCw, Mail,
+  AlertCircle, Eye, Save,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminFetch } from '@/lib/admin-fetch';
-import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
+import { adminCard } from '@/lib/admin-theme';
+import PaginationFooter from '@/components/admin/PaginationFooter';
 
-const TYPE_COLORS: Record<string, 'primary' | 'warning' | 'success' | 'neutral'> = {
-  info: 'primary',
-  warning: 'warning',
-  success: 'success',
-  action: 'neutral',
+type ChipColor = 'primary' | 'warning' | 'success' | 'neutral' | 'danger';
+const TYPE_COLORS: Record<string, ChipColor> = {
+  info: 'primary', warning: 'warning', success: 'success', action: 'neutral',
 };
-
 const TYPE_ICONS: Record<string, React.ReactNode> = {
-  info: <Info size={12} />,
-  warning: <AlertTriangle size={12} />,
-  success: <CheckCircle2 size={12} />,
-  action: <MousePointerClick size={12} />,
+  info: <Info size={10} />,
+  warning: <AlertTriangle size={10} />,
+  success: <CheckCircle2 size={10} />,
+  action: <MousePointerClick size={10} />,
 };
 
-const CATEGORIES = ['invoice', 'bill', 'subscription', 'system', 'support', 'ai'];
+const CATEGORIES = ['invoice', 'bill', 'subscription', 'system', 'support', 'ai', 'announcement'];
 const TYPES = ['info', 'warning', 'success', 'action'];
 
+interface NotifRow {
+  id: string;
+  userId: string;
+  userEmail?: string;
+  title?: string;
+  message?: string;
+  type?: string;
+  category?: string;
+  read?: boolean;
+  actionUrl?: string;
+  createdAt?: any;
+}
+
+function formatDate(ts: any): string {
+  if (!ts) return '—';
+  const d = ts._seconds ? new Date(ts._seconds * 1000) : ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 export default function AdminNotificationsPage() {
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifs, setNotifs] = useState<NotifRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState<string | null>(null);
+  const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
   const [readFilter, setReadFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
 
-  // Send notification modal
   const [sendOpen, setSendOpen] = useState(false);
-  const [sendData, setSendData] = useState({
-    userId: '',
-    type: 'info',
-    title: '',
-    message: '',
-    category: 'system',
-  });
-  const [sending, setSending] = useState(false);
+  const [detailModal, setDetailModal] = useState<NotifRow | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<NotifRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  const fetchNotifications = async () => {
+  const load = async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -58,38 +73,404 @@ export default function AdminNotificationsPage() {
       if (readFilter) params.set('read', readFilter);
       const res = await adminFetch(`/api/admin/notifications?${params}`);
       const data = await res.json();
-      setNotifications(data.notifications || []);
+      setNotifs(data.notifications || []);
     } catch {
-      toast.error('Failed to fetch notifications');
+      toast.error('Failed to load notifications');
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    fetchNotifications();
-  }, [typeFilter, categoryFilter, readFilter]);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [typeFilter, categoryFilter, readFilter]);
+  useEffect(() => { setPage(1); }, [search, typeFilter, categoryFilter, readFilter, pageSize]);
 
-  const handleDelete = async (userId: string, notificationId: string) => {
-    setDeleting(notificationId);
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
     try {
       const res = await adminFetch('/api/admin/notifications', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, notificationId }),
+        body: JSON.stringify({ userId: deleteConfirm.userId, notificationId: deleteConfirm.id }),
       });
       if (!res.ok) throw new Error();
       toast.success('Notification deleted');
-      setNotifications(prev => prev.filter(n => n.id !== notificationId));
+      setNotifs(prev => prev.filter(n => n.id !== deleteConfirm.id));
     } catch {
-      toast.error('Failed to delete notification');
+      toast.error('Failed to delete');
     } finally {
-      setDeleting(null);
+      setDeleting(false);
+      setDeleteConfirm(null);
     }
   };
 
+  const filtered = useMemo(() => {
+    if (!search.trim()) return notifs;
+    const q = search.toLowerCase();
+    return notifs.filter(n =>
+      (n.title || '').toLowerCase().includes(q) ||
+      (n.message || '').toLowerCase().includes(q) ||
+      (n.userEmail || '').toLowerCase().includes(q)
+    );
+  }, [notifs, search]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, filtered.length);
+  const pageRows = filtered.slice(startIdx, endIdx);
+
+  const unreadCount = notifs.filter(n => !n.read).length;
+
+  return (
+    <Box sx={{ p: { xs: 2, sm: 2.5, md: 4 }, maxWidth: 1200, mx: 'auto' }}>
+      <Stack spacing={3}>
+        {/* Header */}
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={2}>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Box sx={{
+              width: 36, height: 36, borderRadius: 'md', bgcolor: 'primary.softBg',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <Bell size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />
+            </Box>
+            <Box>
+              <Typography level="h3" fontWeight={700}>Notifications</Typography>
+              <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+                {unreadCount} unread · {notifs.length} total across all users
+              </Typography>
+            </Box>
+          </Stack>
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="sm" variant="outlined" color="neutral"
+              startDecorator={<RefreshCw size={14} />}
+              onClick={load} loading={loading}
+              sx={{ borderRadius: '10px' }}
+            >
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              startDecorator={<Plus size={14} />}
+              onClick={() => setSendOpen(true)}
+              sx={{ bgcolor: '#D97757', '&:hover': { bgcolor: '#C4694D' }, borderRadius: '10px', fontWeight: 700 }}
+            >
+              Send notification
+            </Button>
+          </Stack>
+        </Stack>
+
+        {/* Filter bar */}
+        <Card sx={{ ...adminCard as Record<string, unknown>, p: 0 }}>
+          <CardContent sx={{ p: 2 }}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} alignItems={{ md: 'center' }}>
+              <Stack direction="row" spacing={0.75} alignItems="center" sx={{ color: 'text.tertiary' }}>
+                <Filter size={14} />
+                <Typography level="body-xs" fontWeight={600}>Filters</Typography>
+              </Stack>
+              <Input
+                size="sm"
+                placeholder="Search title, message, user…"
+                startDecorator={<Search size={14} />}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                sx={{ flex: 1, minWidth: 180, borderRadius: '8px' }}
+              />
+              <Select
+                size="sm" placeholder="All Types" value={typeFilter || ''}
+                onChange={(_, v) => setTypeFilter(v || '')}
+                sx={{ minWidth: 120, borderRadius: '8px' }}
+              >
+                <Option value="">All Types</Option>
+                {TYPES.map(t => <Option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</Option>)}
+              </Select>
+              <Select
+                size="sm" placeholder="All Categories" value={categoryFilter || ''}
+                onChange={(_, v) => setCategoryFilter(v || '')}
+                sx={{ minWidth: 150, borderRadius: '8px' }}
+              >
+                <Option value="">All Categories</Option>
+                {CATEGORIES.map(c => <Option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</Option>)}
+              </Select>
+              <Select
+                size="sm" placeholder="All Status" value={readFilter || ''}
+                onChange={(_, v) => setReadFilter(v || '')}
+                sx={{ minWidth: 120, borderRadius: '8px' }}
+              >
+                <Option value="">All Status</Option>
+                <Option value="read">Read</Option>
+                <Option value="unread">Unread</Option>
+              </Select>
+              {(search || typeFilter || categoryFilter || readFilter) && (
+                <Chip
+                  size="sm" variant="soft" color="neutral"
+                  sx={{ cursor: 'pointer', flexShrink: 0 }}
+                  onClick={() => { setSearch(''); setTypeFilter(''); setCategoryFilter(''); setReadFilter(''); }}
+                >
+                  Clear
+                </Chip>
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
+
+        {/* Table */}
+        <Card sx={{ ...adminCard as Record<string, unknown>, p: 0, overflow: 'hidden' }}>
+          <Sheet sx={{ overflow: 'auto' }}>
+            <Table hoverRow stickyHeader sx={{
+              '& thead th': {
+                py: 1.25, fontSize: '0.7rem', fontWeight: 700,
+                color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: '0.05em',
+                bgcolor: 'background.surface',
+              },
+              '& tbody td': { py: 1.5, verticalAlign: 'middle' },
+              minWidth: 900,
+            }}>
+              <thead>
+                <tr>
+                  <th style={{ width: '3rem' }}></th>
+                  <th>Title · Message</th>
+                  <th style={{ width: '7rem' }}>Type</th>
+                  <th style={{ width: '8rem' }}>Category</th>
+                  <th style={{ width: '13rem' }}>User</th>
+                  <th style={{ width: '7rem' }}>Date</th>
+                  <th style={{ width: '7rem', textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 6 }).map((_, i) => (
+                    <tr key={i}>
+                      <td><Skeleton variant="circular" width={8} height={8} /></td>
+                      <td><Skeleton variant="text" width="80%" /></td>
+                      <td><Skeleton variant="rectangular" width={60} height={18} sx={{ borderRadius: 10 }} /></td>
+                      <td><Skeleton variant="rectangular" width={70} height={18} sx={{ borderRadius: 10 }} /></td>
+                      <td><Skeleton variant="text" width="70%" /></td>
+                      <td><Skeleton variant="text" width={60} /></td>
+                      <td><Skeleton variant="text" width={60} sx={{ ml: 'auto' }} /></td>
+                    </tr>
+                  ))
+                ) : pageRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>
+                      <Box sx={{ py: 6, textAlign: 'center', color: 'text.tertiary' }}>
+                        <Inbox size={28} style={{ opacity: 0.5, marginBottom: 6 }} />
+                        <Typography level="body-sm">
+                          {search || typeFilter || categoryFilter || readFilter
+                            ? 'No notifications match your filters.'
+                            : 'No notifications yet.'}
+                        </Typography>
+                      </Box>
+                    </td>
+                  </tr>
+                ) : (
+                  pageRows.map(n => (
+                    <tr key={n.id}>
+                      <td>
+                        {!n.read && (
+                          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#D97757' }} />
+                        )}
+                      </td>
+                      <td>
+                        <Box onClick={() => setDetailModal(n)} sx={{ cursor: 'pointer', minWidth: 0 }}>
+                          <Typography level="body-sm" fontWeight={n.read ? 500 : 700} noWrap>
+                            {n.title || '(untitled)'}
+                          </Typography>
+                          <Typography level="body-xs" sx={{ color: 'text.tertiary' }} noWrap>
+                            {(n.message || '').slice(0, 100)}
+                          </Typography>
+                        </Box>
+                      </td>
+                      <td>
+                        {n.type ? (
+                          <Chip
+                            size="sm" variant="soft"
+                            color={TYPE_COLORS[n.type] || 'neutral'}
+                            startDecorator={TYPE_ICONS[n.type]}
+                            sx={{ fontSize: '0.68rem', fontWeight: 600 }}
+                          >
+                            {n.type}
+                          </Chip>
+                        ) : '—'}
+                      </td>
+                      <td>
+                        {n.category ? (
+                          <Chip size="sm" variant="outlined" color="neutral" sx={{ fontSize: '0.68rem' }}>
+                            {n.category}
+                          </Chip>
+                        ) : '—'}
+                      </td>
+                      <td>
+                        <Typography level="body-xs" fontWeight={500} noWrap>
+                          {n.userEmail || n.userId}
+                        </Typography>
+                      </td>
+                      <td>
+                        <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                          {formatDate(n.createdAt)}
+                        </Typography>
+                      </td>
+                      <td>
+                        <Stack direction="row" spacing={0.25} justifyContent="flex-end">
+                          <Tooltip title="View details">
+                            <IconButton size="sm" variant="plain" color="neutral" onClick={() => setDetailModal(n)}>
+                              <Eye size={14} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton size="sm" variant="plain" color="danger" onClick={() => setDeleteConfirm(n)}>
+                              <Trash2 size={14} />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </Table>
+          </Sheet>
+
+          {!loading && filtered.length > 0 && (
+            <PaginationFooter
+              startIdx={startIdx} endIdx={endIdx} total={filtered.length}
+              pageSize={pageSize} setPageSize={setPageSize}
+              currentPage={currentPage} totalPages={totalPages} setPage={setPage}
+            />
+          )}
+        </Card>
+      </Stack>
+
+      {/* Send notification modal */}
+      {sendOpen && (
+        <SendNotificationModal
+          onClose={() => setSendOpen(false)}
+          onSent={() => { setSendOpen(false); load(); }}
+        />
+      )}
+
+      {/* Detail modal */}
+      {detailModal && (
+        <Modal open onClose={() => setDetailModal(null)}>
+          <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 500 }, width: '100%', borderRadius: '16px', maxHeight: '90vh', overflow: 'auto' }}>
+            <ModalClose />
+            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 0.5 }}>
+              <Box sx={{
+                width: 36, height: 36, borderRadius: '10px', flexShrink: 0,
+                bgcolor: `${TYPE_COLORS[detailModal.type || ''] || 'neutral'}.softBg`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Bell size={18} style={{ color: `var(--joy-palette-${TYPE_COLORS[detailModal.type || ''] || 'neutral'}-500)` }} />
+              </Box>
+              <Box>
+                <Typography level="title-lg" fontWeight={700}>{detailModal.title}</Typography>
+                <Stack direction="row" spacing={0.5} sx={{ mt: 0.25 }}>
+                  {detailModal.type && (
+                    <Chip size="sm" variant="soft" color={TYPE_COLORS[detailModal.type]}>{detailModal.type}</Chip>
+                  )}
+                  {detailModal.category && (
+                    <Chip size="sm" variant="outlined" color="neutral">{detailModal.category}</Chip>
+                  )}
+                  <Chip size="sm" variant="soft" color={detailModal.read ? 'neutral' : 'warning'}>
+                    {detailModal.read ? 'Read' : 'Unread'}
+                  </Chip>
+                </Stack>
+              </Box>
+            </Stack>
+            <Divider sx={{ my: 2 }} />
+            <Box sx={{
+              p: 1.5, borderRadius: '8px', bgcolor: 'background.level1',
+              border: '1px solid', borderColor: 'divider',
+            }}>
+              <Typography level="body-sm" sx={{ whiteSpace: 'pre-wrap' }}>{detailModal.message}</Typography>
+            </Box>
+            <Stack spacing={1} sx={{ mt: 2 }}>
+              <Stack direction="row" spacing={1}>
+                <Mail size={14} style={{ color: 'var(--joy-palette-text-tertiary)' }} />
+                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                  Sent to {detailModal.userEmail || detailModal.userId}
+                </Typography>
+              </Stack>
+              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
+                {formatDate(detailModal.createdAt)}
+              </Typography>
+              {detailModal.actionUrl && (
+                <Typography level="body-xs" sx={{ color: 'text.tertiary', wordBreak: 'break-all' }}>
+                  Action URL: <code>{detailModal.actionUrl}</code>
+                </Typography>
+              )}
+            </Stack>
+            <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 3 }}>
+              <Button variant="plain" color="neutral" onClick={() => setDetailModal(null)}>Close</Button>
+              <Button
+                color="danger" variant="soft"
+                startDecorator={<Trash2 size={14} />}
+                onClick={() => { setDeleteConfirm(detailModal); setDetailModal(null); }}
+                sx={{ borderRadius: '10px' }}
+              >
+                Delete
+              </Button>
+            </Stack>
+          </ModalDialog>
+        </Modal>
+      )}
+
+      {/* Delete confirm */}
+      {deleteConfirm && (
+        <Modal open onClose={() => setDeleteConfirm(null)}>
+          <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 400 }, width: '100%', borderRadius: '16px' }}>
+            <Stack direction="row" spacing={1.5} alignItems="flex-start">
+              <Box sx={{
+                width: 36, height: 36, borderRadius: '10px', flexShrink: 0,
+                bgcolor: 'danger.softBg',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <AlertCircle size={18} style={{ color: 'var(--joy-palette-danger-500)' }} />
+              </Box>
+              <Box>
+                <Typography level="title-md" fontWeight={700}>Delete notification?</Typography>
+                <Typography level="body-sm" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                  Remove <strong>{deleteConfirm.title}</strong> from the user's feed.
+                </Typography>
+              </Box>
+            </Stack>
+            <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 2.5 }}>
+              <Button variant="plain" color="neutral" onClick={() => setDeleteConfirm(null)} disabled={deleting}>
+                Cancel
+              </Button>
+              <Button
+                color="danger" loading={deleting}
+                startDecorator={<Trash2 size={14} />}
+                onClick={handleDelete}
+                sx={{ borderRadius: '10px' }}
+              >
+                Delete
+              </Button>
+            </Stack>
+          </ModalDialog>
+        </Modal>
+      )}
+    </Box>
+  );
+}
+
+// ============================================================
+// Send Notification Modal
+// ============================================================
+
+function SendNotificationModal({
+  onClose, onSent,
+}: { onClose: () => void; onSent: () => void }) {
+  const [form, setForm] = useState({
+    userId: '', type: 'info', title: '', message: '', category: 'system',
+  });
+  const [sending, setSending] = useState(false);
+
+  const canSend = form.userId.trim() && form.title.trim() && form.message.trim();
+
   const handleSend = async () => {
-    if (!sendData.userId || !sendData.title || !sendData.message) {
+    if (!canSend) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -98,299 +479,108 @@ export default function AdminNotificationsPage() {
       const res = await adminFetch('/api/admin/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(sendData),
+        body: JSON.stringify(form),
       });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'Failed');
       }
       toast.success('Notification sent');
-      setSendOpen(false);
-      setSendData({ userId: '', type: 'info', title: '', message: '', category: 'system' });
-      fetchNotifications();
+      onSent();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to send notification');
+      toast.error(err.message || 'Failed to send');
     } finally {
       setSending(false);
     }
   };
 
-  const formatDate = (ts: any) => {
-    if (!ts) return '-';
-    const d = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts);
-    return d.toLocaleDateString('en-US', {
-      month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit',
-    });
-  };
-
   return (
-    <Box sx={{ p: { xs: 2.5, md: 4 }, maxWidth: 960, mx: 'auto' }}>
-      <Stack spacing={3}>
-        {/* Header */}
-        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+    <Modal open onClose={onClose}>
+      <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 500 }, width: '100%', borderRadius: '16px' }}>
+        <ModalClose />
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 0.5 }}>
+          <Box sx={{
+            width: 36, height: 36, borderRadius: '10px', bgcolor: '#FFF0E8',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Send size={18} color="#D97757" />
+          </Box>
           <Box>
-            <Typography level="h3" fontWeight={700}>Notifications</Typography>
+            <Typography level="title-lg" fontWeight={700}>Send notification</Typography>
             <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-              View and manage notifications across all users.
+              Send an in-app notification to a specific user.
             </Typography>
           </Box>
+        </Stack>
+        <Divider sx={{ my: 2 }} />
+        <Stack spacing={2}>
+          <FormControl required>
+            <FormLabel>User ID</FormLabel>
+            <Input
+              size="sm" value={form.userId}
+              onChange={e => setForm(f => ({ ...f, userId: e.target.value }))}
+              placeholder="Firestore user document id"
+              sx={{ borderRadius: '8px' }}
+            />
+            <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 0.5 }}>
+              Copy from the Users page &rarr; user detail URL.
+            </Typography>
+          </FormControl>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <FormControl required sx={{ flex: 1 }}>
+              <FormLabel>Type</FormLabel>
+              <Select
+                size="sm" value={form.type}
+                onChange={(_, v) => v && setForm(f => ({ ...f, type: v }))}
+                sx={{ borderRadius: '8px' }}
+              >
+                {TYPES.map(t => <Option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</Option>)}
+              </Select>
+            </FormControl>
+            <FormControl required sx={{ flex: 1 }}>
+              <FormLabel>Category</FormLabel>
+              <Select
+                size="sm" value={form.category}
+                onChange={(_, v) => v && setForm(f => ({ ...f, category: v }))}
+                sx={{ borderRadius: '8px' }}
+              >
+                {CATEGORIES.map(c => <Option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</Option>)}
+              </Select>
+            </FormControl>
+          </Stack>
+          <FormControl required>
+            <FormLabel>Title</FormLabel>
+            <Input
+              size="sm" value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              placeholder="Notification title"
+              sx={{ borderRadius: '8px' }}
+            />
+          </FormControl>
+          <FormControl required>
+            <FormLabel>Message</FormLabel>
+            <Textarea
+              minRows={3} maxRows={6}
+              value={form.message}
+              onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
+              placeholder="Notification message…"
+              sx={{ borderRadius: '8px' }}
+            />
+          </FormControl>
+        </Stack>
+        <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 3 }}>
+          <Button variant="plain" color="neutral" onClick={onClose} disabled={sending}>Cancel</Button>
           <Button
-            size="sm"
-            startDecorator={<Plus size={14} />}
-            onClick={() => setSendOpen(true)}
-            sx={{
-              bgcolor: '#D97757',
-              '&:hover': { bgcolor: '#c4684a' },
-            }}
+            startDecorator={<Send size={14} />}
+            loading={sending}
+            disabled={!canSend}
+            onClick={handleSend}
+            sx={{ bgcolor: '#D97757', '&:hover': { bgcolor: '#C4694D' }, borderRadius: '10px' }}
           >
-            Send Notification
+            Send notification
           </Button>
         </Stack>
-
-        {/* Filter bar */}
-        <Card sx={{ ...adminCard as Record<string, unknown>, p: 0 }}>
-          <CardContent sx={{ p: 2 }}>
-            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems="center">
-              <Stack direction="row" spacing={0.5} alignItems="center" sx={{ color: 'text.tertiary' }}>
-                <Filter size={14} />
-                <Typography level="body-xs" fontWeight={600}>Filters</Typography>
-              </Stack>
-              <Select
-                size="sm"
-                placeholder="All Types"
-                value={typeFilter || null}
-                onChange={(_, val) => setTypeFilter(val || '')}
-                sx={{ minWidth: 130, fontSize: '12px' }}
-              >
-                <Option value="">All Types</Option>
-                {TYPES.map(t => (
-                  <Option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</Option>
-                ))}
-              </Select>
-              <Select
-                size="sm"
-                placeholder="All Categories"
-                value={categoryFilter || null}
-                onChange={(_, val) => setCategoryFilter(val || '')}
-                sx={{ minWidth: 150, fontSize: '12px' }}
-              >
-                <Option value="">All Categories</Option>
-                {CATEGORIES.map(c => (
-                  <Option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</Option>
-                ))}
-              </Select>
-              <Select
-                size="sm"
-                placeholder="All Status"
-                value={readFilter || null}
-                onChange={(_, val) => setReadFilter(val || '')}
-                sx={{ minWidth: 130, fontSize: '12px' }}
-              >
-                <Option value="">All Status</Option>
-                <Option value="read">Read</Option>
-                <Option value="unread">Unread</Option>
-              </Select>
-            </Stack>
-          </CardContent>
-        </Card>
-
-        {/* Notifications list */}
-        {loading ? (
-          <Stack spacing={1.5}>
-            {[1, 2, 3, 4].map(i => (
-              <Card key={i} variant="outlined">
-                <CardContent sx={{ p: 2.5 }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                    <Box sx={{ flex: 1 }}>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Skeleton variant="text" width="35%" />
-                        <Skeleton variant="rectangular" width={50} height={18} sx={{ borderRadius: 10 }} />
-                      </Stack>
-                      <Skeleton variant="text" width="70%" sx={{ mt: 0.5 }} />
-                      <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                        <Skeleton variant="text" width={120} />
-                        <Skeleton variant="rectangular" width={55} height={18} sx={{ borderRadius: 10 }} />
-                      </Stack>
-                    </Box>
-                    <Skeleton variant="rectangular" width={30} height={30} sx={{ borderRadius: 'sm' }} />
-                  </Stack>
-                </CardContent>
-              </Card>
-            ))}
-          </Stack>
-        ) : notifications.length === 0 ? (
-          <Card sx={{ ...liquidGlassSubtle as Record<string, unknown> }}>
-            <CardContent sx={{ py: 6, textAlign: 'center' }}>
-              <Inbox size={36} style={{ color: 'var(--joy-palette-neutral-400)', margin: '0 auto 8px' }} />
-              <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
-                No notifications found.
-              </Typography>
-            </CardContent>
-          </Card>
-        ) : (
-          <Stack spacing={1.5}>
-            <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-              {notifications.length} notification{notifications.length !== 1 ? 's' : ''}
-            </Typography>
-            {notifications.map(notif => (
-              <Card key={notif.id} sx={{
-                ...adminCard as Record<string, unknown>,
-                transition: 'border-color 0.2s',
-                '&:hover': { borderColor: 'neutral.400' },
-                borderLeft: '3px solid',
-                borderLeftColor: notif.read
-                  ? 'var(--joy-palette-neutral-300)'
-                  : 'var(--joy-palette-primary-400)',
-              }}>
-                <CardContent sx={{ p: 2.5 }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                    <Box sx={{ flex: 1, minWidth: 0, mr: 2 }}>
-                      <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-                        <Typography level="body-sm" fontWeight={600}>
-                          {notif.title}
-                        </Typography>
-                        <Chip
-                          size="sm"
-                          variant="soft"
-                          color={TYPE_COLORS[notif.type] || 'neutral'}
-                          startDecorator={TYPE_ICONS[notif.type]}
-                          sx={{ fontSize: '10px' }}
-                        >
-                          {notif.type}
-                        </Chip>
-                        {!notif.read && (
-                          <Box sx={{
-                            width: 6, height: 6, borderRadius: '50%',
-                            bgcolor: '#D97757', flexShrink: 0,
-                          }} />
-                        )}
-                      </Stack>
-                      <Typography level="body-xs" sx={{ color: 'text.secondary' }} noWrap>
-                        {notif.message?.slice(0, 200)}
-                      </Typography>
-                      <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5 }}>
-                        <Stack direction="row" spacing={0.5} alignItems="center">
-                          <Mail size={10} style={{ color: 'var(--joy-palette-neutral-500)' }} />
-                          <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                            {notif.userEmail}
-                          </Typography>
-                        </Stack>
-                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                          &bull; {formatDate(notif.createdAt)}
-                        </Typography>
-                        {notif.category && (
-                          <Chip size="sm" variant="soft" color="neutral" sx={{ fontSize: '10px' }}>
-                            {notif.category}
-                          </Chip>
-                        )}
-                        <Chip
-                          size="sm"
-                          variant="outlined"
-                          color={notif.read ? 'neutral' : 'warning'}
-                          sx={{ fontSize: '10px' }}
-                        >
-                          {notif.read ? 'Read' : 'Unread'}
-                        </Chip>
-                      </Stack>
-                    </Box>
-                    <Button
-                      size="sm"
-                      variant="plain"
-                      color="danger"
-                      onClick={() => handleDelete(notif.userId, notif.id)}
-                      loading={deleting === notif.id}
-                      sx={{ minWidth: 32, px: 0.75 }}
-                    >
-                      <Trash2 size={14} />
-                    </Button>
-                  </Stack>
-                </CardContent>
-              </Card>
-            ))}
-          </Stack>
-        )}
-      </Stack>
-
-      {/* Send Notification Modal */}
-      <Modal open={sendOpen} onClose={() => setSendOpen(false)}>
-        <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 480 }, width: '100%' }}>
-          <ModalClose />
-          <Typography level="title-lg" fontWeight={700}>
-            Send Notification
-          </Typography>
-          <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 1 }}>
-            Send a notification to a specific user.
-          </Typography>
-          <Divider />
-          <Stack spacing={2} sx={{ mt: 1 }}>
-            <FormControl required>
-              <FormLabel>User ID</FormLabel>
-              <Input
-                size="sm"
-                placeholder="Enter user ID"
-                value={sendData.userId}
-                onChange={e => setSendData(prev => ({ ...prev, userId: e.target.value }))}
-              />
-            </FormControl>
-            <Stack direction="row" spacing={1.5}>
-              <FormControl required sx={{ flex: 1 }}>
-                <FormLabel>Type</FormLabel>
-                <Select
-                  size="sm"
-                  value={sendData.type}
-                  onChange={(_, val) => setSendData(prev => ({ ...prev, type: val || 'info' }))}
-                >
-                  {TYPES.map(t => (
-                    <Option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</Option>
-                  ))}
-                </Select>
-              </FormControl>
-              <FormControl required sx={{ flex: 1 }}>
-                <FormLabel>Category</FormLabel>
-                <Select
-                  size="sm"
-                  value={sendData.category}
-                  onChange={(_, val) => setSendData(prev => ({ ...prev, category: val || 'system' }))}
-                >
-                  {CATEGORIES.map(c => (
-                    <Option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</Option>
-                  ))}
-                </Select>
-              </FormControl>
-            </Stack>
-            <FormControl required>
-              <FormLabel>Title</FormLabel>
-              <Input
-                size="sm"
-                placeholder="Notification title"
-                value={sendData.title}
-                onChange={e => setSendData(prev => ({ ...prev, title: e.target.value }))}
-              />
-            </FormControl>
-            <FormControl required>
-              <FormLabel>Message</FormLabel>
-              <Textarea
-                size="sm"
-                minRows={3}
-                placeholder="Notification message..."
-                value={sendData.message}
-                onChange={e => setSendData(prev => ({ ...prev, message: e.target.value }))}
-              />
-            </FormControl>
-            <Button
-              startDecorator={<Send size={14} />}
-              onClick={handleSend}
-              loading={sending}
-              sx={{
-                bgcolor: '#D97757',
-                '&:hover': { bgcolor: '#c4684a' },
-              }}
-            >
-              Send Notification
-            </Button>
-          </Stack>
-        </ModalDialog>
-      </Modal>
-    </Box>
+      </ModalDialog>
+    </Modal>
   );
 }

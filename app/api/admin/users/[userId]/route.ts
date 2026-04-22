@@ -10,7 +10,7 @@ const auth = getAuth();
 
 export async function GET(req: Request, { params }: { params: Promise<{ userId: string }> }) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'users:view');
     if (!authResult.authorized) return authResult.response;
 
     const { userId } = await params;
@@ -113,7 +113,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ userId: 
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ userId: string }> }) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'users:edit');
     if (!authResult.authorized) return authResult.response;
 
     const { userId } = await params;
@@ -133,7 +133,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ userId
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ userId: string }> }) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'users:delete');
     if (!authResult.authorized) return authResult.response;
 
     const { userId } = await params;

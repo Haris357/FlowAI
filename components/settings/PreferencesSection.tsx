@@ -18,7 +18,7 @@ export default function PreferencesSection() {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<UserSettings>({
     theme: 'system', dateFormat: 'MM/DD/YYYY', numberFormat: 'comma',
-    notifyEmail: true, notifyInvoices: true, notifyBills: true, notifyWeekly: false,
+    notifyEmail: true, notifyInvoices: true, notifyBills: true, notifyWeekly: true, notifyBlogs: true,
   });
 
   useEffect(() => {

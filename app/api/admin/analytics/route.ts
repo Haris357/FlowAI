@@ -30,7 +30,7 @@ async function posthogQuery(query: string) {
 
 export async function GET(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'analytics:view');
     if (!authResult.authorized) return authResult.response;
 
     if (!POSTHOG_API_KEY) {

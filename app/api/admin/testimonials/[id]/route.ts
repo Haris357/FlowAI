@@ -8,7 +8,7 @@ const db = getFirestore();
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'testimonials:manage');
     if (!authResult.authorized) return authResult.response;
 
     const { id } = await params;
@@ -27,7 +27,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'testimonials:manage');
     if (!authResult.authorized) return authResult.response;
 
     const { id } = await params;

@@ -8,7 +8,7 @@ import {
 } from '@mui/joy';
 import {
   User, Settings, Bell, Shield, CreditCard,
-  FileText, GraduationCap, HelpCircle, MessageSquare,
+  FileText, GraduationCap, MessageSquare,
   ChevronLeft, ChevronRight, X,
 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -19,13 +19,12 @@ import SecuritySection from './SecuritySection';
 import BillingLinkSection from './BillingLinkSection';
 import DocsSection from './DocsSection';
 import TutorialsSection from './TutorialsSection';
-import SupportSection from './SupportSection';
 import FeedbackSection from './FeedbackSection';
 
 type SettingsSection =
   | 'profile' | 'preferences' | 'notifications' | 'security'
   | 'billing'
-  | 'docs' | 'tutorials' | 'support' | 'feedback';
+  | 'docs' | 'tutorials' | 'feedback';
 
 interface NavGroup {
   label: string;
@@ -48,7 +47,6 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'docs', label: 'Documentation', icon: FileText },
       { id: 'tutorials', label: 'Tutorials', icon: GraduationCap },
-      { id: 'support', label: 'Support', icon: HelpCircle },
       { id: 'feedback', label: 'Feedback', icon: MessageSquare },
     ],
   },
@@ -62,7 +60,6 @@ const SECTION_META: Record<SettingsSection, { label: string; description: string
   billing: { label: 'Billing', description: 'Manage your subscription, payment method, invoices, and billing history.' },
   docs: { label: 'Documentation', description: 'Learn how to use every feature of Flowbooks.' },
   tutorials: { label: 'Tutorials', description: 'Step-by-step guides to help you get started.' },
-  support: { label: 'Support', description: 'Submit a ticket and get help from our team.' },
   feedback: { label: 'Feedback', description: 'Share your thoughts and help us improve Flowbooks.' },
 };
 
@@ -293,7 +290,6 @@ export default function SettingsModal({ open, onClose, initialSection = 'profile
             {activeSection === 'billing' && <BillingLinkSection />}
             {activeSection === 'docs' && <DocsSection />}
             {activeSection === 'tutorials' && <TutorialsSection />}
-            {activeSection === 'support' && <SupportSection />}
             {activeSection === 'feedback' && <FeedbackSection />}
           </Box>
         </Box>

@@ -2,10 +2,12 @@
 import {
   Box, Typography, Stack, Card, CardContent, Chip, Divider,
 } from '@mui/joy';
-import { Settings, Server, Database, Shield, Globe, Code2, CreditCard, Mail } from 'lucide-react';
+import { Settings, Server, Database, Shield, Globe, Code2, CreditCard, Mail, UserCog, ArrowRight } from 'lucide-react';
 import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
 import { CHANGELOG } from '@/lib/changelog';
-import { ADMIN_EMAILS } from '@/lib/admin';
+import { useRouter } from 'next/navigation';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
+import { Button } from '@mui/joy';
 
 const APP_INFO = [
   { label: 'Version', value: '', icon: Code2 },
@@ -24,18 +26,28 @@ const SERVICE_INFO = [
 ];
 
 export default function AdminSystemPage() {
+  const router = useRouter();
+  const { can } = useAdminAuth();
   const latestVersion = CHANGELOG[0]?.version || '1.0.0';
   APP_INFO[0].value = `v${latestVersion}`;
 
   return (
     <Box sx={{ p: { xs: 2.5, md: 4 }, maxWidth: 960, mx: 'auto' }}>
       <Stack spacing={3}>
-        <Box>
-          <Typography level="h3" fontWeight={700}>System</Typography>
-          <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-            System information and configuration.
-          </Typography>
-        </Box>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{
+            width: 36, height: 36, borderRadius: 'md', bgcolor: 'neutral.softBg',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <Settings size={16} style={{ color: 'var(--joy-palette-neutral-500)' }} />
+          </Box>
+          <Box>
+            <Typography level="h3" fontWeight={700}>System</Typography>
+            <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+              System information and configuration.
+            </Typography>
+          </Box>
+        </Stack>
 
         {/* Application Info */}
         <Card sx={{ ...adminCard as Record<string, unknown> }}>
@@ -110,42 +122,67 @@ export default function AdminSystemPage() {
         </Card>
 
         {/* Admin Access */}
-        <Card sx={{ ...adminCard as Record<string, unknown>, borderColor: 'danger.200' }}>
+        <Card sx={{ ...adminCard as Record<string, unknown> }}>
           <CardContent sx={{ p: 3 }}>
-            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2 }}>
+            <Stack direction="row" spacing={1.5} alignItems="flex-start" sx={{ mb: 2 }}>
               <Box sx={{
                 width: 36, height: 36, borderRadius: 'md', bgcolor: 'danger.softBg',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}>
                 <Shield size={16} style={{ color: 'var(--joy-palette-danger-500)' }} />
               </Box>
-              <Box>
+              <Box sx={{ flex: 1 }}>
                 <Typography level="title-md" fontWeight={700}>Admin Access</Typography>
-                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                  Only these email addresses can access the admin panel.
+                <Typography level="body-sm" sx={{ color: 'text.secondary', mt: 0.25 }}>
+                  Admin access is controlled via the <strong>Admin Users</strong> collection.
+                  Each admin has a username, password (hashed with bcrypt), and a role that
+                  governs which menus and actions they can access.
                 </Typography>
               </Box>
             </Stack>
-            <Stack spacing={1}>
-              {ADMIN_EMAILS.map(email => (
-                <Card key={email} sx={{ ...liquidGlassSubtle as Record<string, unknown>, p: 0 }}>
-                  <CardContent sx={{ p: 1.5 }}>
-                    <Stack direction="row" spacing={1.5} alignItems="center">
-                      <Box sx={{
-                        width: 28, height: 28, borderRadius: '50%', bgcolor: 'danger.softBg',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                      }}>
-                        <Mail size={12} style={{ color: 'var(--joy-palette-danger-500)' }} />
-                      </Box>
-                      <Typography level="body-sm" fontWeight={500}>{email}</Typography>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              ))}
+
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              spacing={1.5}
+              sx={{ mt: 2 }}
+            >
+              <Card sx={{ ...liquidGlassSubtle as Record<string, unknown>, flex: 1, p: 2 }}>
+                <Stack spacing={0.5}>
+                  <Typography level="body-xs" fontWeight={700} sx={{ color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Authentication
+                  </Typography>
+                  <Typography level="body-sm" fontWeight={600}>JWT · username + password</Typography>
+                  <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                    8-hour sessions, HS256 signed, bcrypt-hashed passwords
+                  </Typography>
+                </Stack>
+              </Card>
+              <Card sx={{ ...liquidGlassSubtle as Record<string, unknown>, flex: 1, p: 2 }}>
+                <Stack spacing={0.5}>
+                  <Typography level="body-xs" fontWeight={700} sx={{ color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Roles
+                  </Typography>
+                  <Typography level="body-sm" fontWeight={600}>4 roles · 35 permissions</Typography>
+                  <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                    Super Admin, Admin, Editor, Viewer · with per-user overrides
+                  </Typography>
+                </Stack>
+              </Card>
             </Stack>
-            <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 2 }}>
-              To add or remove admins, edit <code>lib/admin.ts</code>.
-            </Typography>
+
+            {can('admin_users:view') && (
+              <Button
+                fullWidth
+                variant="soft"
+                color="danger"
+                startDecorator={<UserCog size={16} />}
+                endDecorator={<ArrowRight size={14} />}
+                onClick={() => router.push('/admin/admin-users')}
+                sx={{ mt: 2, borderRadius: '10px', fontWeight: 600 }}
+              >
+                Manage admin users
+              </Button>
+            )}
           </CardContent>
         </Card>
       </Stack>

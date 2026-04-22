@@ -9,7 +9,7 @@ const db = getFirestore();
 
 export async function GET(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'feedback:view');
     if (!authResult.authorized) return authResult.response;
 
     const snap = await db.collection('feedback')
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
 
 export async function PATCH(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'feedback:respond');
     if (!authResult.authorized) return authResult.response;
 
     const { feedbackId, status, adminResponse } = await req.json();

@@ -2,34 +2,63 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTheme } from '@/contexts/ThemeContext';
-import { ShieldCheck, Moon, Sun, Eye, EyeOff } from 'lucide-react';
+import { ShieldCheck, Moon, Sun, Eye, EyeOff, User, Lock } from 'lucide-react';
 import FlowBooksLogo from '@/components/FlowBooksLogo';
+import { setAdminSession, getAdminSession } from '@/lib/admin-fetch';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
 
 export default function AdminLoginPage() {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [seedNotice, setSeedNotice] = useState<string | null>(null);
   const { mode, toggleMode } = useTheme();
   const router = useRouter();
+  const { refresh: refreshAdminContext } = useAdminAuth();
 
-  // If already has a valid admin session, redirect to dashboard
+  // If already has a valid admin session, redirect to dashboard.
+  // Skip the seed check in this case to avoid a burst of wasted calls.
   useEffect(() => {
-    const session = sessionStorage.getItem('adminSession');
+    const session = getAdminSession();
     if (session) {
-      try {
-        const parsed = JSON.parse(session);
-        if (parsed.expiresAt > Date.now()) {
-          router.push('/admin');
-        } else {
-          sessionStorage.removeItem('adminSession');
-        }
-      } catch {
-        sessionStorage.removeItem('adminSession');
-      }
+      router.replace('/admin');
+      return;
     }
+    // Only check seed status when there's no active session.
+    fetch('/api/admin/auth/seed', { method: 'GET' })
+      .then(r => r.json())
+      .then(d => {
+        if (d && d.seeded === false) {
+          setSeedNotice(
+            'No admin users found. Click "Create default admin" to bootstrap username "admin" with password "Admin@123".'
+          );
+        }
+      })
+      .catch(() => {});
   }, [router]);
+
+  const handleSeed = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const res = await fetch('/api/admin/auth/seed', { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || 'Failed to seed default admin.');
+        return;
+      }
+      setSeedNotice(null);
+      setUsername('admin');
+      setPassword('Admin@123');
+      setError('');
+    } catch {
+      setError('Failed to seed default admin.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,7 +69,7 @@ export default function AdminLoginPage() {
       const res = await fetch('/api/admin/auth', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ username, password }),
       });
 
       const data = await res.json();
@@ -50,17 +79,17 @@ export default function AdminLoginPage() {
         return;
       }
 
-      // Store admin session in sessionStorage — includes the idToken so admin API
-      // calls can use it directly without touching the shared Firebase client auth.
-      // This keeps the admin session completely isolated from the main app's auth.
-      sessionStorage.setItem('adminSession', JSON.stringify({
-        email: data.email,
-        idToken: data.idToken,
-        authenticatedAt: Date.now(),
-        expiresAt: Date.now() + (data.expiresIn * 1000),
-      }));
+      setAdminSession({
+        token: data.token,
+        expiresAt: Date.now() + data.expiresIn * 1000,
+        admin: data.admin,
+      });
 
-      router.push('/admin');
+      // Populate the admin context BEFORE navigating so /admin doesn't see a
+      // stale `admin=null` and bounce us back here (redirect loop bug).
+      await refreshAdminContext();
+
+      router.replace('/admin');
     } catch {
       setError('Failed to sign in. Please try again.');
     } finally {
@@ -126,6 +155,21 @@ export default function AdminLoginPage() {
             <p className="text-sm text-slate-500 dark:text-[#A8A29E]">Sign in with your admin credentials</p>
           </div>
 
+          {/* Seed notice */}
+          {seedNotice && (
+            <div className="mb-5 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-xl text-amber-700 dark:text-amber-300 text-xs">
+              <p className="mb-2">{seedNotice}</p>
+              <button
+                type="button"
+                onClick={handleSeed}
+                disabled={loading}
+                className="text-[11px] font-semibold underline underline-offset-2 hover:text-amber-900 dark:hover:text-amber-100"
+              >
+                Create default admin
+              </button>
+            </div>
+          )}
+
           {/* Error */}
           {error && (
             <div className="mb-5 p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800/50 rounded-xl text-red-600 dark:text-red-400 text-sm text-center">
@@ -136,26 +180,33 @@ export default function AdminLoginPage() {
           {/* Form */}
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-600 dark:text-[#A8A29E] mb-1.5">Email</label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="w-full px-4 py-2.5 bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.1] rounded-xl text-sm text-slate-900 dark:text-[#EEECE8] placeholder-slate-400 dark:placeholder-[#5C5752] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 dark:focus:border-brand-400 transition-all"
-                placeholder="admin@example.com"
-              />
+              <label className="block text-xs font-medium text-slate-600 dark:text-[#A8A29E] mb-1.5">Username</label>
+              <div className="relative">
+                <User className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#5C5752]" />
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  required
+                  autoComplete="username"
+                  spellCheck={false}
+                  className="w-full pl-10 pr-4 py-2.5 bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.1] rounded-xl text-sm text-slate-900 dark:text-[#EEECE8] placeholder-slate-400 dark:placeholder-[#5C5752] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 dark:focus:border-brand-400 transition-all"
+                  placeholder="admin"
+                />
+              </div>
             </div>
 
             <div>
               <label className="block text-xs font-medium text-slate-600 dark:text-[#A8A29E] mb-1.5">Password</label>
               <div className="relative">
+                <Lock className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-[#5C5752]" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
-                  className="w-full px-4 py-2.5 pr-10 bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.1] rounded-xl text-sm text-slate-900 dark:text-[#EEECE8] placeholder-slate-400 dark:placeholder-[#5C5752] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 dark:focus:border-brand-400 transition-all"
+                  autoComplete="current-password"
+                  className="w-full pl-10 pr-10 py-2.5 bg-white dark:bg-white/[0.05] border border-slate-200 dark:border-white/[0.1] rounded-xl text-sm text-slate-900 dark:text-[#EEECE8] placeholder-slate-400 dark:placeholder-[#5C5752] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 dark:focus:border-brand-400 transition-all"
                   placeholder="Enter password"
                 />
                 <button

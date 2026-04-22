@@ -7,7 +7,7 @@ initAdmin();
 const db = getFirestore();
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
-  const auth = await verifyAdminRequest(req);
+  const auth = await verifyAdminRequest(req, 'status:manage');
   if (!auth.authorized) return auth.response;
 
   const { status, message } = await req.json();

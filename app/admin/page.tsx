@@ -6,6 +6,7 @@ import {
 import {
   Users, HelpCircle, MessageSquare, CreditCard, ArrowUpRight, Zap,
   TrendingUp, Bell, Mail, UserPlus, ShieldCheck, Activity, Clock,
+  LayoutDashboard,
 } from 'lucide-react';
 import StatCard from '@/components/admin/StatCard';
 import { useRouter } from 'next/navigation';
@@ -82,12 +83,20 @@ export default function AdminDashboard() {
     <Box sx={{ p: { xs: 2.5, md: 4 }, maxWidth: 1100, mx: 'auto' }}>
       <Stack spacing={3}>
         {/* Header */}
-        <Box>
-          <Typography level="h3" fontWeight={700}>Dashboard</Typography>
-          <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-            Overview of your Flowbooks platform.
-          </Typography>
-        </Box>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{
+            width: 36, height: 36, borderRadius: 'md', bgcolor: 'primary.softBg',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <LayoutDashboard size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />
+          </Box>
+          <Box>
+            <Typography level="h3" fontWeight={700}>Dashboard</Typography>
+            <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+              Overview of your Flowbooks platform.
+            </Typography>
+          </Box>
+        </Stack>
 
         {/* Stat Cards */}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap" useFlexGap>

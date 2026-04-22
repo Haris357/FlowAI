@@ -12,7 +12,7 @@ function toISO(ts: FirebaseFirestore.Timestamp | null | undefined): string | nul
 }
 
 export async function GET(req: Request) {
-  const auth = await verifyAdminRequest(req);
+  const auth = await verifyAdminRequest(req, 'status:view');
   if (!auth.authorized) return auth.response;
 
   const snap = await db.collection('statusMaintenances')
@@ -40,7 +40,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await verifyAdminRequest(req);
+  const auth = await verifyAdminRequest(req, 'status:manage');
   if (!auth.authorized) return auth.response;
 
   const { title, description, impact, affectedComponents, scheduledStart, scheduledEnd } =

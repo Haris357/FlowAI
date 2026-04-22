@@ -15,7 +15,7 @@ const db = getFirestore();
 
 export async function GET(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'announcements:view');
     if (!authResult.authorized) return authResult.response;
 
     const snap = await db.collection('announcements')
@@ -37,7 +37,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'announcements:create');
     if (!authResult.authorized) return authResult.response;
 
     const { title, message, type, target, actionUrl, sendEmail: shouldSendEmail } = await req.json();

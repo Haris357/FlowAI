@@ -9,6 +9,7 @@ export interface UserSettings {
   notifyInvoices: boolean;
   notifyBills: boolean;
   notifyWeekly: boolean;
+  notifyBlogs: boolean;
   updatedAt?: any;
 }
 
@@ -19,7 +20,8 @@ const DEFAULT_SETTINGS: UserSettings = {
   notifyEmail: true,
   notifyInvoices: true,
   notifyBills: true,
-  notifyWeekly: false,
+  notifyWeekly: true,
+  notifyBlogs: true,
 };
 
 /**

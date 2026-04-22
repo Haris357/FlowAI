@@ -11,9 +11,10 @@ const db = getFirestore();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
 /**
- * Automated weekly newsletter cron job.
- * Triggered every Monday at 14:00 UTC (9:00 AM US Eastern) by Vercel Cron.
- * Generates newsletter content via AI, then sends to opted-in users.
+ * Automated newsletter cron job.
+ * Triggered every Monday and Thursday at 14:00 UTC (9:00 AM US Eastern)
+ * by Vercel Cron (see vercel.json). Generates newsletter content via AI,
+ * then sends to users who have opted in (notifyWeekly: true).
  */
 export async function GET(req: Request) {
   try {

@@ -8,7 +8,7 @@ initAdmin();
 const db = getFirestore();
 
 export async function GET(req: Request) {
-  const auth = await verifyAdminRequest(req);
+  const auth = await verifyAdminRequest(req, 'status:view');
   if (!auth.authorized) return auth.response;
 
   const snap = await db.collection('statusComponents').orderBy('order', 'asc').get();
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await verifyAdminRequest(req);
+  const auth = await verifyAdminRequest(req, 'status:manage');
   if (!auth.authorized) return auth.response;
 
   const body = await req.json();

@@ -1,0 +1,47 @@
+name: Newsletter Cron
+
+# Trigger the /api/cron/newsletter endpoint twice a week.
+# Runs on Monday and Thursday at 14:00 UTC (9:00 AM US Eastern).
+#
+# Requirements:
+#  - Repository secret `CRON_URL`        — full URL of the cron endpoint
+#                                          e.g. https://admin.flowbooksai.com/api/cron/newsletter
+#  - Repository secret `CRON_SECRET`     — same value as CRON_SECRET in Vercel env
+#
+# Reliability note: GitHub's scheduled workflows can be delayed 5–15 minutes
+# during peak times. That's fine for newsletters. If the repo has no recent
+# activity for ~60 days, GitHub disables scheduled workflows automatically —
+# just re-enable it from Actions tab if that happens.
+
+on:
+  schedule:
+    # Mon + Thu at 14:00 UTC (cron uses UTC regardless of runner timezone)
+    - cron: '0 14 * * 1,4'
+  # Allow manual trigger from GitHub UI for testing
+  workflow_dispatch:
+
+jobs:
+  send-newsletter:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Hit newsletter cron endpoint
+        env:
+          CRON_URL: ${{ secrets.CRON_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::CRON_URL or CRON_SECRET secret is missing"
+            exit 1
+          fi
+
+          echo "Calling $CRON_URL..."
+
+          # --fail-with-body: treat HTTP >= 400 as failure but still print body
+          # --max-time 300:   matches a sensible server-side budget
+          # --retry 2:        retry twice on transient network failures
+          curl --fail-with-body \
+               --max-time 300 \
+               --retry 2 --retry-delay 10 \
+               --header "Authorization: Bearer $CRON_SECRET" \
+               "$CRON_URL"

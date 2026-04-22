@@ -89,6 +89,12 @@ service cloud.firestore {
       }
     }
 
+    // Admin users collection — server-side admin SDK only, fully deny client access.
+    // Stores hashed passwords + roles; never expose to the client SDK.
+    match /adminUsers/{adminUserId} {
+      allow read, write: if false;
+    }
+
     // Invitations collection
     match /invitations/{invitationId} {
       // Invited user can read their invitations
@@ -109,12 +115,30 @@ service cloud.firestore {
       allow create, update, delete: if false; // Only admin SDK can write
     }
 
-    // Support tickets - users create and read their own tickets
+    // Support tickets - users create, read, and re-open their own tickets
     match /supportTickets/{ticketId} {
       allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
       allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
-      // Only admin (via server SDK) can update/delete tickets
-      allow update, delete: if false;
+      // Users may only update limited fields on their own tickets (e.g. mark closed
+      // by user, or bump lastUserMessageAt). Admin-only fields are guarded server-side.
+      allow update: if isAuthenticated()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'lastUserMessageAt', 'updatedAt']);
+      allow delete: if false;
+
+      // Conversation messages on a ticket — readable/writable by the ticket owner
+      // and by any server-side admin SDK call. Admin UI uses the admin SDK.
+      match /messages/{messageId} {
+        allow read: if isAuthenticated()
+          && get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.userId == request.auth.uid;
+        allow create: if isAuthenticated()
+          && get(/databases/$(database)/documents/supportTickets/$(ticketId)).data.userId == request.auth.uid
+          && request.resource.data.authorId == request.auth.uid
+          && request.resource.data.authorType == 'user';
+        allow update, delete: if false;
+      }
     }
 
     // Feedback - users create and read their own feedback

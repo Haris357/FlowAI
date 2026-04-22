@@ -8,7 +8,7 @@ const db = getFirestore();
 
 export async function GET(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'dashboard:view');
     if (!authResult.authorized) return authResult.response;
 
     // Parallel fetch all counts

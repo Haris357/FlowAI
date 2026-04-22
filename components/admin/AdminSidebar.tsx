@@ -1,67 +1,86 @@
 'use client';
 import {
   Box, Sheet, List, ListItem, ListItemButton, ListItemDecorator,
-  ListItemContent, Typography, IconButton, Tooltip, Stack,
+  ListItemContent, Typography, IconButton, Tooltip, Chip,
 } from '@mui/joy';
 import {
   LayoutDashboard, Users, CreditCard, Zap, HelpCircle,
   MessageSquare, Settings, ArrowLeft, ShieldCheck,
   PanelLeftClose, PanelLeftOpen, FileText, Star, LogOut,
   Mail, Bell, Activity, Megaphone, Newspaper, BarChart3, Flag, Radio,
+  UserCog,
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import NextLink from 'next/link';
 import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
 import { liquidGlassStrong } from '@/lib/admin-theme';
+import { useAdminAuth } from '@/contexts/AdminAuthContext';
+import { ROLE_COLORS, ROLE_LABELS, type Permission } from '@/lib/admin-roles';
 
-const NAV_ITEMS = [
-  { label: 'Dashboard', path: '/admin', icon: LayoutDashboard },
-  { label: 'Users', path: '/admin/users', icon: Users },
-  { label: 'Email Center', path: '/admin/emails', icon: Mail },
-  { label: 'Newsletter', path: '/admin/newsletter', icon: Newspaper },
-  { label: 'Announcements', path: '/admin/announcements', icon: Megaphone },
-  { label: 'Subscriptions', path: '/admin/subscriptions', icon: CreditCard },
-  { label: 'AI Usage', path: '/admin/ai-usage', icon: Zap },
-  { label: 'Analytics', path: '/admin/analytics', icon: BarChart3 },
-  { label: 'Notifications', path: '/admin/notifications', icon: Bell },
-  { label: 'Blogs', path: '/admin/blogs', icon: FileText },
-  { label: 'Testimonials', path: '/admin/testimonials', icon: Star },
-  { label: 'Support', path: '/admin/support', icon: HelpCircle },
-  { label: 'Feedback', path: '/admin/feedback', icon: MessageSquare },
-  { label: 'Bug Reports', path: '/admin/reports', icon: Flag },
-  { label: 'Status Page', path: '/admin/status', icon: Radio },
-  { label: 'Activity Log', path: '/admin/activity', icon: Activity },
-  { label: 'System', path: '/admin/system', icon: Settings },
+interface NavItem {
+  label: string;
+  path: string;
+  icon: any;
+  permission: Permission;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  { label: 'Dashboard', path: '/admin', icon: LayoutDashboard, permission: 'dashboard:view' },
+  { label: 'Users', path: '/admin/users', icon: Users, permission: 'users:view' },
+  { label: 'Email Center', path: '/admin/emails', icon: Mail, permission: 'emails:send' },
+  { label: 'Newsletter', path: '/admin/newsletter', icon: Newspaper, permission: 'newsletter:manage' },
+  { label: 'Announcements', path: '/admin/announcements', icon: Megaphone, permission: 'announcements:view' },
+  { label: 'Subscriptions', path: '/admin/subscriptions', icon: CreditCard, permission: 'subscriptions:view' },
+  { label: 'AI Usage', path: '/admin/ai-usage', icon: Zap, permission: 'ai_usage:view' },
+  { label: 'Analytics', path: '/admin/analytics', icon: BarChart3, permission: 'analytics:view' },
+  { label: 'Notifications', path: '/admin/notifications', icon: Bell, permission: 'notifications:view' },
+  { label: 'Blogs', path: '/admin/blogs', icon: FileText, permission: 'blogs:view' },
+  { label: 'Testimonials', path: '/admin/testimonials', icon: Star, permission: 'testimonials:view' },
+  { label: 'Support', path: '/admin/support', icon: HelpCircle, permission: 'support:view' },
+  { label: 'Feedback', path: '/admin/feedback', icon: MessageSquare, permission: 'feedback:view' },
+  { label: 'Bug Reports', path: '/admin/reports', icon: Flag, permission: 'reports:view' },
+  { label: 'Status Page', path: '/admin/status', icon: Radio, permission: 'status:view' },
+  { label: 'Activity Log', path: '/admin/activity', icon: Activity, permission: 'activity:view' },
+  { label: 'Admin Users', path: '/admin/admin-users', icon: UserCog, permission: 'admin_users:view' },
+  { label: 'System', path: '/admin/system', icon: Settings, permission: 'system:view' },
 ];
 
 interface AdminSidebarProps {
   collapsed?: boolean;
   onToggle?: () => void;
+  /** When 'static', sidebar renders inline (used by mobile drawer) instead of `position: fixed`. */
+  positioning?: 'fixed' | 'static';
 }
 
-export default function AdminSidebar({ collapsed = false, onToggle }: AdminSidebarProps) {
+export default function AdminSidebar({ collapsed = false, onToggle, positioning = 'fixed' }: AdminSidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const { admin, can, signOut } = useAdminAuth();
 
   const handleAdminLogout = () => {
-    sessionStorage.removeItem('adminSession');
+    signOut();
     router.push('/admin/login');
   };
 
   const sidebarWidth = collapsed ? 68 : 240;
+  const visibleItems = NAV_ITEMS.filter(item => can(item.permission));
+
+  const baseSx = positioning === 'fixed'
+    ? {
+        position: 'fixed' as const, top: 0, left: 0,
+        width: sidebarWidth, height: '100vh',
+        zIndex: 1100,
+        transition: 'width 0.2s ease',
+      }
+    : {
+        width: '100%', height: '100%',
+      };
 
   return (
     <Sheet
       sx={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: sidebarWidth,
-        height: '100vh',
-        display: 'flex',
-        flexDirection: 'column',
-        zIndex: 1100,
-        transition: 'width 0.2s ease',
+        ...baseSx,
+        display: 'flex', flexDirection: 'column',
         overflow: 'hidden',
         ...liquidGlassStrong as Record<string, unknown>,
         borderRight: '1px solid rgba(255, 255, 255, 0.2)',
@@ -71,11 +90,9 @@ export default function AdminSidebar({ collapsed = false, onToggle }: AdminSideb
       {/* Header */}
       <Box sx={{
         p: collapsed ? 1.5 : 2,
-        borderBottom: '1px solid',
-        borderColor: 'divider',
+        borderBottom: '1px solid', borderColor: 'divider',
         background: 'linear-gradient(135deg, var(--joy-palette-primary-50, #fef3ed) 0%, var(--joy-palette-primary-100, #fde3d5) 100%)',
-        display: 'flex',
-        alignItems: 'center',
+        display: 'flex', alignItems: 'center',
         justifyContent: collapsed ? 'center' : 'space-between',
         minHeight: 56,
       }}>
@@ -103,10 +120,39 @@ export default function AdminSidebar({ collapsed = false, onToggle }: AdminSideb
         )}
       </Box>
 
+      {/* Current admin info */}
+      {admin && !collapsed && (
+        <Box sx={{
+          px: 2, py: 1.5,
+          borderBottom: '1px solid', borderColor: 'divider',
+          display: 'flex', alignItems: 'center', gap: 1.25,
+        }}>
+          <Box sx={{
+            width: 32, height: 32, borderRadius: '8px', flexShrink: 0,
+            bgcolor: 'primary.softBg',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: '0.78rem', fontWeight: 700, color: 'primary.600',
+          }}>
+            {(admin.name || admin.username).charAt(0).toUpperCase()}
+          </Box>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography level="body-sm" fontWeight={600} noWrap>
+              {admin.name || admin.username}
+            </Typography>
+            <Chip size="sm" variant="soft" color={ROLE_COLORS[admin.role]} sx={{
+              fontSize: '0.62rem', fontWeight: 700, '--Chip-minHeight': '16px',
+              px: 0.75, mt: 0.25,
+            }}>
+              {ROLE_LABELS[admin.role]}
+            </Chip>
+          </Box>
+        </Box>
+      )}
+
       {/* Navigation */}
       <Box sx={{ flex: 1, overflow: 'auto', p: collapsed ? 0.75 : 1.5 }}>
         <List size="sm" sx={{ gap: 0.5 }}>
-          {NAV_ITEMS.map(item => {
+          {visibleItems.map(item => {
             const isActive = pathname === item.path ||
               (item.path !== '/admin' && pathname.startsWith(item.path));
             const Icon = item.icon;

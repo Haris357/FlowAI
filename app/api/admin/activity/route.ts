@@ -30,7 +30,7 @@ function extractTimestamp(data: any, ...fields: string[]): Date {
 
 export async function GET(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'activity:view');
     if (!authResult.authorized) return authResult.response;
 
     const { searchParams } = new URL(req.url);

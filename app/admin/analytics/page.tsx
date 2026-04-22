@@ -124,14 +124,19 @@ export default function AnalyticsPage() {
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1400, mx: 'auto' }}>
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Stack>
-          <Typography level="h3" fontWeight={800}>
-            <BarChart3 size={28} style={{ verticalAlign: 'middle', marginRight: 8 }} />
-            Analytics
-          </Typography>
-          <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
-            Product analytics powered by PostHog
-          </Typography>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{
+            width: 36, height: 36, borderRadius: 'md', bgcolor: 'primary.softBg',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <BarChart3 size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />
+          </Box>
+          <Box>
+            <Typography level="h3" fontWeight={700}>Analytics</Typography>
+            <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
+              Product analytics powered by PostHog
+            </Typography>
+          </Box>
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center">
           <Select

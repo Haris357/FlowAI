@@ -8,7 +8,7 @@ const db = getFirestore();
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'blogs:view');
     if (!authResult.authorized) return authResult.response;
 
     const { id } = await params;
@@ -25,7 +25,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'blogs:edit');
     if (!authResult.authorized) return authResult.response;
 
     const { id } = await params;
@@ -58,7 +58,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
 export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'blogs:delete');
     if (!authResult.authorized) return authResult.response;
 
     const { id } = await params;

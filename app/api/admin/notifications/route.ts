@@ -8,7 +8,7 @@ const db = getFirestore();
 
 export async function GET(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'notifications:view');
     if (!authResult.authorized) return authResult.response;
 
     const { searchParams } = new URL(req.url);
@@ -83,7 +83,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'notifications:send');
     if (!authResult.authorized) return authResult.response;
 
     const { userId, type, title, message, category, actionUrl } = await req.json();
@@ -126,7 +126,7 @@ export async function POST(req: Request) {
 
 export async function DELETE(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'notifications:delete');
     if (!authResult.authorized) return authResult.response;
 
     const { userId, notificationId } = await req.json();

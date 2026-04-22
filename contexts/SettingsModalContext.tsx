@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useCallback } from 'react';
 type SettingsSection =
   | 'profile' | 'preferences' | 'notifications' | 'security'
   | 'billing'
-  | 'docs' | 'tutorials' | 'support' | 'feedback';
+  | 'docs' | 'tutorials' | 'feedback';
 
 interface SettingsModalContextType {
   isOpen: boolean;

@@ -10,13 +10,15 @@ export interface EmailPreferences {
   notifyInvoices: boolean;
   notifyBills: boolean;
   notifyWeekly: boolean;
+  notifyBlogs: boolean;
 }
 
 const DEFAULTS: EmailPreferences = {
   notifyEmail: true,
   notifyInvoices: true,
   notifyBills: true,
-  notifyWeekly: false,
+  notifyWeekly: true,
+  notifyBlogs: true,
 };
 
 /**
@@ -32,7 +34,8 @@ export async function getEmailPreferences(userId: string): Promise<EmailPreferen
       notifyEmail: data.notifyEmail ?? true,
       notifyInvoices: data.notifyInvoices ?? true,
       notifyBills: data.notifyBills ?? true,
-      notifyWeekly: data.notifyWeekly ?? false,
+      notifyWeekly: data.notifyWeekly ?? true,
+      notifyBlogs: data.notifyBlogs ?? true,
     };
   } catch {
     return DEFAULTS;
@@ -44,14 +47,15 @@ export async function getEmailPreferences(userId: string): Promise<EmailPreferen
  *
  * Categories:
  * - 'transactional': Always sent (payment, subscription, welcome, account warnings)
- * - 'newsletter': Requires notifyEmail + notifyWeekly
- * - 'announcement': Requires notifyEmail
- * - 'invoice': Requires notifyEmail + notifyInvoices
- * - 'bill': Requires notifyEmail + notifyBills
+ * - 'newsletter':    Requires notifyEmail + notifyWeekly
+ * - 'blog':          Requires notifyEmail + notifyBlogs (new blog-post alerts)
+ * - 'announcement':  Requires notifyEmail
+ * - 'invoice':       Requires notifyEmail + notifyInvoices
+ * - 'bill':          Requires notifyEmail + notifyBills
  */
 export async function canSendEmail(
   userId: string,
-  category: 'transactional' | 'newsletter' | 'announcement' | 'invoice' | 'bill',
+  category: 'transactional' | 'newsletter' | 'blog' | 'announcement' | 'invoice' | 'bill',
 ): Promise<boolean> {
   // Transactional emails always go through
   if (category === 'transactional') return true;
@@ -64,6 +68,8 @@ export async function canSendEmail(
   switch (category) {
     case 'newsletter':
       return prefs.notifyWeekly;
+    case 'blog':
+      return prefs.notifyBlogs;
     case 'invoice':
       return prefs.notifyInvoices;
     case 'bill':

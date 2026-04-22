@@ -9,7 +9,7 @@ const db = getFirestore();
 
 export async function GET(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'users:view');
     if (!authResult.authorized) return authResult.response;
 
     const { searchParams } = new URL(req.url);

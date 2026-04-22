@@ -8,7 +8,7 @@ const openai = new OpenAI({
 
 export async function POST(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'blogs:create');
     if (!authResult.authorized) return authResult.response;
 
     if (!process.env.OPENAI_API_KEY) {

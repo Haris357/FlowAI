@@ -22,6 +22,7 @@ function getAllowedOrigins(): string[] {
     'https://www.flowbooksai.com',
     'https://admin.flowbooksai.com',
     'https://status.flowbooksai.com',
+    'https://support.flowbooksai.com',
     // Vercel preview deployments (any *.vercel.app subdomain for this project)
     // Checked dynamically below.
   ];
@@ -160,6 +161,36 @@ export function middleware(request: NextRequest) {
       const adminUrl = new URL(adminPath, 'https://admin.flowbooksai.com');
       adminUrl.search = request.nextUrl.search;
       return NextResponse.redirect(adminUrl);
+    }
+  }
+
+  // ── 6. Support subdomain routing ─────────────────────────────────────────
+  const isSupportSubdomain =
+    hostname.startsWith('support.') ||
+    hostname.startsWith('support-');
+
+  if (isSupportSubdomain) {
+    // API calls + pages already under /support pass straight through
+    if (pathname.startsWith('/api') || pathname.startsWith('/support')) {
+      const res = NextResponse.next();
+      if (pathname.startsWith('/api/')) handleCORS(request, res);
+      return res;
+    }
+    // Everything else gets rewritten into /support/*
+    const url = request.nextUrl.clone();
+    url.pathname = `/support${pathname === '/' ? '' : pathname}`;
+    return NextResponse.rewrite(url);
+  }
+
+  // On main domain, redirect /support/* to the support subdomain (prod only)
+  if (pathname.startsWith('/support')) {
+    const isLocalhost =
+      hostname.includes('localhost') || hostname.includes('127.0.0.1');
+    if (!isLocalhost && !hostname.startsWith('support.')) {
+      const supportPath = pathname.replace(/^\/support/, '') || '/';
+      const supportUrl = new URL(supportPath, 'https://support.flowbooksai.com');
+      supportUrl.search = request.nextUrl.search;
+      return NextResponse.redirect(supportUrl);
     }
   }
 

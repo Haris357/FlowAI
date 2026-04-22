@@ -523,6 +523,7 @@ export type EmailTemplateType =
   | 'subscription_cancelled'
   | 'password_reset'
   | 'newsletter'
+  | 'new_blog'
   | 'feedback_acknowledged'
   | 'ticket_in_progress'
   | 'message_reset'
@@ -567,6 +568,14 @@ export interface EmailTemplateData {
   newsletterTitle?: string;
   newsletterSections?: Array<{ heading: string; body: string }>;
   newsletterFooterNote?: string;
+  // New blog post
+  blogTitle?: string;
+  blogExcerpt?: string;
+  blogSlug?: string;
+  blogCategory?: string;
+  blogCoverImage?: string;
+  blogReadTime?: number;
+  blogTags?: string[];
   // Feedback
   feedbackSubject?: string;
   feedbackResponse?: string;
@@ -731,6 +740,20 @@ export const EMAIL_TEMPLATE_OPTIONS: EmailTemplateOption[] = [
     fields: [
       { key: 'newsletterTitle', label: 'Newsletter Title', type: 'text', required: true, placeholder: 'This Week at Flowbooks' },
       { key: 'announcementBody', label: 'Newsletter Content', type: 'textarea', required: true, placeholder: 'Newsletter content (supports sections separated by ## headings)' },
+    ],
+  },
+  {
+    value: 'new_blog', type: 'new_blog',
+    label: 'New Blog Post',
+    description: 'Notify users that a new post has gone live on the blog',
+    icon: 'book-open',
+    color: '#D97757',
+    fields: [
+      { key: 'blogTitle', label: 'Post Title', type: 'text', required: true, placeholder: 'The 5 invoicing mistakes small businesses keep making' },
+      { key: 'blogExcerpt', label: 'Excerpt', type: 'textarea', required: true, placeholder: 'A 1–2 sentence summary shown before the Read button' },
+      { key: 'blogSlug', label: 'Slug', type: 'text', required: true, placeholder: 'five-invoicing-mistakes' },
+      { key: 'blogCategory', label: 'Category', type: 'text', placeholder: 'Guides' },
+      { key: 'blogCoverImage', label: 'Cover image URL (optional)', type: 'text', placeholder: 'https://…' },
     ],
   },
 ];
@@ -1389,6 +1412,76 @@ ${pDivider()}
   return { subject, html: pShell(subject, body) };
 }
 
+function tplNewBlog(d: EmailTemplateData): EmailTemplateResult {
+  const title = d.blogTitle || 'New post on the Flowbooks blog';
+  const excerpt = d.blogExcerpt || '';
+  const slug = d.blogSlug || '';
+  const category = d.blogCategory || 'Guides';
+  const coverImage = d.blogCoverImage || '';
+  const readTime = d.blogReadTime || 5;
+  const tags = d.blogTags || [];
+
+  const baseUrl = (process.env.APP_URL || 'https://flowbooksai.com').replace(/\/$/, '');
+  const postUrl = slug ? `${baseUrl}/blog/${slug}` : `${baseUrl}/blog`;
+
+  const subject = `New on Flowbooks: ${title}`;
+
+  const coverHtml = coverImage ? `
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;">
+                <tr>
+                  <td style="padding:0;border-radius:10px;overflow:hidden;">
+                    <a href="${esc(postUrl)}" target="_blank" style="display:block;">
+                      <img src="${esc(coverImage)}" alt="${esc(title)}" width="500" style="display:block;width:100%;max-width:500px;height:auto;border-radius:10px;"/>
+                    </a>
+                  </td>
+                </tr>
+              </table>` : '';
+
+  const tagsHtml = tags.length > 0 ? `
+              <p style="margin:16px 0 0;font-size:12px;color:${C.textLight};">
+                ${tags.slice(0, 5).map(t => `<span style="display:inline-block;margin:0 6px 4px 0;padding:3px 10px;background:${C.slateBg};color:${C.textMid};border-radius:999px;font-size:11px;font-weight:500;">${esc(t)}</span>`).join('')}
+              </p>` : '';
+
+  const today = new Date();
+  const dateStr = today.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const body = `
+              <!-- Category label + date -->
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 16px;">
+                <tr>
+                  <td>
+                    <span style="display:inline-block;padding:4px 10px;background:${C.brandBg};color:${C.brand};border-radius:6px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;">${esc(category)}</span>
+                    <span style="margin-left:8px;font-size:12px;color:${C.textLight};">${esc(dateStr)} · ${readTime} min read</span>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Title -->
+              <h2 style="margin:0 0 16px;font-size:26px;font-weight:800;color:${C.text};letter-spacing:-0.02em;line-height:1.25;">
+                <a href="${esc(postUrl)}" target="_blank" style="color:${C.text};text-decoration:none;">${esc(title)}</a>
+              </h2>
+
+              ${coverHtml}
+
+${excerpt ? `              <p style="margin:0 0 24px;font-size:15px;color:${C.textMid};line-height:1.75;">${esc(excerpt)}</p>` : ''}
+
+${pButton('Read the full post', postUrl)}
+
+${tagsHtml}
+
+${pDivider()}
+
+${pGreeting(d.userName)}
+${pParagraph('We just published this post on the Flowbooks blog. Give it a read — it is designed to help small-business owners like you run sharper operations.')}
+
+              <p style="margin:24px 0 0;font-size:12px;color:${C.textLight};line-height:1.6;text-align:center;">
+                You are receiving this because you opted into new blog-post alerts.<br/>
+                <a href="${esc(baseUrl)}/settings" style="color:${C.brand};text-decoration:underline;">Manage email preferences</a>
+              </p>`;
+
+  return { subject, html: pShell(subject, body) };
+}
+
 function tplFeedbackAcknowledged(d: EmailTemplateData): EmailTemplateResult {
   const feedbackSubject = d.feedbackSubject || 'your feedback';
   const response = d.feedbackResponse || '';
@@ -1730,6 +1823,8 @@ export function getEmailTemplate(
       return tplPasswordReset(data);
     case 'newsletter':
       return tplNewsletter(data);
+    case 'new_blog':
+      return tplNewBlog(data);
     case 'feedback_acknowledged':
       return tplFeedbackAcknowledged(data);
     case 'ticket_in_progress':

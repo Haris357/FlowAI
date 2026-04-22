@@ -28,12 +28,20 @@ export default function AdminSubscriptionsPage() {
   return (
     <Box sx={{ p: { xs: 2.5, md: 4 }, maxWidth: 960, mx: 'auto' }}>
       <Stack spacing={3}>
-        <Box>
-          <Typography level="h3" fontWeight={700}>Subscriptions</Typography>
-          <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-            Subscription analytics and revenue overview.
-          </Typography>
-        </Box>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{
+            width: 36, height: 36, borderRadius: 'md', bgcolor: 'success.softBg',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <CreditCard size={16} style={{ color: 'var(--joy-palette-success-500)' }} />
+          </Box>
+          <Box>
+            <Typography level="h3" fontWeight={700}>Subscriptions</Typography>
+            <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+              Subscription analytics and revenue overview.
+            </Typography>
+          </Box>
+        </Stack>
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
           <StatCard title="Total Subscribers" value={total} icon={Users} color="primary" loading={loading} />

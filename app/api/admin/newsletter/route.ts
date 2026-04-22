@@ -20,7 +20,7 @@ const openai = new OpenAI({
 
 export async function GET(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'newsletter:manage');
     if (!authResult.authorized) return authResult.response;
 
     const snap = await adminDb
@@ -47,7 +47,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'newsletter:manage');
     if (!authResult.authorized) return authResult.response;
 
     const body = await req.json();

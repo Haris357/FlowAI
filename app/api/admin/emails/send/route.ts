@@ -62,6 +62,7 @@ async function createNotification(
     subscription_cancelled: 'subscription',
     password_reset: 'system',
     newsletter: 'system',
+    new_blog: 'system',
     feedback_acknowledged: 'system',
     ticket_in_progress: 'support',
     message_reset: 'system',
@@ -89,6 +90,7 @@ async function createNotification(
     subscription_cancelled: 'warning',
     password_reset: 'action',
     newsletter: 'info',
+    new_blog: 'info',
     feedback_acknowledged: 'success',
     ticket_in_progress: 'info',
     message_reset: 'info',
@@ -120,7 +122,7 @@ async function createNotification(
 
 export async function POST(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'emails:send');
     if (!authResult.authorized) return authResult.response;
 
     const body = await req.json();

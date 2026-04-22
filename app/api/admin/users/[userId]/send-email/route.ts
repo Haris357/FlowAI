@@ -10,7 +10,7 @@ const db = getFirestore();
 
 export async function POST(req: Request, { params }: { params: Promise<{ userId: string }> }) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'users:send_email');
     if (!authResult.authorized) return authResult.response;
 
     const { userId } = await params;

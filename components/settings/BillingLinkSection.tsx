@@ -1,6 +1,6 @@
 'use client';
 import { Box, Typography, Stack, Button, Card } from '@mui/joy';
-import { CreditCard, ArrowRight, Receipt, Download, Crown } from 'lucide-react';
+import { CreditCard, ArrowRight, Receipt, Download, Crown, HelpCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 
@@ -10,6 +10,17 @@ export default function BillingLinkSection() {
 
   const handleGoToBilling = () => {
     router.push('/settings/billing');
+  };
+
+  const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL || '/support';
+  const isExternalSupport = supportUrl.startsWith('http');
+
+  const handleContactSupport = () => {
+    if (isExternalSupport) {
+      window.location.href = supportUrl;
+    } else {
+      router.push(supportUrl);
+    }
   };
 
   return (
@@ -83,6 +94,35 @@ export default function BillingLinkSection() {
           >
             Go to Billing
           </Button>
+        </Box>
+      </Card>
+
+      {/* Support navigation — replaces the old in-settings Support section */}
+      <Card variant="outlined" sx={{ overflow: 'hidden', borderRadius: '14px', p: 0 }}>
+        <Box sx={{ p: 3 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+            <Box sx={{
+              width: 44, height: 44, borderRadius: '12px', flexShrink: 0,
+              bgcolor: '#FFF0E8',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <HelpCircle size={20} color="#D97757" />
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography level="title-sm" fontWeight={700}>Need help?</Typography>
+              <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+                Chat with our AI assistant, create a ticket, or talk to a human on the support page.
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined" color="neutral"
+              endDecorator={<ArrowRight size={14} />}
+              onClick={handleContactSupport}
+              sx={{ borderRadius: '10px', fontWeight: 600, flexShrink: 0 }}
+            >
+              Open Support Center
+            </Button>
+          </Stack>
         </Box>
       </Card>
     </Stack>

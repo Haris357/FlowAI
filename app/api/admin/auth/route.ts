@@ -1,61 +1,77 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { isAdminEmail } from '@/lib/admin';
+import { NextResponse } from 'next/server';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { initAdmin } from '@/lib/firebase-admin';
+import {
+  signAdminToken, verifyPassword, normalizeUsername,
+} from '@/lib/admin-auth';
+import type { AdminRole, Permission } from '@/lib/admin-roles';
 
-export async function POST(req: NextRequest) {
+initAdmin();
+const db = getFirestore();
+
+export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const username = normalizeUsername(body?.username || '');
+    const password = typeof body?.password === 'string' ? body.password : '';
 
-    if (!email || !password) {
-      return NextResponse.json({ error: 'Email and password are required' }, { status: 400 });
+    if (!username || !password) {
+      return NextResponse.json(
+        { error: 'Username and password are required' },
+        { status: 400 }
+      );
     }
 
-    // Check admin whitelist first
-    if (!isAdminEmail(email)) {
-      return NextResponse.json({ error: 'Access denied' }, { status: 403 });
+    // Look up admin by username (stored lowercase).
+    const snap = await db.collection('adminUsers')
+      .where('username', '==', username)
+      .limit(1)
+      .get();
+
+    if (snap.empty) {
+      // Same response as wrong password to avoid leaking whether the username exists.
+      return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
     }
 
-    // Verify credentials via Firebase REST API (does NOT affect client-side auth state)
-    const apiKey = process.env.FIREBASE_API_KEY;
-    if (!apiKey) {
-      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
+    const doc = snap.docs[0];
+    const data = doc.data();
+
+    if (data.active === false) {
+      return NextResponse.json({ error: 'This account is disabled' }, { status: 403 });
     }
 
-    const firebaseRes = await fetch(
-      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          password,
-          returnSecureToken: true,
-        }),
-      }
-    );
-
-    const firebaseData = await firebaseRes.json();
-
-    if (!firebaseRes.ok) {
-      const errorCode = firebaseData?.error?.message;
-      if (errorCode === 'EMAIL_NOT_FOUND' || errorCode === 'INVALID_PASSWORD' || errorCode === 'INVALID_LOGIN_CREDENTIALS') {
-        return NextResponse.json({ error: 'Invalid email or password' }, { status: 401 });
-      }
-      if (errorCode === 'TOO_MANY_ATTEMPTS_TRY_LATER') {
-        return NextResponse.json({ error: 'Too many attempts. Please try again later.' }, { status: 429 });
-      }
-      return NextResponse.json({ error: 'Authentication failed' }, { status: 401 });
+    const ok = await verifyPassword(password, data.passwordHash || '');
+    if (!ok) {
+      return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
     }
 
-    // Credentials verified + email is admin
-    // Return the idToken so the admin panel can use it for API calls
-    // without signing into the shared Firebase client auth instance
+    // Issue JWT.
+    const role = (data.role || 'viewer') as AdminRole;
+    const permissionsOverride = (data.permissionsOverride || null) as Permission[] | null;
+    const { token, expiresIn } = signAdminToken({
+      sub: doc.id,
+      username: data.username,
+      role,
+      permissionsOverride,
+    });
+
+    // Update last login timestamp (best-effort).
+    doc.ref.update({ lastLoginAt: FieldValue.serverTimestamp() }).catch(() => {});
+
     return NextResponse.json({
       success: true,
-      email: firebaseData.email,
-      idToken: firebaseData.idToken,
-      expiresIn: 3600, // 1 hour session
+      token,
+      expiresIn,
+      admin: {
+        id: doc.id,
+        username: data.username,
+        name: data.name || data.username,
+        role,
+        permissionsOverride,
+      },
     });
-  } catch {
+  } catch (error) {
+    console.error('[admin/auth] Login error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

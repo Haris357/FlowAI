@@ -1,17 +1,24 @@
 'use client';
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect, useMemo } from 'react';
 import {
   Box, Typography, Stack, Card, CardContent, Chip, Button, Input,
   Textarea, FormControl, FormLabel, Select, Option, Checkbox, Skeleton,
-  Divider, RadioGroup, Radio, Sheet, CircularProgress,
+  Divider, Modal, ModalDialog, ModalClose, Sheet, Table, IconButton, Tooltip,
+  CircularProgress,
 } from '@mui/joy';
-import { Megaphone, Send, Inbox, Users, Mail, Info, AlertTriangle, CheckCircle, Zap, Sparkles } from 'lucide-react';
+import {
+  Megaphone, Send, Inbox, Users, Mail, Info, AlertTriangle, CheckCircle,
+  Zap, Sparkles, Plus, Search, Filter, RefreshCw, Eye,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { adminFetch } from '@/lib/admin-fetch';
-import { adminCard, liquidGlassSubtle } from '@/lib/admin-theme';
+import { adminCard } from '@/lib/admin-theme';
+import PaginationFooter from '@/components/admin/PaginationFooter';
 
 type AnnouncementType = 'info' | 'warning' | 'success' | 'action';
 type TargetAudience = 'all' | 'free_users' | 'pro_users' | 'max_users';
+type ChipColor = 'primary' | 'warning' | 'success' | 'danger' | 'neutral';
 
 interface Announcement {
   id: string;
@@ -25,11 +32,11 @@ interface Announcement {
   createdAt: any;
 }
 
-const TYPE_CONFIG: Record<AnnouncementType, { label: string; color: 'primary' | 'warning' | 'success' | 'danger'; icon: typeof Info }> = {
-  info: { label: 'Info', color: 'primary', icon: Info },
+const TYPE_CONFIG: Record<AnnouncementType, { label: string; color: ChipColor; icon: typeof Info }> = {
+  info:    { label: 'Info',    color: 'primary', icon: Info },
   warning: { label: 'Warning', color: 'warning', icon: AlertTriangle },
   success: { label: 'Success', color: 'success', icon: CheckCircle },
-  action: { label: 'Action', color: 'danger', icon: Zap },
+  action:  { label: 'Action',  color: 'danger',  icon: Zap },
 };
 
 const TARGET_LABELS: Record<TargetAudience, string> = {
@@ -39,47 +46,347 @@ const TARGET_LABELS: Record<TargetAudience, string> = {
   max_users: 'Max Users',
 };
 
+function formatDate(ts: any): string {
+  if (!ts) return '—';
+  const d = ts._seconds ? new Date(ts._seconds * 1000) : ts.toDate ? ts.toDate() : new Date(ts);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
 export default function AdminAnnouncementsPage() {
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
+  const [targetFilter, setTargetFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [detailModal, setDetailModal] = useState<Announcement | null>(null);
 
-  // Form state
+  const load = () => {
+    setLoading(true);
+    adminFetch('/api/admin/announcements')
+      .then(r => r.json())
+      .then(d => setAnnouncements(d.announcements || []))
+      .catch(() => toast.error('Failed to load announcements'))
+      .finally(() => setLoading(false));
+  };
+
+  useEffect(() => { load(); }, []);
+  useEffect(() => { setPage(1); }, [search, typeFilter, targetFilter, pageSize]);
+
+  const filtered = useMemo(() => {
+    return announcements.filter(a => {
+      if (typeFilter && a.type !== typeFilter) return false;
+      if (targetFilter && a.target !== targetFilter) return false;
+      if (search.trim()) {
+        const q = search.toLowerCase();
+        if (
+          !a.title.toLowerCase().includes(q) &&
+          !a.message.toLowerCase().includes(q)
+        ) return false;
+      }
+      return true;
+    });
+  }, [announcements, search, typeFilter, targetFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const startIdx = (currentPage - 1) * pageSize;
+  const endIdx = Math.min(startIdx + pageSize, filtered.length);
+  const pageRows = filtered.slice(startIdx, endIdx);
+
+  const totalRecipients = announcements.reduce((sum, a) => sum + (a.recipientCount || 0), 0);
+
+  return (
+    <Box sx={{ p: { xs: 2, sm: 2.5, md: 4 }, maxWidth: 1200, mx: 'auto' }}>
+      <Stack spacing={3}>
+        {/* Header */}
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={2}>
+          <Stack direction="row" spacing={1.5} alignItems="center">
+            <Box sx={{
+              width: 36, height: 36, borderRadius: 'md', bgcolor: 'primary.softBg',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <Megaphone size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />
+            </Box>
+            <Box>
+              <Typography level="h3" fontWeight={700}>Announcements</Typography>
+              <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+                {announcements.length} sent · {totalRecipients.toLocaleString()} total recipients
+              </Typography>
+            </Box>
+          </Stack>
+          <Stack direction="row" spacing={1}>
+            <Button
+              size="sm" variant="outlined" color="neutral"
+              startDecorator={<RefreshCw size={14} />}
+              onClick={load} loading={loading}
+              sx={{ borderRadius: '10px' }}
+            >
+              Refresh
+            </Button>
+            <Button
+              size="sm"
+              startDecorator={<Plus size={14} />}
+              onClick={() => setComposeOpen(true)}
+              sx={{ bgcolor: '#D97757', '&:hover': { bgcolor: '#C4694D' }, borderRadius: '10px', fontWeight: 700 }}
+            >
+              New announcement
+            </Button>
+          </Stack>
+        </Stack>
+
+        {/* Filter bar */}
+        <Card sx={{ ...adminCard as Record<string, unknown>, p: 0 }}>
+          <CardContent sx={{ p: 2 }}>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.25} alignItems={{ md: 'center' }}>
+              <Stack direction="row" spacing={0.75} alignItems="center" sx={{ color: 'text.tertiary' }}>
+                <Filter size={14} />
+                <Typography level="body-xs" fontWeight={600}>Filters</Typography>
+              </Stack>
+              <Input
+                size="sm"
+                placeholder="Search title, message…"
+                startDecorator={<Search size={14} />}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                sx={{ flex: 1, minWidth: 180, borderRadius: '8px' }}
+              />
+              <Select
+                size="sm" placeholder="All Types" value={typeFilter || ''}
+                onChange={(_, v) => setTypeFilter(v || '')}
+                sx={{ minWidth: 120, borderRadius: '8px' }}
+              >
+                <Option value="">All Types</Option>
+                {(Object.keys(TYPE_CONFIG) as AnnouncementType[]).map(t => (
+                  <Option key={t} value={t}>{TYPE_CONFIG[t].label}</Option>
+                ))}
+              </Select>
+              <Select
+                size="sm" placeholder="All Targets" value={targetFilter || ''}
+                onChange={(_, v) => setTargetFilter(v || '')}
+                sx={{ minWidth: 130, borderRadius: '8px' }}
+              >
+                <Option value="">All Targets</Option>
+                {(Object.keys(TARGET_LABELS) as TargetAudience[]).map(t => (
+                  <Option key={t} value={t}>{TARGET_LABELS[t]}</Option>
+                ))}
+              </Select>
+              {(search || typeFilter || targetFilter) && (
+                <Chip
+                  size="sm" variant="soft" color="neutral"
+                  sx={{ cursor: 'pointer', flexShrink: 0 }}
+                  onClick={() => { setSearch(''); setTypeFilter(''); setTargetFilter(''); }}
+                >
+                  Clear
+                </Chip>
+              )}
+            </Stack>
+          </CardContent>
+        </Card>
+
+        {/* Table */}
+        <Card sx={{ ...adminCard as Record<string, unknown>, p: 0, overflow: 'hidden' }}>
+          <Sheet sx={{ overflow: 'auto' }}>
+            <Table hoverRow stickyHeader sx={{
+              '& thead th': {
+                py: 1.25, fontSize: '0.7rem', fontWeight: 700,
+                color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: '0.05em',
+                bgcolor: 'background.surface',
+              },
+              '& tbody td': { py: 1.5, verticalAlign: 'middle' },
+              minWidth: 900,
+            }}>
+              <thead>
+                <tr>
+                  <th>Title · Message</th>
+                  <th style={{ width: '8rem' }}>Type</th>
+                  <th style={{ width: '9rem' }}>Target</th>
+                  <th style={{ width: '7rem', textAlign: 'center' }}>Recipients</th>
+                  <th style={{ width: '5rem', textAlign: 'center' }}>Email</th>
+                  <th style={{ width: '7rem' }}>Sent</th>
+                  <th style={{ width: '5rem', textAlign: 'right' }}>View</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <tr key={i}>
+                      <td><Skeleton variant="text" width="85%" /></td>
+                      <td><Skeleton variant="rectangular" width={70} height={18} sx={{ borderRadius: 10 }} /></td>
+                      <td><Skeleton variant="rectangular" width={80} height={18} sx={{ borderRadius: 10 }} /></td>
+                      <td><Skeleton variant="text" width={40} sx={{ mx: 'auto' }} /></td>
+                      <td><Skeleton variant="circular" width={16} height={16} sx={{ mx: 'auto' }} /></td>
+                      <td><Skeleton variant="text" width={70} /></td>
+                      <td><Skeleton variant="text" width={30} sx={{ ml: 'auto' }} /></td>
+                    </tr>
+                  ))
+                ) : pageRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={7}>
+                      <Box sx={{ py: 6, textAlign: 'center', color: 'text.tertiary' }}>
+                        <Inbox size={28} style={{ opacity: 0.5, marginBottom: 6 }} />
+                        <Typography level="body-sm">
+                          {search || typeFilter || targetFilter ? 'No announcements match your filters.' : 'No announcements sent yet.'}
+                        </Typography>
+                      </Box>
+                    </td>
+                  </tr>
+                ) : (
+                  pageRows.map(a => {
+                    const cfg = TYPE_CONFIG[a.type] || TYPE_CONFIG.info;
+                    const Icon = cfg.icon;
+                    return (
+                      <tr key={a.id}>
+                        <td>
+                          <Box onClick={() => setDetailModal(a)} sx={{ cursor: 'pointer', minWidth: 0 }}>
+                            <Typography level="body-sm" fontWeight={600} noWrap>{a.title}</Typography>
+                            <Typography level="body-xs" sx={{ color: 'text.tertiary' }} noWrap>
+                              {a.message.slice(0, 100)}
+                            </Typography>
+                          </Box>
+                        </td>
+                        <td>
+                          <Chip
+                            size="sm" variant="soft" color={cfg.color}
+                            startDecorator={<Icon size={10} />}
+                            sx={{ fontSize: '0.68rem', fontWeight: 600 }}
+                          >
+                            {cfg.label}
+                          </Chip>
+                        </td>
+                        <td>
+                          <Chip size="sm" variant="outlined" color="neutral" sx={{ fontSize: '0.68rem' }}>
+                            {TARGET_LABELS[a.target] || a.target}
+                          </Chip>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          <Typography level="body-sm" fontWeight={600}>
+                            {a.recipientCount?.toLocaleString() || 0}
+                          </Typography>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>
+                          {a.sendEmail ? (
+                            <Tooltip title="Sent via email">
+                              <Mail size={14} style={{ color: 'var(--joy-palette-primary-500)' }} />
+                            </Tooltip>
+                          ) : (
+                            <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>—</Typography>
+                          )}
+                        </td>
+                        <td>
+                          <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
+                            {formatDate(a.createdAt)}
+                          </Typography>
+                        </td>
+                        <td>
+                          <Stack direction="row" justifyContent="flex-end">
+                            <Tooltip title="View details">
+                              <IconButton size="sm" variant="plain" color="neutral" onClick={() => setDetailModal(a)}>
+                                <Eye size={14} />
+                              </IconButton>
+                            </Tooltip>
+                          </Stack>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </Table>
+          </Sheet>
+
+          {!loading && filtered.length > 0 && (
+            <PaginationFooter
+              startIdx={startIdx} endIdx={endIdx} total={filtered.length}
+              pageSize={pageSize} setPageSize={setPageSize}
+              currentPage={currentPage} totalPages={totalPages} setPage={setPage}
+            />
+          )}
+        </Card>
+      </Stack>
+
+      {composeOpen && (
+        <ComposeAnnouncementModal
+          onClose={() => setComposeOpen(false)}
+          onSent={() => { setComposeOpen(false); load(); }}
+        />
+      )}
+
+      {detailModal && (
+        <Modal open onClose={() => setDetailModal(null)}>
+          <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 520 }, width: '100%', borderRadius: '16px', maxHeight: '90vh', overflow: 'auto' }}>
+            <ModalClose />
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Box sx={{
+                width: 36, height: 36, borderRadius: '10px',
+                bgcolor: `${TYPE_CONFIG[detailModal.type]?.color || 'primary'}.softBg`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <Megaphone size={18} style={{ color: `var(--joy-palette-${TYPE_CONFIG[detailModal.type]?.color || 'primary'}-500)` }} />
+              </Box>
+              <Box>
+                <Typography level="title-lg" fontWeight={700}>{detailModal.title}</Typography>
+                <Stack direction="row" spacing={0.5} sx={{ mt: 0.25 }}>
+                  <Chip size="sm" variant="soft" color={TYPE_CONFIG[detailModal.type]?.color || 'neutral'}>
+                    {TYPE_CONFIG[detailModal.type]?.label || detailModal.type}
+                  </Chip>
+                  <Chip size="sm" variant="outlined">{TARGET_LABELS[detailModal.target] || detailModal.target}</Chip>
+                  <Chip size="sm" variant="soft" color="neutral">
+                    {detailModal.recipientCount?.toLocaleString() || 0} recipients
+                  </Chip>
+                </Stack>
+              </Box>
+            </Stack>
+            <Divider sx={{ my: 2 }} />
+            <Box sx={{
+              p: 1.5, borderRadius: '8px', bgcolor: 'background.level1',
+              border: '1px solid', borderColor: 'divider',
+            }}>
+              <Typography level="body-sm" sx={{ whiteSpace: 'pre-wrap' }}>{detailModal.message}</Typography>
+            </Box>
+            {detailModal.actionUrl && (
+              <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 2, wordBreak: 'break-all' }}>
+                Action URL: <code>{detailModal.actionUrl}</code>
+              </Typography>
+            )}
+            <Typography level="body-xs" sx={{ color: 'text.tertiary', mt: 1 }}>
+              Sent {formatDate(detailModal.createdAt)}{detailModal.sendEmail ? ' · Also via email' : ''}
+            </Typography>
+            <Stack direction="row" justifyContent="flex-end" sx={{ mt: 3 }}>
+              <Button variant="plain" color="neutral" onClick={() => setDetailModal(null)}>Close</Button>
+            </Stack>
+          </ModalDialog>
+        </Modal>
+      )}
+    </Box>
+  );
+}
+
+// ============================================================
+// Compose modal
+// ============================================================
+
+function ComposeAnnouncementModal({
+  onClose, onSent,
+}: { onClose: () => void; onSent: () => void }) {
   const [title, setTitle] = useState('');
   const [message, setMessage] = useState('');
   const [type, setType] = useState<AnnouncementType>('info');
   const [target, setTarget] = useState<TargetAudience>('all');
   const [actionUrl, setActionUrl] = useState('');
   const [sendEmail, setSendEmail] = useState(false);
+  const [sending, setSending] = useState(false);
 
-  // AI generation
+  // AI
   const [aiTopic, setAiTopic] = useState('');
   const [aiGenerating, setAiGenerating] = useState(false);
-
-  useEffect(() => {
-    fetchAnnouncements();
-  }, []);
-
-  const fetchAnnouncements = () => {
-    adminFetch('/api/admin/announcements')
-      .then(res => res.json())
-      .then(d => setAnnouncements(d.announcements || []))
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  };
-
-  const resetForm = () => {
-    setTitle('');
-    setMessage('');
-    setType('info');
-    setTarget('all');
-    setActionUrl('');
-    setSendEmail(false);
-  };
+  const [aiOpen, setAiOpen] = useState(false);
 
   const handleAiGenerate = async () => {
     if (!aiTopic.trim()) {
-      toast.error('Enter a topic for AI generation');
+      toast.error('Enter a topic');
       return;
     }
     setAiGenerating(true);
@@ -93,9 +400,10 @@ export default function AdminAnnouncementsPage() {
       if (!res.ok) throw new Error(data.error || 'Generation failed');
       setTitle(data.generated.title);
       setMessage(data.generated.message);
-      toast.success('Announcement generated! You can edit it before sending.');
+      toast.success('Generated! Review and edit.');
+      setAiOpen(false);
     } catch (err: any) {
-      toast.error(err.message || 'Failed to generate announcement');
+      toast.error(err.message || 'Failed to generate');
     } finally {
       setAiGenerating(false);
     }
@@ -106,320 +414,162 @@ export default function AdminAnnouncementsPage() {
       toast.error('Title and message are required');
       return;
     }
-
     setSending(true);
     try {
       const res = await adminFetch('/api/admin/announcements', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title: title.trim(),
-          message: message.trim(),
-          type,
-          target,
-          actionUrl: actionUrl.trim() || undefined,
-          sendEmail,
+          title: title.trim(), message: message.trim(), type, target,
+          actionUrl: actionUrl.trim() || undefined, sendEmail,
         }),
       });
-
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Failed to send announcement');
-      }
-
       const data = await res.json();
-      toast.success(`Announcement sent to ${data.recipientCount} user${data.recipientCount !== 1 ? 's' : ''}`);
-      resetForm();
-      fetchAnnouncements();
+      if (!res.ok) throw new Error(data.error || 'Failed to send');
+      toast.success(`Sent to ${data.recipientCount?.toLocaleString() || 0} user${data.recipientCount !== 1 ? 's' : ''}`);
+      onSent();
     } catch (err: any) {
-      toast.error(err.message || 'Failed to send announcement');
+      toast.error(err.message || 'Failed to send');
     } finally {
       setSending(false);
     }
   };
 
-  const formatDate = (ts: any) => {
-    if (!ts) return '-';
-    const d = ts._seconds ? new Date(ts._seconds * 1000) : new Date(ts);
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  };
-
   return (
-    <Box sx={{ p: { xs: 2.5, md: 4 }, maxWidth: 960, mx: 'auto' }}>
-      <Stack spacing={3}>
-        {/* Header */}
-        <Box>
-          <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 0.5 }}>
-            <Megaphone size={22} style={{ color: '#D97757' }} />
-            <Typography level="h3" fontWeight={700}>Announcements</Typography>
-          </Stack>
-          <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-            Create and send announcements to all users or specific segments.
-          </Typography>
-        </Box>
+    <Modal open onClose={onClose}>
+      <ModalDialog sx={{ maxWidth: { xs: '95vw', sm: 600 }, width: '100%', borderRadius: '16px', maxHeight: '90vh', overflow: 'auto' }}>
+        <ModalClose />
+        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 0.5 }}>
+          <Box sx={{
+            width: 36, height: 36, borderRadius: '10px', bgcolor: '#FFF0E8',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <Megaphone size={18} color="#D97757" />
+          </Box>
+          <Box sx={{ flex: 1 }}>
+            <Typography level="title-lg" fontWeight={700}>New announcement</Typography>
+            <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+              Send an in-app announcement (and optionally email) to your users.
+            </Typography>
+          </Box>
+          <Button
+            size="sm" variant="soft" color="warning"
+            startDecorator={<Sparkles size={14} />}
+            onClick={() => setAiOpen(o => !o)}
+            sx={{ borderRadius: '10px', flexShrink: 0 }}
+          >
+            {aiOpen ? 'Hide AI' : 'Use AI'}
+          </Button>
+        </Stack>
+        <Divider sx={{ my: 2 }} />
 
-        {/* AI Generation Card */}
-        <Card sx={{ ...adminCard as Record<string, unknown> }}>
-          <CardContent sx={{ p: 3 }}>
-            <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 2.5 }}>
-              <Box sx={{
-                width: 36, height: 36, borderRadius: 'md', bgcolor: 'warning.softBg',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              }}>
-                <Sparkles size={16} style={{ color: 'var(--joy-palette-warning-600)' }} />
-              </Box>
-              <Box>
-                <Typography level="title-md" fontWeight={700}>AI Announcement Generator</Typography>
-                <Typography level="body-xs" sx={{ color: 'text.secondary' }}>
-                  Describe the topic and AI will write the title and message for you.
-                </Typography>
-              </Box>
-            </Stack>
-
-            <Stack spacing={2}>
-              <FormControl>
-                <FormLabel>Topic</FormLabel>
-                <Textarea
-                  placeholder="e.g., New recurring invoices feature, scheduled maintenance tonight, tax season tips..."
-                  value={aiTopic}
-                  onChange={e => setAiTopic(e.target.value)}
-                  minRows={2}
-                  maxRows={4}
-                />
-              </FormControl>
-
+        {aiOpen && (
+          <Box sx={{
+            p: 1.5, mb: 2, borderRadius: '10px',
+            bgcolor: 'warning.softBg', border: '1px solid', borderColor: 'warning.outlinedBorder',
+          }}>
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
+              <Input
+                size="sm" placeholder="Describe the topic (e.g. 'new invoice feature')"
+                value={aiTopic}
+                onChange={e => setAiTopic(e.target.value)}
+                startDecorator={<Sparkles size={14} />}
+                sx={{ flex: 1, borderRadius: '8px' }}
+              />
               <Button
-                variant="solid"
-                color="warning"
-                startDecorator={aiGenerating ? <CircularProgress size="sm" /> : <Sparkles size={16} />}
+                size="sm" color="warning"
+                startDecorator={aiGenerating ? <CircularProgress size="sm" /> : <Sparkles size={14} />}
                 onClick={handleAiGenerate}
                 loading={aiGenerating}
-                disabled={aiGenerating || !aiTopic.trim()}
-                sx={{ alignSelf: 'flex-start' }}
+                disabled={!aiTopic.trim()}
+                sx={{ borderRadius: '10px' }}
               >
-                {aiGenerating ? 'Generating...' : 'Generate with AI'}
+                Generate
               </Button>
             </Stack>
-          </CardContent>
-        </Card>
+          </Box>
+        )}
 
-        {/* Create Announcement Form */}
-        <Card sx={{ ...adminCard as Record<string, unknown> }}>
-          <CardContent sx={{ p: 3 }}>
-            <Typography level="title-md" fontWeight={700} sx={{ mb: 2 }}>
-              New Announcement
-            </Typography>
-
-            <Stack spacing={2.5}>
-              {/* Title */}
-              <FormControl required>
-                <FormLabel>Title</FormLabel>
-                <Input
-                  size="sm"
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  placeholder="e.g. New feature: Recurring invoices"
-                />
-              </FormControl>
-
-              {/* Message */}
-              <FormControl required>
-                <FormLabel>Message</FormLabel>
-                <Textarea
-                  minRows={3}
-                  maxRows={8}
-                  value={message}
-                  onChange={e => setMessage(e.target.value)}
-                  placeholder="Write your announcement message..."
-                />
-              </FormControl>
-
-              {/* Type */}
-              <FormControl>
-                <FormLabel>Type</FormLabel>
-                <RadioGroup
-                  orientation="horizontal"
-                  value={type}
-                  onChange={e => setType(e.target.value as AnnouncementType)}
-                  sx={{ gap: 2 }}
-                >
-                  {(Object.keys(TYPE_CONFIG) as AnnouncementType[]).map(t => {
-                    const cfg = TYPE_CONFIG[t];
-                    const Icon = cfg.icon;
-                    return (
-                      <Sheet
-                        key={t}
-                        variant={type === t ? 'soft' : 'outlined'}
-                        sx={{
-                          px: 2, py: 1, borderRadius: 'sm', display: 'flex',
-                          alignItems: 'center', gap: 1, cursor: 'pointer',
-                          borderColor: type === t ? `${cfg.color}.400` : undefined,
-                        }}
-                      >
-                        <Radio
-                          value={t}
-                          label={
-                            <Stack direction="row" spacing={0.75} alignItems="center">
-                              <Icon size={14} />
-                              <Typography level="body-sm">{cfg.label}</Typography>
-                            </Stack>
-                          }
-                          variant="plain"
-                          sx={{ flexGrow: 0 }}
-                        />
-                      </Sheet>
-                    );
-                  })}
-                </RadioGroup>
-              </FormControl>
-
-              {/* Target Audience & Action URL */}
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
-                <FormControl sx={{ flex: 1 }}>
-                  <FormLabel>Target Audience</FormLabel>
-                  <Select
-                    size="sm"
-                    value={target}
-                    onChange={(_, val) => val && setTarget(val as TargetAudience)}
-                    startDecorator={<Users size={14} />}
-                  >
-                    <Option value="all">All Users</Option>
-                    <Option value="free_users">Free Users</Option>
-                    <Option value="pro_users">Pro Users</Option>
-                    <Option value="max_users">Max Users</Option>
-                  </Select>
-                </FormControl>
-
-                <FormControl sx={{ flex: 1 }}>
-                  <FormLabel>Action URL (optional)</FormLabel>
-                  <Input
-                    size="sm"
-                    value={actionUrl}
-                    onChange={e => setActionUrl(e.target.value)}
-                    placeholder="/settings/billing or https://..."
-                  />
-                </FormControl>
-              </Stack>
-
-              {/* Send Email Checkbox */}
-              <Checkbox
-                checked={sendEmail}
-                onChange={e => setSendEmail(e.target.checked)}
-                label={
-                  <Stack direction="row" spacing={0.75} alignItems="center">
-                    <Mail size={14} />
-                    <Typography level="body-sm">Also send via email</Typography>
-                  </Stack>
-                }
-                size="sm"
-              />
-
-              <Divider />
-
-              {/* Send Button */}
-              <Stack direction="row" justifyContent="flex-end">
-                <Button
-                  startDecorator={<Send size={14} />}
-                  loading={sending}
-                  onClick={handleSend}
-                  sx={{
-                    background: 'linear-gradient(135deg, #D97757 0%, #C4694D 100%)',
-                    '&:hover': { background: 'linear-gradient(135deg, #C4694D 0%, #B35E44 100%)' },
-                  }}
-                >
-                  Send Announcement
-                </Button>
-              </Stack>
-            </Stack>
-          </CardContent>
-        </Card>
-
-        {/* Past Announcements */}
-        <Card sx={{ ...adminCard as Record<string, unknown> }}>
-          <CardContent sx={{ p: 3 }}>
-            <Typography level="title-md" fontWeight={700} sx={{ mb: 2 }}>
-              Past Announcements
-            </Typography>
-
-            {loading ? (
-              <Stack spacing={1.5}>
-                {[1, 2, 3].map(i => (
-                  <Card key={i} variant="soft">
-                    <CardContent sx={{ p: 2.5 }}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                        <Box sx={{ flex: 1 }}>
-                          <Skeleton variant="text" width="45%" sx={{ mb: 0.5 }} />
-                          <Skeleton variant="text" width="75%" />
-                          <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                            <Skeleton variant="rectangular" width={55} height={18} sx={{ borderRadius: 10 }} />
-                            <Skeleton variant="rectangular" width={70} height={18} sx={{ borderRadius: 10 }} />
-                            <Skeleton variant="text" width={100} />
-                          </Stack>
-                        </Box>
-                      </Stack>
-                    </CardContent>
-                  </Card>
+        <Stack spacing={2}>
+          <FormControl required>
+            <FormLabel>Title</FormLabel>
+            <Input
+              size="sm" value={title}
+              onChange={e => setTitle(e.target.value)}
+              placeholder="e.g. New feature: Recurring invoices"
+              sx={{ borderRadius: '8px' }}
+            />
+          </FormControl>
+          <FormControl required>
+            <FormLabel>Message</FormLabel>
+            <Textarea
+              minRows={4} maxRows={8}
+              value={message}
+              onChange={e => setMessage(e.target.value)}
+              placeholder="Write your announcement message…"
+              sx={{ borderRadius: '8px' }}
+            />
+          </FormControl>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <FormControl sx={{ flex: 1 }}>
+              <FormLabel>Type</FormLabel>
+              <Select
+                size="sm" value={type}
+                onChange={(_, v) => v && setType(v as AnnouncementType)}
+                sx={{ borderRadius: '8px' }}
+              >
+                {(Object.keys(TYPE_CONFIG) as AnnouncementType[]).map(t => (
+                  <Option key={t} value={t}>{TYPE_CONFIG[t].label}</Option>
                 ))}
+              </Select>
+            </FormControl>
+            <FormControl sx={{ flex: 1 }}>
+              <FormLabel>Target</FormLabel>
+              <Select
+                size="sm" value={target}
+                onChange={(_, v) => v && setTarget(v as TargetAudience)}
+                startDecorator={<Users size={14} />}
+                sx={{ borderRadius: '8px' }}
+              >
+                {(Object.keys(TARGET_LABELS) as TargetAudience[]).map(t => (
+                  <Option key={t} value={t}>{TARGET_LABELS[t]}</Option>
+                ))}
+              </Select>
+            </FormControl>
+          </Stack>
+          <FormControl>
+            <FormLabel>Action URL (optional)</FormLabel>
+            <Input
+              size="sm" value={actionUrl}
+              onChange={e => setActionUrl(e.target.value)}
+              placeholder="/settings/billing or https://…"
+              sx={{ borderRadius: '8px' }}
+            />
+          </FormControl>
+          <Checkbox
+            checked={sendEmail}
+            onChange={e => setSendEmail(e.target.checked)}
+            label={
+              <Stack direction="row" spacing={0.75} alignItems="center">
+                <Mail size={14} />
+                <Typography level="body-sm">Also send via email</Typography>
               </Stack>
-            ) : announcements.length === 0 ? (
-              <Box sx={{ py: 6, textAlign: 'center' }}>
-                <Inbox size={36} style={{ color: 'var(--joy-palette-neutral-400)', margin: '0 auto 8px' }} />
-                <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>
-                  No announcements sent yet.
-                </Typography>
-              </Box>
-            ) : (
-              <Stack spacing={1.5}>
-                {announcements.map(ann => {
-                  const cfg = TYPE_CONFIG[ann.type] || TYPE_CONFIG.info;
-                  const Icon = cfg.icon;
-                  return (
-                    <Card key={ann.id} sx={{
-                      ...liquidGlassSubtle as Record<string, unknown>,
-                      transition: 'border-color 0.2s',
-                      '&:hover': { borderColor: 'neutral.400' },
-                    }}>
-                      <CardContent sx={{ p: 2.5 }}>
-                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
-                          <Box sx={{ flex: 1, minWidth: 0, mr: 2 }}>
-                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
-                              <Icon size={14} style={{ flexShrink: 0 }} />
-                              <Typography level="body-sm" fontWeight={600}>{ann.title}</Typography>
-                            </Stack>
-                            <Typography level="body-xs" sx={{ color: 'text.secondary' }} noWrap>
-                              {ann.message.slice(0, 200)}{ann.message.length > 200 ? '...' : ''}
-                            </Typography>
-                            <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.5 }}>
-                              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                                {formatDate(ann.createdAt)}
-                              </Typography>
-                              <Chip size="sm" variant="soft" color={cfg.color} sx={{ fontSize: '10px' }}>
-                                {cfg.label}
-                              </Chip>
-                              <Chip size="sm" variant="soft" color="neutral" sx={{ fontSize: '10px' }}>
-                                {TARGET_LABELS[ann.target] || ann.target}
-                              </Chip>
-                              <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>
-                                {ann.recipientCount} recipient{ann.recipientCount !== 1 ? 's' : ''}
-                              </Typography>
-                              {ann.sendEmail && (
-                                <Chip size="sm" variant="soft" color="primary" sx={{ fontSize: '10px' }}
-                                  startDecorator={<Mail size={10} />}>
-                                  Email
-                                </Chip>
-                              )}
-                            </Stack>
-                          </Box>
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </Stack>
-            )}
-          </CardContent>
-        </Card>
-      </Stack>
-    </Box>
+            }
+            size="sm"
+          />
+        </Stack>
+        <Stack direction="row" spacing={1} justifyContent="flex-end" sx={{ mt: 3 }}>
+          <Button variant="plain" color="neutral" onClick={onClose} disabled={sending}>Cancel</Button>
+          <Button
+            startDecorator={<Send size={14} />}
+            loading={sending}
+            onClick={handleSend}
+            sx={{ bgcolor: '#D97757', '&:hover': { bgcolor: '#C4694D' }, borderRadius: '10px', fontWeight: 700 }}
+          >
+            Send announcement
+          </Button>
+        </Stack>
+      </ModalDialog>
+    </Modal>
   );
 }

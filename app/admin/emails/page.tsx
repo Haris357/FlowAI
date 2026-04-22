@@ -110,6 +110,17 @@ const TEMPLATE_UI: Record<EmailTemplateType, {
       { key: 'announcementBody', label: 'Newsletter Content', type: 'textarea', required: true, placeholder: 'Use ## headings to create sections' },
     ],
   },
+  new_blog: {
+    icon: Newspaper,
+    color: '#D97757',
+    fields: [
+      { key: 'blogTitle', label: 'Post Title', type: 'text', required: true, placeholder: 'The 5 invoicing mistakes small businesses keep making' },
+      { key: 'blogExcerpt', label: 'Excerpt', type: 'textarea', required: true, placeholder: 'A 1–2 sentence summary shown before the Read button' },
+      { key: 'blogSlug', label: 'Slug', type: 'text', required: true, placeholder: 'five-invoicing-mistakes' },
+      { key: 'blogCategory', label: 'Category', type: 'text', placeholder: 'Guides' },
+      { key: 'blogCoverImage', label: 'Cover image URL (optional)', type: 'text', placeholder: 'https://…' },
+    ],
+  },
   feedback_acknowledged: {
     icon: ThumbsUp,
     color: '#10B981',
@@ -421,12 +432,20 @@ export default function AdminEmailCenterPage() {
     <Box sx={{ p: { xs: 2.5, md: 4 }, maxWidth: 1200, mx: 'auto' }}>
       <Stack spacing={3}>
         {/* Header */}
-        <Box>
-          <Typography level="h3" fontWeight={700}>Email Center</Typography>
-          <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-            Send template-based emails and in-app notifications to users.
-          </Typography>
-        </Box>
+        <Stack direction="row" spacing={1.5} alignItems="center">
+          <Box sx={{
+            width: 36, height: 36, borderRadius: 'md', bgcolor: 'primary.softBg',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <Mail size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />
+          </Box>
+          <Box>
+            <Typography level="h3" fontWeight={700}>Email Center</Typography>
+            <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+              Send template-based emails and in-app notifications to users.
+            </Typography>
+          </Box>
+        </Stack>
 
         {/* Stats row */}
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>

@@ -8,7 +8,7 @@ const db = getFirestore();
 
 export async function GET(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'testimonials:view');
     if (!authResult.authorized) return authResult.response;
 
     const snap = await db.collection('testimonials').orderBy('order', 'asc').get();
@@ -22,7 +22,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'testimonials:manage');
     if (!authResult.authorized) return authResult.response;
 
     const { name, role, company, content, rating, imageUrl, featured, order } = await req.json();

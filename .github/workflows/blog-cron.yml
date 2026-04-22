@@ -1,0 +1,42 @@
+name: Blog Cron
+
+# Auto-generate and publish a new blog post twice a week, then email opted-in users.
+# Runs on Tuesday and Friday at 15:00 UTC (10:00 AM US Eastern).
+# Deliberately offset from the Newsletter cron (Mon + Thu 14:00 UTC) so users
+# never get the two on the same day.
+#
+# Requirements (repo secrets — Settings → Secrets and variables → Actions):
+#  - BLOG_CRON_URL  — full URL, e.g. https://admin.flowbooksai.com/api/cron/blog
+#                     (or https://flowbooksai.com/api/cron/blog if the cron API
+#                     lives on the main domain)
+#  - CRON_SECRET    — same value as CRON_SECRET in your Vercel env (reused from
+#                     the newsletter cron)
+
+on:
+  schedule:
+    # Tue + Fri at 15:00 UTC
+    - cron: '0 15 * * 2,5'
+  workflow_dispatch:
+
+jobs:
+  publish-blog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Hit blog cron endpoint
+        env:
+          BLOG_CRON_URL: ${{ secrets.BLOG_CRON_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$BLOG_CRON_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::error::BLOG_CRON_URL or CRON_SECRET secret is missing"
+            exit 1
+          fi
+
+          echo "Calling $BLOG_CRON_URL..."
+
+          curl --fail-with-body \
+               --max-time 300 \
+               --retry 2 --retry-delay 10 \
+               --header "Authorization: Bearer $CRON_SECRET" \
+               "$BLOG_CRON_URL"

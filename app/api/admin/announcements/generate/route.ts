@@ -9,7 +9,7 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });
 
 export async function POST(req: Request) {
   try {
-    const authResult = await verifyAdminRequest(req);
+    const authResult = await verifyAdminRequest(req, 'announcements:create');
     if (!authResult.authorized) return authResult.response;
 
     if (!process.env.OPENAI_API_KEY) {
