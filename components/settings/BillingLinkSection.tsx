@@ -3,12 +3,15 @@ import { Box, Typography, Stack, Button, Card } from '@mui/joy';
 import { CreditCard, ArrowRight, Receipt, Download, Crown, HelpCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSubscription } from '@/contexts/SubscriptionContext';
+import { useSettingsModal } from '@/contexts/SettingsModalContext';
 
 export default function BillingLinkSection() {
   const router = useRouter();
   const { plan, isPaidSubscriber, isTrial, trialTimeLeft } = useSubscription();
+  const { closeSettings } = useSettingsModal();
 
   const handleGoToBilling = () => {
+    closeSettings();
     router.push('/settings/billing');
   };
 
@@ -16,6 +19,7 @@ export default function BillingLinkSection() {
   const isExternalSupport = supportUrl.startsWith('http');
 
   const handleContactSupport = () => {
+    closeSettings();
     if (isExternalSupport) {
       window.location.href = supportUrl;
     } else {
@@ -103,7 +107,7 @@ export default function BillingLinkSection() {
           <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
             <Box sx={{
               width: 44, height: 44, borderRadius: '12px', flexShrink: 0,
-              bgcolor: '#FFF0E8',
+              bgcolor: 'warning.softBg',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <HelpCircle size={20} color="#D97757" />

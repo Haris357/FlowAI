@@ -170,11 +170,19 @@ export function middleware(request: NextRequest) {
     hostname.startsWith('support-');
 
   if (isSupportSubdomain) {
-    // API calls + pages already under /support pass straight through
+    // API calls + pages already under /support pass straight through.
+    // /login and /auth/* belong to the main app — redirect there rather than
+    // rewriting to /support/login (which doesn't exist).
     if (pathname.startsWith('/api') || pathname.startsWith('/support')) {
       const res = NextResponse.next();
       if (pathname.startsWith('/api/')) handleCORS(request, res);
       return res;
+    }
+    if (pathname.startsWith('/login') || pathname.startsWith('/auth')) {
+      const mainApp = process.env.APP_URL || 'https://flowbooksai.com';
+      const dest = new URL(pathname, mainApp);
+      dest.search = request.nextUrl.search;
+      return NextResponse.redirect(dest);
     }
     // Everything else gets rewritten into /support/*
     const url = request.nextUrl.clone();

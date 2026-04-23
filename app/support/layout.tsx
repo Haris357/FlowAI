@@ -16,8 +16,16 @@ export default function SupportLayout({ children }: { children: React.ReactNode 
   useEffect(() => {
     if (loading) return;
     if (!user) {
-      const next = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '/support';
-      router.replace(`/login?next=${encodeURIComponent(next)}`);
+      // Support runs on a separate subdomain (support.flowbooksai.com) so we
+      // must redirect to the main app's /login page using an absolute URL.
+      // A relative /login would be rewritten by middleware to /support/login (404).
+      const returnTo =
+        typeof window !== 'undefined'
+          ? window.location.href
+          : (process.env.NEXT_PUBLIC_SUPPORT_URL || 'https://support.flowbooksai.com');
+      const loginBase =
+        process.env.NEXT_PUBLIC_APP_URL || 'https://flowbooksai.com';
+      window.location.href = `${loginBase}/login?next=${encodeURIComponent(returnTo)}`;
     }
   }, [user, loading, router]);
 

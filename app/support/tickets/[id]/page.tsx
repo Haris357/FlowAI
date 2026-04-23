@@ -130,7 +130,7 @@ export default function TicketDetailPage() {
 
   if (notFound || !ticket) {
     return (
-      <Box sx={{ minHeight: '100vh', bgcolor: '#FAFAF9' }}>
+      <Box sx={{ minHeight: '100vh', bgcolor: 'background.body' }}>
         <TopBar />
         <Box sx={{ maxWidth: 600, mx: 'auto', px: 3, py: 8, textAlign: 'center' }}>
           <HelpCircle size={40} style={{ color: 'var(--joy-palette-neutral-400)', marginBottom: 12 }} />
@@ -155,7 +155,7 @@ export default function TicketDetailPage() {
   const canReply = !['closed'].includes(ticket.status);
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#FAFAF9' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.body' }}>
       <TopBar />
 
       <Box sx={{ maxWidth: 900, mx: 'auto', px: { xs: 2, md: 3 }, py: { xs: 3, md: 4 } }}>
@@ -254,7 +254,7 @@ export default function TicketDetailPage() {
             </Stack>
           </Box>
 
-          <Box sx={{ p: { xs: 2, sm: 3 }, bgcolor: '#FAFAF9' }}>
+          <Box sx={{ p: { xs: 2, sm: 3 }, bgcolor: 'background.level1' }}>
             <Stack spacing={2}>
               {messages.length === 0 ? (
                 <Box sx={{ textAlign: 'center', py: 4, color: 'text.tertiary' }}>
@@ -343,7 +343,7 @@ function TopBar() {
     >
       <Box sx={{
         width: 34, height: 34, borderRadius: '10px', flexShrink: 0,
-        bgcolor: '#FFF0E8',
+        bgcolor: 'warning.softBg',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
       }}>
         <HelpCircle size={17} color="#D97757" />
@@ -360,7 +360,7 @@ function TopBar() {
 
 function TicketLoading() {
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#FAFAF9' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.body' }}>
       <TopBar />
       <Box sx={{ maxWidth: 900, mx: 'auto', px: { xs: 2, md: 3 }, py: { xs: 3, md: 4 } }}>
         <Skeleton variant="text" width={140} sx={{ mb: 2 }} />

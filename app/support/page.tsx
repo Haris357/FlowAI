@@ -92,7 +92,7 @@ export default function SupportPage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#FAFAF9' }}>
+    <Box sx={{ minHeight: '100vh', bgcolor: 'background.body' }}>
       {/* Top bar */}
       <Sheet
         variant="outlined"
@@ -106,7 +106,7 @@ export default function SupportPage() {
       >
         <Box sx={{
           width: 34, height: 34, borderRadius: '10px', flexShrink: 0,
-          bgcolor: '#FFF0E8',
+          bgcolor: 'warning.softBg',
           display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
           <HelpCircle size={17} color="#D97757" />
@@ -409,7 +409,7 @@ function AiChatWidget({ onEscalate }: { onEscalate: (transcript: { role: 'user' 
       {/* Messages */}
       <Box sx={{
         flex: 1, overflow: 'auto', px: { xs: 2, sm: 2.5 }, py: 2.5,
-        bgcolor: '#FAFAF9',
+        bgcolor: 'background.level1',
       }}>
         <Stack spacing={1.75}>
           {messages.map(m => <ChatBubble key={m.id} message={m} />)}
@@ -577,7 +577,7 @@ function CreateTicketModal({
         <ModalClose disabled={submitting} />
         <Stack direction="row" spacing={1.5} alignItems="center">
           <Box sx={{
-            width: 36, height: 36, borderRadius: '10px', bgcolor: '#FFF0E8',
+            width: 36, height: 36, borderRadius: '10px', bgcolor: 'warning.softBg',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}>
             <Sparkles size={18} color="#D97757" />

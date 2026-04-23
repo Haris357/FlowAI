@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { Shield, Moon, Sun, ArrowLeft, Lock, Sparkles } from 'lucide-react';
@@ -13,11 +13,31 @@ export default function LoginPage() {
   const { user, loading: authLoading, signInWithGoogle } = useAuth();
   const { mode, toggleMode } = useTheme();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Redirect authenticated users away from login (only if not mid-sign-in)
   useEffect(() => {
     if (!authLoading && user && !loading) {
-      // Check if user has companies — new users should go to onboarding
+      const next = searchParams.get('next');
+      // If next is an absolute URL (e.g. https://support.flowbooksai.com) use
+      // window.location for cross-origin navigation; otherwise use router.
+      if (next) {
+        try {
+          const url = new URL(next);
+          // Only allow redirects to our own domains for security
+          const allowed = ['flowbooksai.com', 'localhost'];
+          const isAllowed = allowed.some(d => url.hostname === d || url.hostname.endsWith(`.${d}`));
+          if (isAllowed) {
+            window.location.href = next;
+            return;
+          }
+        } catch {
+          // next is a relative path — fall through to router.replace
+          router.replace(next);
+          return;
+        }
+      }
+      // Default: check if user has companies
       const checkAndRedirect = async () => {
         try {
           const { collection, query, where, getDocs } = await import('firebase/firestore');
@@ -31,7 +51,7 @@ export default function LoginPage() {
       };
       checkAndRedirect();
     }
-  }, [user, authLoading, loading, router]);
+  }, [user, authLoading, loading, router, searchParams]);
 
   const handleGoogleLogin = async () => {
     setLoading(true);
