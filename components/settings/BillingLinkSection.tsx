@@ -1,6 +1,6 @@
 'use client';
 import { Box, Typography, Stack, Button, Card } from '@mui/joy';
-import { CreditCard, ArrowRight, Receipt, Download, Crown, HelpCircle } from 'lucide-react';
+import { CreditCard, ArrowRight, Receipt, Download, Crown, HelpCircle, BookOpen } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useSettingsModal } from '@/contexts/SettingsModalContext';
@@ -17,6 +17,8 @@ export default function BillingLinkSection() {
 
   const supportUrl = process.env.NEXT_PUBLIC_SUPPORT_URL || '/support';
   const isExternalSupport = supportUrl.startsWith('http');
+  const docsUrl = process.env.NEXT_PUBLIC_DOCS_URL || '/docs';
+  const isExternalDocs = docsUrl.startsWith('http');
 
   const handleContactSupport = () => {
     closeSettings();
@@ -24,6 +26,15 @@ export default function BillingLinkSection() {
       window.location.href = supportUrl;
     } else {
       router.push(supportUrl);
+    }
+  };
+
+  const handleOpenDocs = () => {
+    closeSettings();
+    if (isExternalDocs) {
+      window.location.href = docsUrl;
+    } else {
+      router.push(docsUrl);
     }
   };
 
@@ -98,6 +109,35 @@ export default function BillingLinkSection() {
           >
             Go to Billing
           </Button>
+        </Box>
+      </Card>
+
+      {/* Documentation navigation */}
+      <Card variant="outlined" sx={{ overflow: 'hidden', borderRadius: '14px', p: 0 }}>
+        <Box sx={{ p: 3 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+            <Box sx={{
+              width: 44, height: 44, borderRadius: '12px', flexShrink: 0,
+              bgcolor: 'primary.softBg',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <BookOpen size={20} color="#D97757" />
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography level="title-sm" fontWeight={700}>Documentation</Typography>
+              <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
+                Step-by-step guides, walkthroughs, and tutorials for every feature.
+              </Typography>
+            </Box>
+            <Button
+              variant="outlined" color="neutral"
+              endDecorator={<ArrowRight size={14} />}
+              onClick={handleOpenDocs}
+              sx={{ borderRadius: '10px', fontWeight: 600, flexShrink: 0 }}
+            >
+              Open Docs
+            </Button>
+          </Stack>
         </Box>
       </Card>
 

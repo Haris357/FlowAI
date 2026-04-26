@@ -23,6 +23,7 @@ function getAllowedOrigins(): string[] {
     'https://admin.flowbooksai.com',
     'https://status.flowbooksai.com',
     'https://support.flowbooksai.com',
+    'https://docs.flowbooksai.com',
     // Vercel preview deployments (any *.vercel.app subdomain for this project)
     // Checked dynamically below.
   ];
@@ -199,6 +200,35 @@ export function middleware(request: NextRequest) {
       const supportUrl = new URL(supportPath, 'https://support.flowbooksai.com');
       supportUrl.search = request.nextUrl.search;
       return NextResponse.redirect(supportUrl);
+    }
+  }
+
+  // ── 7. Docs subdomain routing ────────────────────────────────────────────
+  // Public docs site — no auth required.
+  const isDocsSubdomain =
+    hostname.startsWith('docs.') ||
+    hostname.startsWith('docs-');
+
+  if (isDocsSubdomain) {
+    if (pathname.startsWith('/api') || pathname.startsWith('/docs')) {
+      const res = NextResponse.next();
+      if (pathname.startsWith('/api/')) handleCORS(request, res);
+      return res;
+    }
+    const url = request.nextUrl.clone();
+    url.pathname = `/docs${pathname === '/' ? '' : pathname}`;
+    return NextResponse.rewrite(url);
+  }
+
+  // On main domain redirect /docs/* to the docs subdomain (prod only)
+  if (pathname.startsWith('/docs')) {
+    const isLocalhost =
+      hostname.includes('localhost') || hostname.includes('127.0.0.1');
+    if (!isLocalhost && !hostname.startsWith('docs.')) {
+      const docsPath = pathname.replace(/^\/docs/, '') || '/';
+      const docsUrl = new URL(docsPath, 'https://docs.flowbooksai.com');
+      docsUrl.search = request.nextUrl.search;
+      return NextResponse.redirect(docsUrl);
     }
   }
 

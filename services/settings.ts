@@ -57,25 +57,26 @@ export async function initializeCompanySettings(companyId: string): Promise<void
   console.log(`Settings initialized for company ${companyId}`);
 }
 
-// Get all settings for a company
+// Get all settings for a company.
+// The `settings` subcollection is shared with non-category docs like
+// `account_preferences`, `dashboard_preferences`, and `exchangeRates`.
+// Filter strictly to known category codes so they don't render as empty rows
+// in the Customize Options UI.
 export async function getCompanySettings(companyId: string): Promise<CompanySetting[]> {
   const settingsRef = collection(db, `companies/${companyId}/settings`);
+  const knownCodes = new Set(ALL_SETTINGS.map(c => c.code));
   const snapshot = await getDocs(settingsRef);
 
-  if (snapshot.empty) {
-    // Initialize if empty
-    await initializeCompanySettings(companyId);
-    const newSnapshot = await getDocs(settingsRef);
-    return newSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-    } as CompanySetting));
-  }
+  const docsToReturn = snapshot.empty
+    ? (await (async () => {
+        await initializeCompanySettings(companyId);
+        return (await getDocs(settingsRef)).docs;
+      })())
+    : snapshot.docs;
 
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data(),
-  } as CompanySetting));
+  return docsToReturn
+    .filter(d => knownCodes.has(d.id))
+    .map(d => ({ id: d.id, ...d.data() } as CompanySetting));
 }
 
 // Get settings for a specific category

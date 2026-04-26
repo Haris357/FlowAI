@@ -30,9 +30,10 @@ import {
 } from 'firebase/firestore';
 import toast from 'react-hot-toast';
 import { FlowBooksLogoJoy } from '@/components/FlowBooksLogo';
-import { LoadingSpinner, DangerousConfirmDialog, ConfirmDialog } from '@/components/common';
+import { DangerousConfirmDialog, ConfirmDialog } from '@/components/common';
 import { deleteCompanyData, getCompanyDataCounts } from '@/services/company';
 import CompanyCard, { type CompanyData } from '@/components/companies/CompanyCard';
+import CompaniesSkeleton from '@/components/companies/CompaniesSkeleton';
 import NotificationBell from '@/components/notifications/NotificationBell';
 import NotificationPanel from '@/components/notifications/NotificationPanel';
 import SettingsModal from '@/components/settings/SettingsModal';
@@ -57,8 +58,9 @@ export default function CompaniesPage() {
   const [loading, setLoading] = useState(true);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [viewMode, setViewMode] = useState<'grid' | 'list' | 'table' | 'compact'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [searchQuery, setSearchQuery] = useState('');
+  const [openingCompanyId, setOpeningCompanyId] = useState<string | null>(null);
   const [notificationPanelOpen, setNotificationPanelOpen] = useState(false);
   const { isOpen: settingsModalOpen, section: settingsSection, openSettings, closeSettings } = useSettingsModal();
 
@@ -126,13 +128,22 @@ export default function CompaniesPage() {
 
   const selectedCountry = useMemo(() => countries.find(c => c.code === newCompany.country), [newCompany.country]);
 
-  const filteredCompanies = useMemo(() => {
-    if (!searchQuery.trim()) return companies;
+  // Unified list: owned companies (no role badge) + companies the user is a
+  // member of (with role badge). Owned ones come first.
+  const allItems = useMemo(() => {
+    const owned = companies.map(c => ({ company: c, role: undefined as CompanyRole | undefined }));
+    const shared = memberCompanies.map(m => ({ company: m.data, role: m.role }));
+    return [...owned, ...shared];
+  }, [companies, memberCompanies]);
+
+  const filteredItems = useMemo(() => {
+    if (!searchQuery.trim()) return allItems;
     const q = searchQuery.toLowerCase();
-    return companies.filter(c =>
+    return allItems.filter(({ company: c }) =>
       c.name.toLowerCase().includes(q) || c.businessType.toLowerCase().includes(q) || c.currency.toLowerCase().includes(q)
     );
-  }, [companies, searchQuery]);
+  }, [allItems, searchQuery]);
+  const totalCompanies = allItems.length;
 
   const handleInputChange = (field: string, value: any) => setNewCompany(p => ({ ...p, [field]: value }));
 
@@ -290,34 +301,44 @@ export default function CompaniesPage() {
   };
 
   const handleSelectCompany = async (company: CompanyData) => {
+    if (openingCompanyId) return; // already opening another card
     if (isTrial && trialExpired) {
       router.push('/settings/billing');
       return;
     }
-    if (!company.accountsCreated) {
-      try {
-        const accountsRef = collection(db, `companies/${company.id}/chartOfAccounts`);
-        const snap = await getDocs(accountsRef);
-        if (snap.empty) {
-          const allAccounts = getAllChartOfAccounts();
-          await Promise.all(allAccounts.map(a => addDoc(accountsRef, {
-            ...a,
-            typeCode: a.type,       // normalize to standard field names
-            subtypeCode: a.subType, // normalize to standard field names
-            createdAt: Timestamp.now(),
-            updatedAt: Timestamp.now(),
-          })));
-          await updateDoc(doc(db, 'companies', company.id), { accountsCreated: true, updatedAt: Timestamp.now() });
-        }
-      } catch { /* continue */ }
-    }
-    try { await initializeCompanySettings(company.id); } catch { /* continue */ }
 
+    // Passcode-protected companies don't need any prep — just prompt.
     if (company.hasPasscode) {
       setSelectedCompany(company); setPasscodeInput(''); setVerifyModalOpen(true);
-    } else {
+      return;
+    }
+
+    setOpeningCompanyId(company.id);
+    try {
+      if (!company.accountsCreated) {
+        try {
+          const accountsRef = collection(db, `companies/${company.id}/chartOfAccounts`);
+          const snap = await getDocs(accountsRef);
+          if (snap.empty) {
+            const allAccounts = getAllChartOfAccounts();
+            await Promise.all(allAccounts.map(a => addDoc(accountsRef, {
+              ...a,
+              typeCode: a.type,       // normalize to standard field names
+              subtypeCode: a.subType, // normalize to standard field names
+              createdAt: Timestamp.now(),
+              updatedAt: Timestamp.now(),
+            })));
+            await updateDoc(doc(db, 'companies', company.id), { accountsCreated: true, updatedAt: Timestamp.now() });
+          }
+        } catch { /* continue */ }
+      }
+      try { await initializeCompanySettings(company.id); } catch { /* continue */ }
+
       localStorage.setItem('selectedCompanyId', company.id);
       router.push(`/companies/${company.id}/dashboard`);
+      // Leave openingCompanyId set — the page is unmounting anyway.
+    } catch {
+      setOpeningCompanyId(null);
     }
   };
 
@@ -362,14 +383,17 @@ export default function CompaniesPage() {
     setTeamModalOpen(true);
   };
 
-  if (loading) {
-    return <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><LoadingSpinner message="Loading your companies..." /></Box>;
-  }
-
   const isAdmin = isAdminEmail(user?.email);
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.body', position: 'relative' }}>
+    <Box sx={{
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      bgcolor: 'background.body',
+      position: 'relative',
+      overflow: 'hidden',
+    }}>
       {/* ===== Dot Pattern + Gradient Blobs Background ===== */}
       <Box sx={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
         {/* Dot pattern */}
@@ -457,8 +481,12 @@ export default function CompaniesPage() {
         </Box>
       </Sheet>
 
-      {/* ===== Page Content ===== */}
+      {/* ===== Scrollable Page Content ===== */}
+      <Box sx={{ flex: 1, overflowY: 'auto', position: 'relative', zIndex: 1 }}>
       <Box sx={{ maxWidth: 1152, mx: 'auto', px: { xs: 2, sm: 3 }, py: { xs: 3, md: 4 } }}>
+        {loading ? (
+          <CompaniesSkeleton />
+        ) : (
         <Stack spacing={3}>
 
           {/* Trial Expired — clean compact banner */}
@@ -554,52 +582,100 @@ export default function CompaniesPage() {
           {/* Pending Invitations */}
           <PendingInvitationsBanner onAccepted={fetchCompanies} />
 
-          {/* Welcome + New Company */}
-          <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={2}>
-            <Box>
-              <Typography level="h3" fontWeight={700}>
-                Welcome back, {user?.displayName?.split(' ')[0] || 'there'}
-              </Typography>
-              <Typography level="body-sm" sx={{ color: 'text.secondary' }}>
-                {companies.length} {companies.length === 1 ? 'company' : 'companies'} in your portfolio
-              </Typography>
-            </Box>
-            <Button data-tour="new-company" size="sm" startDecorator={<Plus size={16} />}
-              disabled={isTrial && trialExpired}
-              onClick={() => setCreateModalOpen(true)}
-              sx={{
-                borderRadius: '20px',
-                background: (isTrial && trialExpired) ? undefined : 'linear-gradient(135deg, var(--joy-palette-primary-500), var(--joy-palette-primary-600))',
-                '&:hover': {
-                  background: (isTrial && trialExpired) ? undefined : 'linear-gradient(135deg, var(--joy-palette-primary-600), var(--joy-palette-primary-700))',
-                  transform: (isTrial && trialExpired) ? undefined : 'translateY(-1px)',
-                },
-                transition: 'all 0.2s ease',
-                boxShadow: (isTrial && trialExpired) ? undefined : '0 4px 12px rgba(217,119,87,0.25)',
-              }}>
-              New Company
-            </Button>
-          </Stack>
+          {/* Editorial header */}
+          <Box sx={{ pt: { xs: 0.5, md: 1.5 }, pb: 0.5 }}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              justifyContent="space-between"
+              alignItems={{ xs: 'flex-start', sm: 'center' }}
+              spacing={{ xs: 1.75, sm: 2 }}
+            >
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  level="body-xs"
+                  sx={{
+                    color: 'text.tertiary',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.12em',
+                    fontWeight: 600,
+                    fontSize: '0.66rem',
+                    mb: 0.75,
+                  }}
+                >
+                  {user?.displayName?.split(' ')[0] || 'Welcome'}
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: { xs: '1.55rem', sm: '1.75rem', md: '1.95rem' },
+                    fontWeight: 600,
+                    lineHeight: 1.1,
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  Your companies
+                </Typography>
+                <Typography
+                  level="body-sm"
+                  sx={{ color: 'text.secondary', mt: 0.75, maxWidth: 520 }}
+                >
+                  {totalCompanies === 0
+                    ? "Spin up your first company to start keeping its books."
+                    : totalCompanies === 1
+                      ? 'One company in your books.'
+                      : `${totalCompanies} companies in your books.`}
+                </Typography>
+              </Box>
+              <Button
+                data-tour="new-company"
+                size="sm"
+                startDecorator={<Plus size={14} />}
+                disabled={isTrial && trialExpired}
+                onClick={() => setCreateModalOpen(true)}
+                sx={{
+                  borderRadius: '999px',
+                  px: 1.75,
+                  background: (isTrial && trialExpired)
+                    ? undefined
+                    : 'linear-gradient(135deg, var(--joy-palette-primary-500), var(--joy-palette-primary-600))',
+                  '&:hover': {
+                    background: (isTrial && trialExpired)
+                      ? undefined
+                      : 'linear-gradient(135deg, var(--joy-palette-primary-600), var(--joy-palette-primary-700))',
+                    transform: (isTrial && trialExpired) ? undefined : 'translateY(-1px)',
+                  },
+                  transition: 'all 0.2s ease',
+                  boxShadow: (isTrial && trialExpired) ? undefined : '0 4px 14px rgba(217,119,87,0.25)',
+                  flexShrink: 0,
+                }}
+              >
+                New company
+              </Button>
+            </Stack>
+          </Box>
 
-          {/* Search & View Toggle */}
-          {companies.length > 0 && (
+          {/* Search + view toggle (only when there are 2+ items) */}
+          {totalCompanies > 1 && (
             <Stack direction="row" spacing={1.5} alignItems="center">
               <Input
-                placeholder="Search companies..."
+                placeholder="Search by name, type, currency…"
                 value={searchQuery}
                 onChange={e => setSearchQuery(e.target.value)}
                 startDecorator={<Search size={16} />}
                 size="sm"
-                sx={{ flex: 1, maxWidth: 320, borderRadius: '20px' }}
+                sx={{ flex: 1, maxWidth: 360, borderRadius: '999px' }}
               />
               <Stack direction="row" spacing={0.25}>
-                {(['grid', 'compact', 'list', 'table'] as const).map(m => {
-                  const icons = { grid: LayoutGrid, compact: Grid3x3, list: ListIcon, table: TableIcon };
-                  const Icon = icons[m];
+                {(['grid', 'list'] as const).map(m => {
+                  const Icon = m === 'grid' ? LayoutGrid : ListIcon;
                   return (
-                    <IconButton key={m} size="sm" variant={viewMode === m ? 'solid' : 'plain'}
-                      color={viewMode === m ? 'primary' : 'neutral'} onClick={() => setViewMode(m)}
-                      sx={{ borderRadius: '10px' }}>
+                    <IconButton
+                      key={m}
+                      size="sm"
+                      variant={viewMode === m ? 'soft' : 'plain'}
+                      color={viewMode === m ? 'primary' : 'neutral'}
+                      onClick={() => setViewMode(m)}
+                      sx={{ borderRadius: '10px' }}
+                    >
                       <Icon size={16} />
                     </IconButton>
                   );
@@ -610,153 +686,89 @@ export default function CompaniesPage() {
 
           {/* Companies */}
           <Box data-tour="company-list">
-          {filteredCompanies.length === 0 ? (
-            <Card variant="outlined" sx={{ textAlign: 'center', py: 10, px: 4, border: '2px dashed', borderColor: 'divider' }}>
-              <Box sx={{
-                width: 64, height: 64, borderRadius: '50%', bgcolor: 'primary.softBg',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
-              }}>
-                <Building2 size={28} style={{ color: 'var(--joy-palette-primary-500)' }} />
+            {filteredItems.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: { xs: 6, md: 10 }, px: 4 }}>
+                <Box sx={{
+                  width: 56, height: 56, borderRadius: '50%', bgcolor: 'primary.softBg',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px',
+                }}>
+                  <Building2 size={24} style={{ color: 'var(--joy-palette-primary-500)' }} />
+                </Box>
+                <Typography sx={{ fontSize: '1.4rem', fontWeight: 600, letterSpacing: '-0.01em', mb: 0.75 }}>
+                  {searchQuery ? 'Nothing matches' : 'No companies yet'}
+                </Typography>
+                <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 3 }}>
+                  {searchQuery
+                    ? `Nothing for "${searchQuery}". Try a different name or type.`
+                    : 'Create your first company to get started.'}
+                </Typography>
+                {!searchQuery && (
+                  <Button size="sm" startDecorator={<Plus size={16} />} onClick={() => setCreateModalOpen(true)}
+                    sx={{ borderRadius: '999px' }}>
+                    Create company
+                  </Button>
+                )}
               </Box>
-              <Typography level="h4" sx={{ mb: 0.5 }}>{searchQuery ? 'No companies found' : 'No companies yet'}</Typography>
-              <Typography level="body-sm" sx={{ color: 'text.secondary', mb: 3 }}>
-                {searchQuery ? `No results for "${searchQuery}"` : 'Get started by creating your first company'}
-              </Typography>
-              {!searchQuery && (
-                <Button size="sm" startDecorator={<Plus size={16} />} onClick={() => setCreateModalOpen(true)}>Create Company</Button>
-              )}
-            </Card>
-          ) : viewMode === 'table' ? (
-            <Sheet variant="outlined" sx={{ borderRadius: 'md', overflow: 'hidden' }}>
-              <Box sx={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '2px solid var(--joy-palette-divider)', backgroundColor: 'var(--joy-palette-background-level1)' }}>
-                      {['Company', 'Type', 'Currency', 'Created', 'Status', ''].map(h => (
-                        <th key={h} style={{ padding: '10px 16px', textAlign: 'left', fontWeight: 600, fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--joy-palette-text-tertiary)', ...(h === '' ? { width: '50px' } : {}) }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredCompanies.map(company => (
-                      <tr key={company.id} style={{ borderBottom: '1px solid var(--joy-palette-divider)', cursor: 'pointer', transition: 'background-color 0.15s' }}
-                        onClick={() => handleSelectCompany(company)}
-                        onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--joy-palette-background-level1)'; }}
-                        onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                      >
-                        <td style={{ padding: '10px 16px' }}>
-                          <Stack direction="row" spacing={1.5} alignItems="center">
-                            <Avatar size="sm" sx={{ width: 28, height: 28, fontSize: '0.75rem', background: 'linear-gradient(135deg, var(--joy-palette-primary-500), var(--joy-palette-primary-600))' }}>{company.name.charAt(0)}</Avatar>
-                            <Typography level="body-sm" fontWeight={600}>{company.name}</Typography>
-                          </Stack>
-                        </td>
-                        <td style={{ padding: '10px 16px' }}><Chip size="sm" variant="soft" color="primary" sx={{ fontSize: '10px' }}>{company.businessType}</Chip></td>
-                        <td style={{ padding: '10px 16px' }}><Typography level="body-xs">{company.currency}</Typography></td>
-                        <td style={{ padding: '10px 16px' }}><Typography level="body-xs" sx={{ color: 'text.tertiary' }}>{company.createdAt?.toDate ? new Date(company.createdAt.toDate()).toLocaleDateString() : '-'}</Typography></td>
-                        <td style={{ padding: '10px 16px' }}>
-                          {company.hasPasscode && <Chip size="sm" variant="soft" color="warning" sx={{ fontSize: '10px' }}><Lock size={10} /></Chip>}
-                        </td>
-                        <td style={{ padding: '10px 16px' }}>
-                          <Dropdown>
-                            <MenuButton slots={{ root: IconButton }} slotProps={{ root: { variant: 'plain', size: 'sm' } }} onClick={e => e.stopPropagation()}>
-                              <MoreVertical size={14} />
-                            </MenuButton>
-                            <Menu placement="bottom-end" sx={{ zIndex: 1100 }}>
-                              <MenuItem onClick={e => { e.stopPropagation(); handleSelectCompany(company); }}><ArrowRight size={14} /> Open</MenuItem>
-                              <MenuItem onClick={e => handleOpenSecurity(company, e)}><Shield size={14} /> Security</MenuItem>
-                              <MenuItem onClick={e => handleOpenUsers(company, e)}><UsersIcon size={14} /> Team</MenuItem>
-                              <MenuItem onClick={e => { e.stopPropagation(); handleBackupCompany(company.id, company.name); }}><Download size={14} /> Backup</MenuItem>
-                              <Divider />
-                              <MenuItem color="danger" onClick={e => { e.stopPropagation(); handleOpenDeleteConfirm(company.id, company.name); }}><Trash2 size={14} /> Delete</MenuItem>
-                            </Menu>
-                          </Dropdown>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </Box>
-            </Sheet>
-          ) : viewMode === 'list' ? (
-            <Stack spacing={1.5}>
-              {filteredCompanies.map((c, i) => (
-                <CompanyCard key={c.id} company={c} viewMode="list" index={i} onSelect={handleSelectCompany} onOpenSecurity={handleOpenSecurity} onOpenUsers={handleOpenUsers} onBackup={handleBackupCompany} onDelete={handleOpenDeleteConfirm} />
-              ))}
-            </Stack>
-          ) : viewMode === 'compact' ? (
-            <Grid container spacing={2}>
-              {filteredCompanies.map((c, i) => (
-                <Grid key={c.id} xs={6} sm={4} md={3}>
-                  <CompanyCard company={c} viewMode="compact" index={i} onSelect={handleSelectCompany} onOpenSecurity={handleOpenSecurity} onOpenUsers={handleOpenUsers} onBackup={handleBackupCompany} onDelete={handleOpenDeleteConfirm} />
-                </Grid>
-              ))}
-            </Grid>
-          ) : (
-            <Grid container spacing={2}>
-              {filteredCompanies.map((c, i) => (
-                <Grid key={c.id} xs={12} sm={6} md={4}>
-                  <CompanyCard company={c} viewMode="grid" index={i} onSelect={handleSelectCompany} onOpenSecurity={handleOpenSecurity} onOpenUsers={handleOpenUsers} onBackup={handleBackupCompany} onDelete={handleOpenDeleteConfirm} />
-                </Grid>
-              ))}
-            </Grid>
-          )}
-          </Box>
-
-          {/* Member Companies (companies user was invited to) */}
-          {memberCompanies.length > 0 && (
-            <Box sx={{ mt: 4 }}>
-              <Typography level="title-sm" fontWeight={700} sx={{ mb: 2, color: 'text.secondary' }}>
-                <UsersIcon size={14} style={{ marginRight: 6, verticalAlign: -2 }} />
-                Shared with you ({memberCompanies.length})
-              </Typography>
+            ) : viewMode === 'list' ? (
+              <Stack spacing={1.25}>
+                {filteredItems.map(({ company: c, role }, i) => (
+                  <CompanyCard
+                    key={c.id}
+                    company={c}
+                    role={role}
+                    viewMode="list"
+                    index={i}
+                    isLoading={openingCompanyId === c.id}
+                    disabled={!!openingCompanyId && openingCompanyId !== c.id}
+                    onSelect={handleSelectCompany}
+                    onOpenSecurity={handleOpenSecurity}
+                    onOpenUsers={handleOpenUsers}
+                    onBackup={handleBackupCompany}
+                    onDelete={handleOpenDeleteConfirm}
+                  />
+                ))}
+              </Stack>
+            ) : (
               <Grid container spacing={2}>
-                {memberCompanies.map(({ data: c, role }) => (
+                {filteredItems.map(({ company: c, role }, i) => (
                   <Grid key={c.id} xs={12} sm={6} md={4}>
-                    <Card
-                      variant="outlined"
-                      sx={{
-                        cursor: 'pointer',
-                        transition: 'all 0.2s',
-                        '&:hover': { borderColor: 'primary.300', boxShadow: 'sm', transform: 'translateY(-2px)' },
-                      }}
-                      onClick={() => handleSelectCompany(c)}
-                    >
-                      <CardContent sx={{ p: 2 }}>
-                        <Stack direction="row" spacing={1.5} alignItems="center">
-                          <Avatar size="sm" sx={{
-                            width: 36, height: 36,
-                            background: 'linear-gradient(135deg, var(--joy-palette-primary-400), var(--joy-palette-primary-600))',
-                          }}>
-                            {c.name.charAt(0)}
-                          </Avatar>
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography level="body-sm" fontWeight={700} noWrap>{c.name}</Typography>
-                            <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>{c.businessType}</Typography>
-                          </Box>
-                          <Chip
-                            size="sm"
-                            variant="soft"
-                            color={ROLE_COLORS[role]}
-                            sx={{ fontSize: '10px', fontWeight: 600 }}
-                          >
-                            {ROLE_LABELS[role]}
-                          </Chip>
-                        </Stack>
-                      </CardContent>
-                    </Card>
+                    <CompanyCard
+                      company={c}
+                      role={role}
+                      viewMode="grid"
+                      index={i}
+                      isLoading={openingCompanyId === c.id}
+                      disabled={!!openingCompanyId && openingCompanyId !== c.id}
+                      onSelect={handleSelectCompany}
+                      onOpenSecurity={handleOpenSecurity}
+                      onOpenUsers={handleOpenUsers}
+                      onBackup={handleBackupCompany}
+                      onDelete={handleOpenDeleteConfirm}
+                    />
                   </Grid>
                 ))}
               </Grid>
-            </Box>
-          )}
+            )}
+          </Box>
         </Stack>
+        )}
+      </Box>
+      </Box>
 
-        {/* Footer */}
-        <Box sx={{ py: 2, mt: 4, borderTop: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
-          <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '11px' }}>
-            &copy; {new Date().getFullYear()} Flowbooks. All rights reserved.
-          </Typography>
-        </Box>
+      {/* Footer (sticks to viewport bottom while content scrolls) */}
+      <Box sx={{
+        flexShrink: 0,
+        py: 2,
+        borderTop: '1px solid',
+        borderColor: 'divider',
+        textAlign: 'center',
+        bgcolor: 'background.body',
+        position: 'relative',
+        zIndex: 2,
+      }}>
+        <Typography level="body-xs" sx={{ color: 'text.tertiary', fontSize: '11px' }}>
+          &copy; {new Date().getFullYear()} Flowbooks. All rights reserved.
+        </Typography>
       </Box>
 
       {/* Create Company Modal */}

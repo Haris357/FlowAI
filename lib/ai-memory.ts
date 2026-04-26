@@ -182,7 +182,8 @@ export function needsCompaction(memory: ConversationMemory): boolean {
 
 export async function compactConversation(
   companyId: string,
-  conversationId: string
+  conversationId: string,
+  options?: { keepCount?: number }
 ): Promise<ConversationMemory> {
   const conversationRef = doc(db, `companies/${companyId}/conversations`, conversationId);
   const conversationSnap = await getDoc(conversationRef);
@@ -192,8 +193,25 @@ export async function compactConversation(
   }
 
   const conversation = conversationSnap.data() as ConversationMemory;
-  const messagesToSummarize = conversation.messages.slice(0, -MEMORY_CONFIG.MESSAGES_TO_KEEP);
-  const recentMessages = conversation.messages.slice(-MEMORY_CONFIG.MESSAGES_TO_KEEP);
+  const total = conversation.messages?.length || 0;
+
+  // Pick how many recent messages to retain. The hard ceiling is the global
+  // MESSAGES_TO_KEEP, but for short conversations we shrink it so manual
+  // compaction actually frees up tokens (otherwise slice(-30) returns the
+  // whole array and nothing gets summarized).
+  const requested = options?.keepCount ?? MEMORY_CONFIG.MESSAGES_TO_KEEP;
+  const keepCount = Math.min(
+    requested,
+    Math.max(2, Math.floor(total / 2)),
+  );
+
+  // Need at least 2 messages to summarize for the compaction to mean anything.
+  if (total - keepCount < 2) {
+    throw new Error('Not enough history to compact yet');
+  }
+
+  const messagesToSummarize = conversation.messages.slice(0, total - keepCount);
+  const recentMessages = conversation.messages.slice(-keepCount);
 
   const summary = await generateSummary(messagesToSummarize, conversation.summary);
   const summaryTokens = estimateTokens(summary);

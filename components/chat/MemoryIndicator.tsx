@@ -50,10 +50,13 @@ export default function MemoryIndicator({ chatId, onCompacting }: MemoryIndicato
     try {
       setCompacting(true);
       onCompacting?.(true);
-      await compactConversation(company.id, targetChatId);
+      // Use a smaller keep count for manual compaction so it bites even on
+      // short conversations (otherwise the default keeps the entire history
+      // and nothing changes).
+      await compactConversation(company.id, targetChatId, { keepCount: 10 });
       setDone(true);
-    } catch {
-      toast.error('Failed to compact context');
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to compact context');
     } finally {
       setCompacting(false);
       onCompacting?.(false);

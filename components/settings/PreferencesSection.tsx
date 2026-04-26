@@ -17,8 +17,8 @@ export default function PreferencesSection() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<UserSettings>({
-    theme: 'system', dateFormat: 'MM/DD/YYYY', numberFormat: 'comma',
-    notifyEmail: true, notifyInvoices: true, notifyBills: true, notifyWeekly: true, notifyBlogs: true,
+    theme: 'system', dateFormat: 'MM/DD/YYYY',
+    notifyEmail: true, notifyWeekly: true, notifyBlogs: true,
   });
 
   useEffect(() => {
@@ -85,13 +85,6 @@ export default function PreferencesSection() {
                 <Option value="MM/DD/YYYY">MM/DD/YYYY (12/31/2024)</Option>
                 <Option value="DD/MM/YYYY">DD/MM/YYYY (31/12/2024)</Option>
                 <Option value="YYYY-MM-DD">YYYY-MM-DD (2024-12-31)</Option>
-              </Select>
-            </FormControl>
-            <FormControl>
-              <FormLabel>Number Format</FormLabel>
-              <Select value={settings.numberFormat} onChange={(_, value) => setSettings({ ...settings, numberFormat: value as any })}>
-                <Option value="comma">1,000.00 (Comma separator)</Option>
-                <Option value="period">1.000,00 (Period separator)</Option>
               </Select>
             </FormControl>
           </Stack>

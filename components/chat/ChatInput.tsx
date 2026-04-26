@@ -513,6 +513,13 @@ export default function ChatInput({
 
               {/* Entity + Tag chips */}
               {chips.map((chip, idx) => {
+                // Fire on mousedown so removal lands before the textarea
+                // re-grabs focus and any picker logic re-runs on blur.
+                const removeHandler = (e: React.MouseEvent) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  removeChip(idx);
+                };
                 if (chip.kind === 'entity') {
                   return (
                     <Chip
@@ -521,7 +528,8 @@ export default function ChatInput({
                       sx={{ '--Chip-gap': '4px', '--Chip-paddingInline': '8px', fontWeight: 500, maxWidth: 180 }}
                       endDecorator={
                         <IconButton size="sm" variant="plain" color="neutral"
-                          onClick={() => removeChip(idx)}
+                          onMouseDown={removeHandler}
+                          onClick={removeHandler}
                           sx={{ '--IconButton-size': '16px', borderRadius: 'sm' }}
                         >
                           <X size={11} />
@@ -541,7 +549,8 @@ export default function ChatInput({
                     sx={{ '--Chip-gap': '4px', '--Chip-paddingInline': '8px', fontWeight: 500 }}
                     endDecorator={
                       <IconButton size="sm" variant="plain" color="neutral"
-                        onClick={() => removeChip(idx)}
+                        onMouseDown={removeHandler}
+                        onClick={removeHandler}
                         sx={{ '--IconButton-size': '16px', borderRadius: 'sm' }}
                       >
                         <X size={11} />

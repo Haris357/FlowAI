@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Box, Typography, Stack, Switch, Button, Card, CardContent, Divider, Skeleton } from '@mui/joy';
-import { Save, Bell, FileText, Receipt, BarChart3, Newspaper } from 'lucide-react';
+import { Save, Bell, BarChart3, Newspaper } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { getUserSettings, updateUserSettings } from '@/services/userSettings';
@@ -9,8 +9,6 @@ import type { UserSettings } from '@/services/userSettings';
 
 const TOGGLES: { key: keyof UserSettings; title: string; desc: string; icon: React.ElementType }[] = [
   { key: 'notifyEmail', title: 'Email Notifications', desc: 'Master switch for all email notifications', icon: Bell },
-  { key: 'notifyInvoices', title: 'Invoice Reminders', desc: 'Get notified about upcoming invoice due dates', icon: FileText },
-  { key: 'notifyBills', title: 'Bill Alerts', desc: 'Receive alerts when bills are due or overdue', icon: Receipt },
   { key: 'notifyWeekly', title: 'Flowbooks Newsletter', desc: 'Tips, product updates, and accounting insights — sent twice a week', icon: BarChart3 },
   { key: 'notifyBlogs', title: 'New Blog Posts', desc: 'Email me when a new blog post is published', icon: Newspaper },
 ];
@@ -20,8 +18,8 @@ export default function NotificationsSection() {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<UserSettings>({
-    theme: 'system', dateFormat: 'MM/DD/YYYY', numberFormat: 'comma',
-    notifyEmail: true, notifyInvoices: true, notifyBills: true, notifyWeekly: true, notifyBlogs: true,
+    theme: 'system', dateFormat: 'MM/DD/YYYY',
+    notifyEmail: true, notifyWeekly: true, notifyBlogs: true,
   });
 
   useEffect(() => {

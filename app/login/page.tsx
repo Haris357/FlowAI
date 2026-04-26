@@ -28,6 +28,32 @@ export default function LoginPage() {
           const allowed = ['flowbooksai.com', 'localhost'];
           const isAllowed = allowed.some(d => url.hostname === d || url.hostname.endsWith(`.${d}`));
           if (isAllowed) {
+            // If redirecting to a different origin under flowbooksai.com (e.g.
+            // support.*), Firebase Auth state isn't shared across origins. Mint
+            // a custom token here and pass it via URL fragment so the target
+            // origin can sign in without bouncing back to /login.
+            const sameOrigin = url.origin === window.location.origin;
+            if (!sameOrigin) {
+              (async () => {
+                try {
+                  const idToken = await user.getIdToken();
+                  const r = await fetch('/api/auth/exchange-token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idToken }),
+                  });
+                  if (r.ok) {
+                    const { customToken } = await r.json();
+                    url.hash = `authToken=${encodeURIComponent(customToken)}`;
+                  }
+                } catch {
+                  // Fall through with no token; target may still loop, but at
+                  // least we don't hang the login page.
+                }
+                window.location.href = url.toString();
+              })();
+              return;
+            }
             window.location.href = next;
             return;
           }

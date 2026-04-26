@@ -668,21 +668,107 @@ export default function DashboardPage() {
                     <PieChart size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />
                     <Typography level="title-sm" fontWeight={700}>Expense Breakdown</Typography>
                   </Stack>
-                  {expenseBreakdown.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={300}>
-                      <RechartsPie>
-                        <Pie data={expenseBreakdown} cx="50%" cy="45%" innerRadius={55} outerRadius={100} paddingAngle={2} dataKey="value"
-                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                          labelLine={{ stroke: 'var(--joy-palette-text-tertiary)', strokeWidth: 1 }}
-                        >
-                          {expenseBreakdown.map((_, i) => (
-                            <Cell key={i} fill={COLORS[i % COLORS.length]} stroke="var(--joy-palette-background-surface)" strokeWidth={2} />
-                          ))}
-                        </Pie>
-                        <Tooltip contentStyle={tooltipStyle} formatter={(v: number) => formatCurrency(v)} />
-                      </RechartsPie>
-                    </ResponsiveContainer>
-                  ) : (
+                  {expenseBreakdown.length > 0 ? (() => {
+                    const total = expenseBreakdown.reduce((s, e) => s + e.value, 0);
+                    return (
+                      <Stack spacing={1.5} alignItems="center">
+                        <Box sx={{ position: 'relative', width: '100%', height: 200 }}>
+                          <ResponsiveContainer width="100%" height="100%">
+                            <RechartsPie>
+                              <Pie
+                                data={expenseBreakdown}
+                                cx="50%"
+                                cy="50%"
+                                innerRadius={62}
+                                outerRadius={92}
+                                paddingAngle={1.5}
+                                dataKey="value"
+                                stroke="none"
+                              >
+                                {expenseBreakdown.map((_, i) => (
+                                  <Cell
+                                    key={i}
+                                    fill={COLORS[i % COLORS.length]}
+                                    stroke="var(--joy-palette-background-surface)"
+                                    strokeWidth={2}
+                                  />
+                                ))}
+                              </Pie>
+                              <Tooltip
+                                contentStyle={tooltipStyle}
+                                formatter={(v: number, name: string) => [formatCurrency(v), name]}
+                              />
+                            </RechartsPie>
+                          </ResponsiveContainer>
+                          {/* Centered total label */}
+                          <Box
+                            sx={{
+                              position: 'absolute', inset: 0,
+                              display: 'flex', flexDirection: 'column',
+                              alignItems: 'center', justifyContent: 'center',
+                              pointerEvents: 'none',
+                            }}
+                          >
+                            <Typography
+                              level="body-xs"
+                              sx={{ color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.65rem', fontWeight: 600 }}
+                            >
+                              Total
+                            </Typography>
+                            <Typography
+                              sx={{ fontSize: '1.05rem', fontWeight: 700, lineHeight: 1.2, mt: 0.25 }}
+                            >
+                              {formatCurrency(total)}
+                            </Typography>
+                          </Box>
+                        </Box>
+
+                        {/* Custom legend */}
+                        <Stack spacing={0.75} sx={{ width: '100%', mt: 0.5 }}>
+                          {expenseBreakdown.map((item, i) => {
+                            const pct = total > 0 ? (item.value / total) * 100 : 0;
+                            return (
+                              <Stack
+                                key={item.name}
+                                direction="row"
+                                alignItems="center"
+                                spacing={1}
+                                sx={{ minWidth: 0 }}
+                              >
+                                <Box
+                                  sx={{
+                                    width: 9, height: 9, borderRadius: '50%',
+                                    bgcolor: COLORS[i % COLORS.length],
+                                    flexShrink: 0,
+                                  }}
+                                />
+                                <Typography
+                                  level="body-xs"
+                                  sx={{ flex: 1, minWidth: 0, color: 'text.secondary' }}
+                                  noWrap
+                                >
+                                  {item.name}
+                                </Typography>
+                                <Typography
+                                  level="body-xs"
+                                  sx={{ color: 'text.tertiary', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}
+                                >
+                                  {pct.toFixed(0)}%
+                                </Typography>
+                                <Typography
+                                  level="body-xs"
+                                  fontWeight={600}
+                                  sx={{ minWidth: 64, textAlign: 'right', fontVariantNumeric: 'tabular-nums', flexShrink: 0 }}
+                                >
+                                  {formatCurrency(item.value)}
+                                </Typography>
+                              </Stack>
+                            );
+                          })}
+                        </Stack>
+                      </Stack>
+                    );
+                  })() : (
                     <Box sx={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Typography level="body-sm" sx={{ color: 'text.tertiary' }}>No expense data</Typography>
                     </Box>

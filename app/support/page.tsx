@@ -92,12 +92,18 @@ export default function SupportPage() {
   };
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: 'background.body' }}>
+    <Box sx={{
+      height: '100vh',
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: 'hidden',
+      bgcolor: 'background.body',
+    }}>
       {/* Top bar */}
       <Sheet
         variant="outlined"
         sx={{
-          position: 'sticky', top: 0, zIndex: 100,
+          flexShrink: 0,
           px: { xs: 2, md: 3 }, py: 1.5,
           display: 'flex', alignItems: 'center', gap: 1.5,
           bgcolor: 'background.surface',
@@ -128,9 +134,21 @@ export default function SupportPage() {
         </Button>
       </Sheet>
 
-      <Box sx={{ maxWidth: 1200, mx: 'auto', px: { xs: 2, md: 3 }, py: { xs: 3, md: 4 } }}>
+      <Box sx={{
+        flex: 1,
+        minHeight: 0,
+        overflow: 'hidden',
+        display: 'flex',
+        flexDirection: 'column',
+        maxWidth: 1200,
+        mx: 'auto',
+        width: '100%',
+        px: { xs: 2, md: 3 },
+        pt: { xs: 2, md: 3 },
+        pb: { xs: 2, md: 3 },
+      }}>
         {/* Hero */}
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={2} sx={{ mb: 3 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={2} sx={{ mb: 2.5, flexShrink: 0 }}>
           <Box>
             <Typography level="h2" fontWeight={800} sx={{ letterSpacing: '-0.02em', mb: 0.5 }}>
               How can we help?
@@ -149,18 +167,38 @@ export default function SupportPage() {
           </Button>
         </Stack>
 
-        <Stack direction={{ xs: 'column', md: 'row' }} spacing={2.5} alignItems="stretch">
+        <Stack
+          direction={{ xs: 'column', md: 'row' }}
+          spacing={2.5}
+          alignItems="stretch"
+          sx={{ flex: 1, minHeight: 0, overflow: 'hidden' }}
+        >
           {/* LEFT: AI chat widget */}
-          <Box sx={{ flex: { md: 1.4 }, minWidth: 0 }}>
+          <Box sx={{ flex: { md: 1.4 }, minWidth: 0, minHeight: 0, height: { xs: '60%', md: '100%' }, display: 'flex' }}>
             <AiChatWidget onEscalate={handleEscalateFromChat} />
           </Box>
 
           {/* RIGHT: tickets sidebar */}
-          <Box sx={{ flex: { md: 1 }, minWidth: 0 }}>
-            <Card variant="outlined" sx={{ borderRadius: '16px', p: 0, overflow: 'hidden', height: '100%' }}>
-              <CardContent sx={{ p: 0 }}>
+          <Box sx={{
+            flex: { md: 1 },
+            minWidth: 0,
+            minHeight: 0,
+            height: { xs: '40%', md: '100%' },
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 2,
+          }}>
+            <Card
+              variant="outlined"
+              sx={{
+                borderRadius: '16px', p: 0, overflow: 'hidden',
+                flex: 1, minHeight: 0,
+                display: 'flex', flexDirection: 'column',
+              }}
+            >
+              <CardContent sx={{ p: 0, display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{
-                  px: 2.5, py: 2, borderBottom: '1px solid', borderColor: 'divider',
+                  px: 2.5, py: 2, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0,
                 }}>
                   <Stack direction="row" spacing={1.25} alignItems="center">
                     <MessageSquare size={16} style={{ color: 'var(--joy-palette-primary-500)' }} />
@@ -199,7 +237,7 @@ export default function SupportPage() {
                     </Typography>
                   </Stack>
                 ) : (
-                  <Stack spacing={0} sx={{ maxHeight: 520, overflow: 'auto' }}>
+                  <Stack spacing={0} sx={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
                     {tickets.map((t, i) => {
                       const cfg = STATUS_META[t.status] || STATUS_META.open;
                       const Icon = cfg.icon;
@@ -249,7 +287,7 @@ export default function SupportPage() {
             </Card>
 
             {/* Quick facts card */}
-            <Card variant="outlined" sx={{ mt: 2, borderRadius: '16px' }}>
+            <Card variant="outlined" sx={{ borderRadius: '16px', flexShrink: 0 }}>
               <CardContent sx={{ p: 2.5 }}>
                 <Typography level="body-xs" fontWeight={700} sx={{ color: 'text.tertiary', textTransform: 'uppercase', letterSpacing: '0.05em', mb: 1.25 }}>
                   Response times
@@ -369,10 +407,11 @@ function AiChatWidget({ onEscalate }: { onEscalate: (transcript: { role: 'user' 
   return (
     <Card variant="outlined" sx={{
       borderRadius: '16px', p: 0, overflow: 'hidden',
-      display: 'flex', flexDirection: 'column', minHeight: 540,
+      display: 'flex', flexDirection: 'column',
+      flex: 1, minHeight: 0, width: '100%',
     }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{
-        px: 2.5, py: 2, borderBottom: '1px solid', borderColor: 'divider',
+        px: 2.5, py: 2, borderBottom: '1px solid', borderColor: 'divider', flexShrink: 0,
       }}>
         <Stack direction="row" spacing={1.25} alignItems="center">
           <Box sx={{
@@ -408,7 +447,7 @@ function AiChatWidget({ onEscalate }: { onEscalate: (transcript: { role: 'user' 
 
       {/* Messages */}
       <Box sx={{
-        flex: 1, overflow: 'auto', px: { xs: 2, sm: 2.5 }, py: 2.5,
+        flex: 1, minHeight: 0, overflow: 'auto', px: { xs: 2, sm: 2.5 }, py: 2.5,
         bgcolor: 'background.level1',
       }}>
         <Stack spacing={1.75}>
@@ -425,6 +464,7 @@ function AiChatWidget({ onEscalate }: { onEscalate: (transcript: { role: 'user' 
 
       {/* Composer */}
       <Box sx={{
+        flexShrink: 0,
         p: { xs: 1.5, sm: 2 },
         borderTop: '1px solid', borderColor: 'divider',
         bgcolor: 'background.surface',

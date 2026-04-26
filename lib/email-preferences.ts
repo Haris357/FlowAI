@@ -7,16 +7,12 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 export interface EmailPreferences {
   notifyEmail: boolean;
-  notifyInvoices: boolean;
-  notifyBills: boolean;
   notifyWeekly: boolean;
   notifyBlogs: boolean;
 }
 
 const DEFAULTS: EmailPreferences = {
   notifyEmail: true,
-  notifyInvoices: true,
-  notifyBills: true,
   notifyWeekly: true,
   notifyBlogs: true,
 };
@@ -32,8 +28,6 @@ export async function getEmailPreferences(userId: string): Promise<EmailPreferen
     const data = snap.data()!;
     return {
       notifyEmail: data.notifyEmail ?? true,
-      notifyInvoices: data.notifyInvoices ?? true,
-      notifyBills: data.notifyBills ?? true,
       notifyWeekly: data.notifyWeekly ?? true,
       notifyBlogs: data.notifyBlogs ?? true,
     };
@@ -50,12 +44,10 @@ export async function getEmailPreferences(userId: string): Promise<EmailPreferen
  * - 'newsletter':    Requires notifyEmail + notifyWeekly
  * - 'blog':          Requires notifyEmail + notifyBlogs (new blog-post alerts)
  * - 'announcement':  Requires notifyEmail
- * - 'invoice':       Requires notifyEmail + notifyInvoices
- * - 'bill':          Requires notifyEmail + notifyBills
  */
 export async function canSendEmail(
   userId: string,
-  category: 'transactional' | 'newsletter' | 'blog' | 'announcement' | 'invoice' | 'bill',
+  category: 'transactional' | 'newsletter' | 'blog' | 'announcement',
 ): Promise<boolean> {
   // Transactional emails always go through
   if (category === 'transactional') return true;
@@ -70,10 +62,6 @@ export async function canSendEmail(
       return prefs.notifyWeekly;
     case 'blog':
       return prefs.notifyBlogs;
-    case 'invoice':
-      return prefs.notifyInvoices;
-    case 'bill':
-      return prefs.notifyBills;
     case 'announcement':
       return true; // If master is on, announcements go through
     default:

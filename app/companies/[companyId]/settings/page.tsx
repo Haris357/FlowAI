@@ -1126,27 +1126,6 @@ export default function SettingsPage() {
                   </Stack>
                 </SectionCard>
 
-                {/* Features */}
-                <SectionCard icon={<Layers size={18} />} title="Features" description="Enable or disable optional modules">
-                  <Stack spacing={2}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Box>
-                        <Typography level="body-sm" fontWeight={600}>Inventory Management</Typography>
-                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>Track stock levels and manage inventory</Typography>
-                      </Box>
-                      <Switch checked={hasInventory} onChange={(e) => setHasInventory(e.target.checked)} />
-                    </Stack>
-                    <Divider />
-                    <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Box>
-                        <Typography level="body-sm" fontWeight={600}>Employee Management</Typography>
-                        <Typography level="body-xs" sx={{ color: 'text.tertiary' }}>Manage employees and payroll</Typography>
-                      </Box>
-                      <Switch checked={hasEmployees} onChange={(e) => setHasEmployees(e.target.checked)} />
-                    </Stack>
-                  </Stack>
-                </SectionCard>
-
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <Button onClick={handleSaveGeneral} loading={saving} startDecorator={<Save size={16} />}>
                     Save General Settings

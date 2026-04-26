@@ -4,10 +4,7 @@ import { db } from '@/lib/firebase';
 export interface UserSettings {
   theme: 'light' | 'dark' | 'system';
   dateFormat: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
-  numberFormat: 'comma' | 'period';
   notifyEmail: boolean;
-  notifyInvoices: boolean;
-  notifyBills: boolean;
   notifyWeekly: boolean;
   notifyBlogs: boolean;
   updatedAt?: any;
@@ -16,10 +13,7 @@ export interface UserSettings {
 const DEFAULT_SETTINGS: UserSettings = {
   theme: 'system',
   dateFormat: 'MM/DD/YYYY',
-  numberFormat: 'comma',
   notifyEmail: true,
-  notifyInvoices: true,
-  notifyBills: true,
   notifyWeekly: true,
   notifyBlogs: true,
 };
