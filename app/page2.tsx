@@ -824,7 +824,7 @@ export default function LandingPage() {
 
           <div className="relative z-10 px-6 py-16 md:py-20 text-center">
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/15 border border-white/20 text-white/90 text-[11px] font-semibold mb-6 backdrop-blur-sm">
-              <Sparkles className="w-3 h-3" /> Join 12,000+ businesses
+              <Sparkles className="w-3 h-3" /> Join Now
             </div>
             <h2 className="text-2xl md:text-4xl font-bold text-white mb-5 leading-tight max-w-lg mx-auto">
               Start your financial freedom today

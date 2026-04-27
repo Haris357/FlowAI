@@ -780,7 +780,7 @@ export default function PricingPage() {
 
           <div className="relative z-10 px-6 py-16 md:py-20 text-center">
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-white/90 text-[11px] font-semibold mb-6" style={{ background: 'rgba(255,255,255,0.15)', backdropFilter: 'blur(16px)', border: '1px solid rgba(255,255,255,0.25)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.2)' }}>
-              <Sparkles className="w-3 h-3" /> Join 12,000+ businesses
+              <Sparkles className="w-3 h-3" /> Join Now
             </div>
             <h2 className="text-2xl md:text-4xl font-bold text-white mb-5 leading-tight max-w-lg mx-auto">
               Ready to get started?

@@ -6,11 +6,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import FlowBooksLogo from '@/components/FlowBooksLogo';
 
+const LAST_UPDATED = 'February 20, 2026';
+
 const sections = [
   {
     id: 'acceptance',
     icon: FileText,
-    title: '1. Acceptance of Terms',
+    title: '1. Acceptance of terms',
     content: `By accessing or using Flowbooks ("the Service"), you agree to be bound by these Terms of Service ("Terms"). If you are using the Service on behalf of an organization, you represent and warrant that you have the authority to bind that organization to these Terms.
 
 If you do not agree to these Terms, you may not access or use the Service. We reserve the right to update these Terms at any time. Material changes will be communicated via email or in-app notification at least 30 days in advance. Your continued use of the Service after changes take effect constitutes acceptance of the revised Terms.
@@ -20,39 +22,39 @@ These Terms constitute a legally binding agreement between you and Flowbooks Inc
   {
     id: 'account-terms',
     icon: UserCheck,
-    title: '2. Account Terms',
+    title: '2. Account terms',
     content: `**Eligibility:** You must be at least 18 years old and capable of forming a binding contract to use Flowbooks. The Service is intended for business and professional use.
 
-**Account Registration:** You must provide accurate, complete, and current information when creating your account. You are responsible for maintaining the accuracy of this information.
+**Account registration:** You must provide accurate, complete, and current information when creating your account. You are responsible for maintaining the accuracy of this information.
 
-**Account Security:** You are responsible for safeguarding your account credentials and for all activity that occurs under your account. You must notify us immediately at hello@flowbooksai.com if you suspect unauthorized access to your account.
+**Account security:** You are responsible for safeguarding your account credentials and for all activity that occurs under your account. You must notify us immediately at hello@flowbooksai.com if you suspect unauthorized access to your account.
 
-**One Person Per Account:** Accounts are for individual users. You may not share your login credentials with others. If you need multiple users, please use our collaboration features available on Pro and Max plans.
+**One person per account:** Accounts are for individual users. You may not share your login credentials with others. If you need multiple users, please use our collaboration features available on Pro and Max plans.
 
-**Account Responsibility:** You are solely responsible for all data, content, and activity in your account. Flowbooks is not liable for any loss or damage arising from your failure to maintain account security.`,
+**Account responsibility:** You are solely responsible for all data, content, and activity in your account. Flowbooks is not liable for any loss or damage arising from your failure to maintain account security.`,
   },
   {
     id: 'payment-terms',
     icon: CreditCard,
-    title: '3. Payment Terms',
-    content: `**Free Plan:** Flowbooks offers a free tier with limited features. No payment information is required for the free plan.
+    title: '3. Payment terms',
+    content: `**Free plan:** Flowbooks offers a free tier with limited features. No payment information is required for the free plan.
 
-**Paid Subscriptions:** Pro and Max plans are billed monthly or annually in advance. Prices are listed on our pricing page and are subject to change with 30 days' notice.
+**Paid subscriptions:** Pro and Max plans are billed monthly or annually in advance. Prices are listed on our pricing page and are subject to change with 30 days' notice.
 
-**Payment Processing:** All payments are processed securely through Stripe. By providing payment information, you authorize us to charge your payment method for the applicable subscription fees.
+**Payment processing:** All payments are processed securely through Lemon Squeezy. By providing payment information, you authorize us to charge your payment method for the applicable subscription fees.
 
-**Automatic Renewal:** Subscriptions automatically renew at the end of each billing period unless you cancel before the renewal date. You can cancel at any time from your account settings.
+**Automatic renewal:** Subscriptions automatically renew at the end of each billing period unless you cancel before the renewal date. You can cancel at any time from your account settings.
 
 **Refunds:** If you cancel within 14 days of your initial subscription purchase, you may request a full refund. After 14 days, no refunds will be issued for the current billing period, but you will retain access until the end of that period.
 
 **Taxes:** Subscription fees are exclusive of applicable taxes. You are responsible for any sales tax, VAT, or similar taxes imposed by your jurisdiction.
 
-**Late Payments:** If payment fails, we will attempt to charge your payment method up to three times over a 10-day period. If payment cannot be collected, your account may be downgraded to the free plan.`,
+**Late payments:** If payment fails, we will attempt to charge your payment method up to three times over a 10-day period. If payment cannot be collected, your account may be downgraded to the free plan.`,
   },
   {
     id: 'acceptable-use',
     icon: ShieldCheck,
-    title: '4. Acceptable Use',
+    title: '4. Acceptable use',
     content: `You agree to use Flowbooks only for lawful purposes and in accordance with these Terms. You may not:
 
 - Use the Service for any illegal activity, including money laundering, tax evasion, or fraud
@@ -71,77 +73,127 @@ We reserve the right to suspend or terminate accounts that violate these terms w
   {
     id: 'intellectual-property',
     icon: Lightbulb,
-    title: '5. Intellectual Property',
-    content: `**Our Property:** The Flowbooks platform, including its software, design, logos, trademarks, documentation, and all related intellectual property, is owned by Flowbooks Inc. and protected by copyright, trademark, and other intellectual property laws. These Terms do not grant you any right, title, or interest in our intellectual property.
+    title: '5. Intellectual property',
+    content: `**Our property:** The Flowbooks platform — including its software, design, logos, trademarks, documentation, and all related intellectual property — is owned by Flowbooks Inc. and protected by copyright, trademark, and other intellectual property laws. These Terms do not grant you any right, title, or interest in our intellectual property.
 
-**Your Data:** You retain full ownership of all financial data, business records, and content you create or upload to Flowbooks. We do not claim any ownership rights over your data.
+**Your data:** You retain full ownership of all financial data, business records, and content you create or upload to Flowbooks. We do not claim any ownership rights over your data.
 
-**License to Us:** By using the Service, you grant us a limited, non-exclusive license to access, process, and store your data solely for the purpose of providing and improving the Service. This license terminates when you delete your data or close your account.
+**License to us:** By using the Service, you grant us a limited, non-exclusive license to access, process, and store your data solely for the purpose of providing and improving the Service. This license terminates when you delete your data or close your account.
 
-**AI-Generated Content:** Reports, summaries, and suggestions generated by our AI features based on your data are considered your content. However, the underlying AI models and algorithms remain our intellectual property.
+**AI-generated content:** Reports, summaries, and suggestions generated by our AI features based on your data are considered your content. However, the underlying AI models and algorithms remain our intellectual property.
 
 **Feedback:** If you provide us with feedback, suggestions, or ideas about the Service, you grant us an unrestricted, perpetual, irrevocable license to use such feedback for any purpose without compensation to you.`,
   },
   {
     id: 'limitation-of-liability',
     icon: Scale,
-    title: '6. Limitation of Liability',
-    content: `**Disclaimer of Warranties:** The Service is provided "as is" and "as available" without warranties of any kind, either express or implied, including but not limited to implied warranties of merchantability, fitness for a particular purpose, and non-infringement.
+    title: '6. Limitation of liability',
+    content: `**Disclaimer of warranties:** The Service is provided "as is" and "as available" without warranties of any kind, either express or implied, including but not limited to implied warranties of merchantability, fitness for a particular purpose, and non-infringement.
 
-**Not Financial Advice:** Flowbooks is an accounting and bookkeeping tool. The AI-generated insights, categorizations, and reports are provided for informational purposes only and do not constitute financial, tax, or legal advice. You should consult qualified professionals for financial and tax decisions.
+**Not financial advice:** Flowbooks is an accounting and bookkeeping tool. The AI-generated insights, categorizations, and reports are provided for informational purposes only and do not constitute financial, tax, or legal advice. You should consult qualified professionals for financial and tax decisions.
 
 **Limitation:** To the maximum extent permitted by law, Flowbooks Inc. shall not be liable for any indirect, incidental, special, consequential, or punitive damages, or any loss of profits, revenue, data, or business opportunities arising out of or related to your use of the Service.
 
-**Cap on Liability:** Our total aggregate liability to you for any claims arising from or related to these Terms or the Service shall not exceed the total amount you paid to Flowbooks in the twelve (12) months preceding the claim.
+**Cap on liability:** Our total aggregate liability to you for any claims arising from or related to these Terms or the Service shall not exceed the total amount you paid to Flowbooks in the twelve (12) months preceding the claim.
 
-**Data Accuracy:** While we strive for accuracy, we do not guarantee that AI-generated categorizations, calculations, or reports are error-free. You are responsible for reviewing and verifying all financial data and reports generated through the Service.
+**Data accuracy:** While we strive for accuracy, we do not guarantee that AI-generated categorizations, calculations, or reports are error-free. You are responsible for reviewing and verifying all financial data and reports generated through the Service.
 
-**Service Availability:** We aim for high availability but do not guarantee uninterrupted access to the Service. We are not liable for any downtime, data loss, or interruptions caused by factors beyond our reasonable control.`,
+**Service availability:** We aim for high availability but do not guarantee uninterrupted access to the Service. We are not liable for any downtime, data loss, or interruptions caused by factors beyond our reasonable control.`,
   },
   {
     id: 'termination',
     icon: XCircle,
     title: '7. Termination',
-    content: `**By You:** You may terminate your account at any time by navigating to Settings and selecting "Delete Account," or by contacting hello@flowbooksai.com. Upon termination, your subscription will not renew, and you will retain access until the end of your current billing period.
+    content: `**By you:** You may terminate your account at any time by navigating to Settings and selecting "Delete Account," or by contacting hello@flowbooksai.com. Upon termination, your subscription will not renew, and you will retain access until the end of your current billing period.
 
-**By Us:** We may suspend or terminate your account if you violate these Terms, engage in abusive behavior, fail to pay subscription fees, or if required by law. We will provide reasonable notice before termination unless immediate action is necessary to protect the Service or other users.
+**By us:** We may suspend or terminate your account if you violate these Terms, engage in abusive behavior, fail to pay subscription fees, or if required by law. We will provide reasonable notice before termination unless immediate action is necessary to protect the Service or other users.
 
-**Effect of Termination:** Upon termination:
+**Effect of termination:** Upon termination:
+
 - Your right to access the Service ceases immediately (or at the end of your billing period, if you initiated the termination)
 - We will retain your data for 30 days to allow you to export it, after which it will be permanently deleted
 - Provisions of these Terms that by their nature should survive termination will remain in effect, including Intellectual Property, Limitation of Liability, and Governing Law sections
 
-**Data Export:** Before terminating your account, we strongly recommend exporting all your financial data. You can export data in CSV, PDF, and Excel formats from your account settings.`,
+**Data export:** Before terminating your account, we strongly recommend exporting all your financial data. You can export data in CSV, PDF, and Excel formats from your account settings.`,
   },
   {
     id: 'governing-law',
     icon: Landmark,
-    title: '8. Governing Law',
+    title: '8. Governing law',
     content: `These Terms shall be governed by and construed in accordance with the laws of the State of Delaware, United States, without regard to its conflict of law provisions.
 
-**Dispute Resolution:** Any disputes arising from or relating to these Terms or the Service shall first be addressed through good-faith negotiation. If a dispute cannot be resolved through negotiation within 30 days, it shall be submitted to binding arbitration administered by the American Arbitration Association (AAA) under its Commercial Arbitration Rules.
+**Dispute resolution:** Any disputes arising from or relating to these Terms or the Service shall first be addressed through good-faith negotiation. If a dispute cannot be resolved through negotiation within 30 days, it shall be submitted to binding arbitration administered by the American Arbitration Association (AAA) under its Commercial Arbitration Rules.
 
-**Class Action Waiver:** You agree that any dispute resolution proceedings will be conducted only on an individual basis and not in a class, consolidated, or representative action.
+**Class action waiver:** You agree that any dispute resolution proceedings will be conducted only on an individual basis and not in a class, consolidated, or representative action.
 
 **Jurisdiction:** For any matters not subject to arbitration, you consent to the exclusive jurisdiction of the state and federal courts located in Wilmington, Delaware.
 
 **Severability:** If any provision of these Terms is found to be unenforceable, the remaining provisions will continue in full force and effect.
 
-**Entire Agreement:** These Terms, together with our Privacy Policy and any applicable plan-specific terms, constitute the entire agreement between you and Flowbooks Inc. regarding the Service.`,
+**Entire agreement:** These Terms, together with our Privacy Policy and any applicable plan-specific terms, constitute the entire agreement between you and Flowbooks Inc. regarding the Service.`,
   },
   {
     id: 'contact',
     icon: Mail,
-    title: '9. Contact Information',
+    title: '9. Contact information',
     content: `If you have questions about these Terms of Service, please contact us:
 
 **Email:** hello@flowbooksai.com
-**General Support:** hello@flowbooksai.com
-**Mailing Address:** Flowbooks Inc., 548 Market Street, Suite 36879, San Francisco, CA 94104, United States
+**General support:** hello@flowbooksai.com
+**Mailing address:** Flowbooks Inc., 548 Market Street, Suite 36879, San Francisco, CA 94104, United States
 
 For urgent matters related to account security or data breaches, contact hello@flowbooksai.com.`,
   },
 ];
+
+function RenderContent({ text }: { text: string }) {
+  const blocks = text.split('\n\n');
+  return (
+    <>
+      {blocks.map((block, bi) => {
+        if (block.split('\n').every((l) => l.trim().startsWith('-'))) {
+          return (
+            <ul key={bi} className="my-5 space-y-2 pl-1">
+              {block.split('\n').map((l, li) => {
+                const item = l.replace(/^[-\s]+/, '');
+                return (
+                  <li
+                    key={li}
+                    className="relative pl-5 text-[15.5px] leading-[1.7] text-slate-700 dark:text-[#CCCCBB] before:content-[''] before:absolute before:left-0 before:top-[0.7em] before:w-1.5 before:h-1.5 before:rounded-full before:bg-brand-500"
+                  >
+                    {renderInline(item)}
+                  </li>
+                );
+              })}
+            </ul>
+          );
+        }
+        return (
+          <p
+            key={bi}
+            className="my-5 text-[15.5px] leading-[1.75] text-slate-700 dark:text-[#CCCCBB] whitespace-pre-line"
+          >
+            {renderInline(block)}
+          </p>
+        );
+      })}
+    </>
+  );
+}
+
+function renderInline(text: string): React.ReactNode {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} className="font-semibold text-slate-900 dark:text-white">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
 
 export default function TermsPage() {
   const { user } = useAuth();
@@ -158,31 +210,17 @@ export default function TermsPage() {
 
   return (
     <div className="min-h-screen w-full bg-white dark:bg-[#1A1915] font-sans text-slate-900 dark:text-[#EEECE8] selection:bg-brand-100 selection:text-brand-900 overflow-x-hidden text-[15px]">
-      {/* Dot Pattern + Gradient Blobs Background */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         <div
-          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.015]"
-          style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, currentColor 0.5px, transparent 0.5px)`,
-            backgroundSize: '32px 32px',
-          }}
-        />
-        <div
-          className="absolute top-0 right-0 w-[800px] h-[800px] rounded-full opacity-[0.04] dark:opacity-[0.03]"
-          style={{ background: 'var(--brand-500)', filter: 'blur(150px)', transform: 'translate(30%, -40%)' }}
-        />
-        <div
-          className="absolute bottom-0 left-0 w-[600px] h-[600px] rounded-full opacity-[0.03] dark:opacity-[0.02]"
-          style={{ background: 'var(--brand-500)', filter: 'blur(150px)', transform: 'translate(-30%, 40%)' }}
+          className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full opacity-[0.06] dark:opacity-[0.04]"
+          style={{ background: 'var(--brand-500)', filter: 'blur(160px)' }}
         />
       </div>
 
       {/* ============ NAVBAR ============ */}
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-          scrolled
-            ? 'py-1.5 liquid-glass-strong'
-            : 'py-3 bg-transparent'
+          scrolled ? 'py-1.5 liquid-glass-strong' : 'py-3 bg-transparent'
         }`}
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
@@ -219,7 +257,7 @@ export default function TermsPage() {
                     <Link href="/privacy" className="flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">
                       <Shield className="w-4 h-4" />Privacy Policy
                     </Link>
-                    <Link href="/terms" className="flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">
+                    <Link href="/terms" className="flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium text-slate-900 dark:text-white rounded-xl bg-slate-50 dark:bg-white/[0.04]">
                       <FileText className="w-4 h-4" />Terms of Service
                     </Link>
                     <Link href="/security" className="flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">
@@ -290,7 +328,7 @@ export default function TermsPage() {
             <hr className="border-slate-200/60 dark:border-white/[0.06] my-2" />
             <p className="px-3 pt-1 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-[#5C5752]">Legal</p>
             <Link href="/privacy" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-xl hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><Shield className="w-[18px] h-[18px]" />Privacy Policy</Link>
-            <Link href="/terms" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-xl hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><FileText className="w-[18px] h-[18px]" />Terms of Service</Link>
+            <Link href="/terms" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-900 dark:text-white rounded-xl bg-slate-100/60 dark:bg-white/[0.04]"><FileText className="w-[18px] h-[18px]" />Terms of Service</Link>
             <Link href="/security" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-xl hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><Lock className="w-[18px] h-[18px]" />Security</Link>
             <hr className="border-slate-200/60 dark:border-white/[0.06] my-2" />
             <button onClick={toggleMode} className="flex items-center gap-2 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] w-full rounded-xl">
@@ -309,75 +347,94 @@ export default function TermsPage() {
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative pt-28 pb-10">
-        <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[250px] rounded-full opacity-[0.08] blur-[100px] pointer-events-none"
-          style={{ background: 'var(--brand-500)' }}
-        />
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 relative z-10 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50/80 dark:bg-brand-500/10 border border-brand-200/60 dark:border-brand-500/20 text-brand-700 dark:text-brand-400 text-xs font-medium mb-5">
-            <FileText className="w-3 h-3" />
-            LEGAL AGREEMENT
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight mb-4">
-            Terms of Service
-          </h1>
-          <p className="text-base text-slate-600 dark:text-[#A8A29E] leading-relaxed">
-            Last updated: February 20, 2026. Please read these terms carefully before using Flowbooks.
-          </p>
-        </div>
-      </section>
-
-      {/* Table of Contents */}
-      <section className="relative z-10 pb-8">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6">
-          <div className="liquid-glass-subtle rounded-xl p-5">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Table of Contents</h2>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {sections.map((s) => (
-                <li key={s.id}>
-                  <a href={`#${s.id}`} className="flex items-center gap-2 text-[13px] text-slate-600 dark:text-[#A8A29E] hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                    <s.icon className="w-3.5 h-3.5 flex-shrink-0" />
-                    {s.title}
-                  </a>
-                </li>
-              ))}
-            </ul>
+      {/* ============ HERO ============ */}
+      <section className="relative pt-32 pb-10 lg:pt-40 lg:pb-12">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50/80 dark:bg-brand-500/10 border border-brand-200/60 dark:border-brand-500/20 text-brand-700 dark:text-brand-400 text-xs font-medium mb-5">
+              <FileText className="w-3 h-3" />
+              Legal
+            </div>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 dark:text-white leading-[1.05] mb-5">
+              Terms of Service
+            </h1>
+            <p className="text-base sm:text-lg text-slate-600 dark:text-[#A8A29E] leading-relaxed">
+              The terms that govern your use of Flowbooks. We've kept the language as plain as we can without losing legal precision.
+            </p>
+            <div className="mt-6 inline-flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-[#78736D]">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+              Last updated: {LAST_UPDATED}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Content Sections */}
-      <section className="relative z-10 pb-20">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-10">
-          {sections.map((s) => (
-            <div key={s.id} id={s.id} className="scroll-mt-24">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-lg liquid-glass-subtle flex items-center justify-center flex-shrink-0">
-                  <s.icon className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-                </div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">{s.title}</h2>
+      {/* ============ TWO-COLUMN: TOC + CONTENT ============ */}
+      <section className="relative z-10 pb-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-12 lg:gap-16">
+            {/* Sticky TOC */}
+            <aside className="hidden lg:block">
+              <div className="sticky top-24">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-[#78736D] mb-3">
+                  On this page
+                </p>
+                <nav className="space-y-1.5 border-l border-slate-200/70 dark:border-white/[0.06] pl-4">
+                  {sections.map((s) => (
+                    <a
+                      key={s.id}
+                      href={`#${s.id}`}
+                      className="block text-[13px] leading-snug text-slate-500 dark:text-[#A8A29E] hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                    >
+                      {s.title}
+                    </a>
+                  ))}
+                </nav>
               </div>
-              <div className="prose-sm max-w-none">
-                {s.content.split('\n\n').map((paragraph, i) => (
-                  <p key={i} className="text-sm text-slate-600 dark:text-[#A8A29E] leading-relaxed mb-3 whitespace-pre-line">
-                    {paragraph.split('**').map((part, j) =>
-                      j % 2 === 1 ? (
-                        <strong key={j} className="text-slate-800 dark:text-[#EEECE8] font-semibold">{part}</strong>
-                      ) : (
-                        <span key={j}>{part}</span>
-                      )
+            </aside>
+
+            {/* Content */}
+            <div className="max-w-2xl">
+              <details className="lg:hidden mb-10 rounded-xl border border-slate-200/70 dark:border-white/[0.06] bg-slate-50/60 dark:bg-white/[0.02]">
+                <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white flex items-center justify-between">
+                  Table of contents
+                  <ChevronDown className="w-4 h-4" />
+                </summary>
+                <ul className="px-4 pb-4 space-y-2 border-t border-slate-200/70 dark:border-white/[0.06] pt-3">
+                  {sections.map((s) => (
+                    <li key={s.id}>
+                      <a href={`#${s.id}`} className="text-[13px] text-slate-600 dark:text-[#A8A29E] hover:text-brand-600 dark:hover:text-brand-400">
+                        {s.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+
+              <div className="space-y-14">
+                {sections.map((s, idx) => (
+                  <div key={s.id} id={s.id} className="scroll-mt-24">
+                    <div className="flex items-center gap-3 mb-5">
+                      <div className="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-500/10 border border-brand-200/40 dark:border-brand-500/15 flex items-center justify-center flex-shrink-0">
+                        <s.icon className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                        {s.title}
+                      </h2>
+                    </div>
+                    <RenderContent text={s.content} />
+                    {idx < sections.length - 1 && (
+                      <div className="mt-14 h-px bg-slate-200/70 dark:bg-white/[0.06]" />
                     )}
-                  </p>
+                  </div>
                 ))}
               </div>
             </div>
-          ))}
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ============ FOOTER ============ */}
       <footer className="relative z-10 py-8 border-t border-slate-200/60 dark:border-[#2D2B28]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-3">

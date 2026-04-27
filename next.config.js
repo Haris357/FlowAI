@@ -31,27 +31,6 @@ const nextConfig = {
     }
     return config;
   },
-  // Reverse-proxy the Firebase Auth handler so signInWithRedirect works on
-  // modern browsers that partition third-party storage. With this, the auth
-  // handler page is served from our own origin (same as the app), so Firebase
-  // can read the sign-in result without hitting cross-origin storage limits.
-  //
-  // Required: set FIREBASE_AUTH_DOMAIN to your app's own domain
-  // (e.g. flowbooksai.com) on Vercel — NOT the default <project>.firebaseapp.com.
-  async rewrites() {
-    const projectId = process.env.FIREBASE_PROJECT_ID;
-    if (!projectId) return [];
-    return [
-      {
-        source: '/__/auth/:path*',
-        destination: `https://${projectId}.firebaseapp.com/__/auth/:path*`,
-      },
-      {
-        source: '/__/firebase/:path*',
-        destination: `https://${projectId}.firebaseapp.com/__/firebase/:path*`,
-      },
-    ];
-  },
   async headers() {
     // In dev, Next.js HMR (React Fast Refresh) requires 'unsafe-eval'.
     // In production it is not needed — keep it out for a tighter policy.
@@ -87,7 +66,7 @@ const nextConfig = {
               // Google user profile photos from lh3.googleusercontent.com
               "img-src 'self' data: blob: https:",
               // Firebase, OpenAI, PostHog analytics, Lemon Squeezy, exchange rates, Google OAuth
-              "connect-src 'self' https://api.openai.com https://*.googleapis.com https://*.firebaseio.com https://*.firebaseapp.com https://*.firebasestorage.googleapis.com wss://*.firebaseio.com https://accounts.google.com https://oauth2.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://us.i.posthog.com https://us-assets.i.posthog.com https://app.posthog.com https://api.lemonsqueezy.com https://api.frankfurter.app https://v6.exchangerate-api.com https://api.resend.com",
+              "connect-src 'self' https://api.openai.com https://*.googleapis.com https://*.firebaseio.com https://*.firebasestorage.googleapis.com wss://*.firebaseio.com https://accounts.google.com https://oauth2.googleapis.com https://securetoken.googleapis.com https://identitytoolkit.googleapis.com https://us.i.posthog.com https://us-assets.i.posthog.com https://app.posthog.com https://api.lemonsqueezy.com https://api.frankfurter.app https://v6.exchangerate-api.com https://api.resend.com",
               "object-src 'none'",
               // Google OAuth popup requires framing accounts.google.com
               "frame-src https://accounts.google.com https://*.firebaseapp.com",

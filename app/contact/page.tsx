@@ -1,16 +1,45 @@
 'use client';
 import React, { useEffect, useState } from 'react';
-import { Moon, Sun, Mail, MapPin, Phone, Send, MessageCircle, HelpCircle, FileText, Shield, CreditCard, ChevronRight, Info, BookOpen, ArrowRight, ChevronDown, Lock, LayoutDashboard, Menu, X } from 'lucide-react';
+import {
+  Moon,
+  Sun,
+  Mail,
+  MapPin,
+  Phone,
+  Send,
+  MessageCircle,
+  HelpCircle,
+  FileText,
+  Shield,
+  CreditCard,
+  ArrowUpRight,
+  Info,
+  BookOpen,
+  ArrowRight,
+  ChevronDown,
+  Lock,
+  LayoutDashboard,
+  Menu,
+  X,
+  CheckCircle2,
+} from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import FlowBooksLogo from '@/components/FlowBooksLogo';
 
 const faqLinks = [
-  { icon: HelpCircle, title: 'Getting Started', description: 'Learn the basics of setting up your account and first steps.', href: '/#how-it-works' },
-  { icon: CreditCard, title: 'Billing & Plans', description: 'Questions about pricing, upgrades, refunds, and invoices.', href: '/#pricing' },
-  { icon: Shield, title: 'Security & Privacy', description: 'How we protect your data and handle your information.', href: '/security' },
-  { icon: FileText, title: 'Reports & Exports', description: 'Generating financial reports and exporting your data.', href: '/#features' },
+  { icon: HelpCircle, title: 'Getting started', description: 'Set up your account and take your first steps.', href: '/#how-it-works' },
+  { icon: CreditCard, title: 'Billing & plans', description: 'Pricing, upgrades, refunds, and invoices.', href: '/pricing' },
+  { icon: Shield, title: 'Security & privacy', description: 'How we protect your data and handle information.', href: '/security' },
+  { icon: FileText, title: 'Reports & exports', description: 'Generating financial reports and exporting data.', href: '/#features' },
+];
+
+const responseTimes = [
+  { label: 'General inquiries', time: '< 24 hours' },
+  { label: 'Technical support', time: '< 12 hours' },
+  { label: 'Billing questions', time: '< 6 hours' },
+  { label: 'Security issues', time: '< 2 hours' },
 ];
 
 export default function ContactPage() {
@@ -36,7 +65,6 @@ export default function ContactPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSending(true);
-    // Simulate sending
     setTimeout(() => {
       setSending(false);
       setSubmitted(true);
@@ -47,32 +75,17 @@ export default function ContactPage() {
 
   return (
     <div className="min-h-screen w-full bg-white dark:bg-[#1A1915] font-sans text-slate-900 dark:text-[#EEECE8] selection:bg-brand-100 selection:text-brand-900 overflow-x-hidden text-[15px]">
-
-      {/* Dot Pattern + Gradient Blobs Background */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         <div
-          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.015]"
-          style={{
-            backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 0.5px, transparent 0.5px)',
-            backgroundSize: '32px 32px',
-          }}
-        />
-        <div
-          className="absolute top-0 right-0 w-[800px] h-[800px] rounded-full opacity-[0.04] dark:opacity-[0.03]"
-          style={{ background: 'var(--brand-500)', filter: 'blur(150px)', transform: 'translate(30%, -40%)' }}
-        />
-        <div
-          className="absolute bottom-0 left-0 w-[600px] h-[600px] rounded-full opacity-[0.03] dark:opacity-[0.02]"
-          style={{ background: 'var(--brand-500)', filter: 'blur(150px)', transform: 'translate(-30%, 40%)' }}
+          className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full opacity-[0.06] dark:opacity-[0.04]"
+          style={{ background: 'var(--brand-500)', filter: 'blur(160px)' }}
         />
       </div>
 
       {/* ============ NAVBAR ============ */}
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-          scrolled
-            ? 'py-1.5 liquid-glass-strong'
-            : 'py-3 bg-transparent'
+          scrolled ? 'py-1.5 liquid-glass-strong' : 'py-3 bg-transparent'
         }`}
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
@@ -91,8 +104,8 @@ export default function ContactPage() {
               <Link href="/blog" className="px-3.5 py-1.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-full hover:bg-white dark:hover:bg-white/[0.06] transition-all flex items-center gap-1.5">
                 <BookOpen className="w-3.5 h-3.5" />Blog
               </Link>
-              <Link href="/contact" className="px-3.5 py-1.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-full hover:bg-white dark:hover:bg-white/[0.06] transition-all flex items-center gap-1.5">
-                <Mail className="w-3.5 h-3.5" />Contact
+              <Link href="/contact" className="px-3.5 py-1.5 text-[13px] font-medium text-slate-900 dark:text-white rounded-full bg-white dark:bg-white/[0.06] flex items-center gap-1.5">
+                <MessageCircle className="w-3.5 h-3.5" />Contact
               </Link>
 
               <div className="relative">
@@ -176,7 +189,7 @@ export default function ContactPage() {
             <Link href="/pricing" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-xl hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><CreditCard className="w-[18px] h-[18px]" />Pricing</Link>
             <Link href="/about" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-xl hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><Info className="w-[18px] h-[18px]" />About</Link>
             <Link href="/blog" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-xl hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><BookOpen className="w-[18px] h-[18px]" />Blog</Link>
-            <Link href="/contact" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-xl hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><Mail className="w-[18px] h-[18px]" />Contact</Link>
+            <Link href="/contact" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-900 dark:text-white rounded-xl bg-slate-100/60 dark:bg-white/[0.04]"><MessageCircle className="w-[18px] h-[18px]" />Contact</Link>
             <hr className="border-slate-200/60 dark:border-white/[0.06] my-2" />
             <p className="px-3 pt-1 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-[#5C5752]">Legal</p>
             <Link href="/privacy" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-xl hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><Shield className="w-[18px] h-[18px]" />Privacy Policy</Link>
@@ -199,221 +212,253 @@ export default function ContactPage() {
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative pt-32 pb-10">
-        <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[250px] rounded-full opacity-[0.08] blur-[100px] pointer-events-none"
-          style={{ background: 'var(--brand-500)' }}
-        />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 relative z-10 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50/80 dark:bg-brand-500/10 border border-brand-200/60 dark:border-brand-500/20 text-brand-700 dark:text-brand-400 text-xs font-medium mb-5">
-            <MessageCircle className="w-3 h-3" />
-            GET IN TOUCH
+      {/* ============ HERO ============ */}
+      <section className="relative pt-32 pb-12 lg:pt-40 lg:pb-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50/80 dark:bg-brand-500/10 border border-brand-200/60 dark:border-brand-500/20 text-brand-700 dark:text-brand-400 text-xs font-medium mb-5">
+              <MessageCircle className="w-3 h-3" />
+              Get in touch
+            </div>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 dark:text-white leading-[1.05] mb-5">
+              We'd love to hear from you.
+            </h1>
+            <p className="text-base sm:text-lg text-slate-600 dark:text-[#A8A29E] leading-relaxed">
+              A real person reads every message. Send a question, share feedback, or tell us where Flowbooks could be better — we usually reply within a business day.
+            </p>
           </div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight mb-4">
-            We&apos;d love to hear from you
-          </h1>
-          <p className="text-base text-slate-600 dark:text-[#A8A29E] leading-relaxed max-w-xl mx-auto">
-            Have a question, feedback, or need support? Our team is ready to help. Reach out and we&apos;ll get back to you within one business day.
-          </p>
         </div>
       </section>
 
-      {/* Main Content */}
-      <section className="relative z-10 pb-16">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+      {/* ============ MAIN: FORM + SIDEBAR ============ */}
+      <section className="relative z-10 pb-20">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-10 lg:gap-12">
+            {/* Form */}
+            <div className="rounded-2xl border border-slate-200/70 dark:border-white/[0.06] bg-white dark:bg-[#1F1E1B]/40 p-7 sm:p-9">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-1.5 tracking-tight">
+                Send us a message
+              </h2>
+              <p className="text-sm text-slate-500 dark:text-[#78736D] mb-7">
+                Fill out the form and we'll get back to you as soon as possible.
+              </p>
 
-            {/* Company Info Card */}
-            <div className="lg:col-span-2 space-y-5">
-              <div className="liquid-glass rounded-2xl p-6">
-                <h2 className="text-base font-bold text-slate-900 dark:text-white mb-5">Contact Information</h2>
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center flex-shrink-0">
-                      <Mail className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Email</div>
-                      <a href="mailto:hello@flowbooksai.com" className="text-[13px] text-brand-600 dark:text-brand-400 hover:underline">hello@flowbooksai.com</a>
-                      <p className="text-[11px] text-slate-500 dark:text-[#78736D] mt-0.5">We typically respond within 24 hours</p>
-                    </div>
+              {/* Success */}
+              {submitted && (
+                <div className="mb-6 p-3.5 rounded-xl bg-emerald-50/80 dark:bg-emerald-900/15 border border-emerald-200/70 dark:border-emerald-500/20 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center flex-shrink-0">
-                      <Phone className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                  <div>
+                    <div className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">
+                      Message sent
                     </div>
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Phone</div>
-                      <p className="text-[13px] text-slate-600 dark:text-[#A8A29E]">+1 (415) 555-0132</p>
-                      <p className="text-[11px] text-slate-500 dark:text-[#78736D] mt-0.5">Mon-Fri, 9am-6pm PST</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-purple-50 dark:bg-purple-900/20 flex items-center justify-center flex-shrink-0">
-                      <MapPin className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-slate-900 dark:text-white">Office</div>
-                      <p className="text-[13px] text-slate-600 dark:text-[#A8A29E]">548 Market Street, Suite 36879</p>
-                      <p className="text-[13px] text-slate-600 dark:text-[#A8A29E]">San Francisco, CA 94104</p>
+                    <div className="text-[12.5px] text-emerald-700/80 dark:text-emerald-400/80">
+                      We'll get back to you within 24 hours.
                     </div>
                   </div>
                 </div>
-              </div>
+              )}
 
-              {/* Response times */}
-              <div className="liquid-glass-subtle rounded-2xl p-5">
-                <h3 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Average Response Times</h3>
-                <div className="space-y-2.5">
-                  {[
-                    { label: 'General inquiries', time: '< 24 hours', color: 'bg-emerald-400' },
-                    { label: 'Technical support', time: '< 12 hours', color: 'bg-blue-400' },
-                    { label: 'Billing questions', time: '< 6 hours', color: 'bg-purple-400' },
-                    { label: 'Security issues', time: '< 2 hours', color: 'bg-rose-400' },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className={`w-2 h-2 rounded-full ${item.color}`} />
-                        <span className="text-[13px] text-slate-600 dark:text-[#A8A29E]">{item.label}</span>
-                      </div>
-                      <span className="text-[12px] font-semibold text-slate-800 dark:text-[#EEECE8]">{item.time}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Contact Form */}
-            <div className="lg:col-span-3">
-              <div className="liquid-glass rounded-2xl p-6">
-                <h2 className="text-base font-bold text-slate-900 dark:text-white mb-1">Send us a message</h2>
-                <p className="text-[13px] text-slate-500 dark:text-[#78736D] mb-6">Fill out the form below and we&apos;ll get back to you as soon as possible.</p>
-
-                {/* Success toast */}
-                {submitted && (
-                  <div className="mb-5 p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800/30 flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0">
-                      <Send className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-emerald-800 dark:text-emerald-300">Message sent successfully!</div>
-                      <div className="text-[12px] text-emerald-600 dark:text-emerald-400">We&apos;ll get back to you within 24 hours.</div>
-                    </div>
-                  </div>
-                )}
-
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-[13px] font-semibold text-slate-700 dark:text-[#DBD8D0] mb-1.5">Full Name</label>
-                      <input
-                        type="text"
-                        name="name"
-                        value={formData.name}
-                        onChange={handleChange}
-                        required
-                        placeholder="e.g. Alex Johnson"
-                        className="w-full px-3 py-2.5 rounded-lg text-sm bg-slate-50 dark:bg-[#1A1915] border border-slate-200 dark:border-[#3D3A37] text-slate-900 dark:text-[#EEECE8] placeholder:text-slate-400 dark:placeholder:text-[#5C5752] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[13px] font-semibold text-slate-700 dark:text-[#DBD8D0] mb-1.5">Email Address</label>
-                      <input
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        required
-                        placeholder="e.g. name@company.com"
-                        className="w-full px-3 py-2.5 rounded-lg text-sm bg-slate-50 dark:bg-[#1A1915] border border-slate-200 dark:border-[#3D3A37] text-slate-900 dark:text-[#EEECE8] placeholder:text-slate-400 dark:placeholder:text-[#5C5752] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
-                      />
-                    </div>
-                  </div>
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div>
-                    <label className="block text-[13px] font-semibold text-slate-700 dark:text-[#DBD8D0] mb-1.5">Subject</label>
-                    <select
-                      name="subject"
-                      value={formData.subject}
+                    <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-[#DBD8D0] mb-1.5">
+                      Full name
+                    </label>
+                    <input
+                      type="text"
+                      name="name"
+                      value={formData.name}
                       onChange={handleChange}
                       required
-                      className="w-full px-3 py-2.5 rounded-lg text-sm bg-slate-50 dark:bg-[#1A1915] border border-slate-200 dark:border-[#3D3A37] text-slate-900 dark:text-[#EEECE8] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
-                    >
-                      <option value="">Select a topic...</option>
-                      <option value="general">General Inquiry</option>
-                      <option value="support">Technical Support</option>
-                      <option value="billing">Billing Question</option>
-                      <option value="feature">Feature Request</option>
-                      <option value="partnership">Partnership Opportunity</option>
-                      <option value="security">Security Concern</option>
-                      <option value="other">Other</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[13px] font-semibold text-slate-700 dark:text-[#DBD8D0] mb-1.5">Message</label>
-                    <textarea
-                      name="message"
-                      value={formData.message}
-                      onChange={handleChange}
-                      required
-                      rows={5}
-                      placeholder="Tell us how we can help..."
-                      className="w-full px-3 py-2.5 rounded-lg text-sm bg-slate-50 dark:bg-[#1A1915] border border-slate-200 dark:border-[#3D3A37] text-slate-900 dark:text-[#EEECE8] placeholder:text-slate-400 dark:placeholder:text-[#5C5752] focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all resize-none"
+                      placeholder="Alex Johnson"
+                      className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#5C5752] focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
                     />
                   </div>
-                  <button
-                    type="submit"
-                    disabled={sending}
-                    className="w-full sm:w-auto px-6 py-2.5 rounded-full text-white font-semibold text-sm bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 transition-all hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:translate-y-0 flex items-center justify-center gap-2"
+                  <div>
+                    <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-[#DBD8D0] mb-1.5">
+                      Email address
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      value={formData.email}
+                      onChange={handleChange}
+                      required
+                      placeholder="name@company.com"
+                      className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#5C5752] focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-[#DBD8D0] mb-1.5">
+                    Subject
+                  </label>
+                  <select
+                    name="subject"
+                    value={formData.subject}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all"
                   >
-                    {sending ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-4 h-4" />
-                        Send Message
-                      </>
-                    )}
-                  </button>
-                </form>
-              </div>
+                    <option value="">Choose a topic…</option>
+                    <option value="general">General inquiry</option>
+                    <option value="support">Technical support</option>
+                    <option value="billing">Billing question</option>
+                    <option value="feature">Feature request</option>
+                    <option value="partnership">Partnership opportunity</option>
+                    <option value="security">Security concern</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[12.5px] font-semibold text-slate-700 dark:text-[#DBD8D0] mb-1.5">
+                    Message
+                  </label>
+                  <textarea
+                    name="message"
+                    value={formData.message}
+                    onChange={handleChange}
+                    required
+                    rows={6}
+                    placeholder="Tell us how we can help…"
+                    className="w-full px-3.5 py-2.5 rounded-xl text-sm bg-slate-50 dark:bg-white/[0.03] border border-slate-200 dark:border-white/[0.08] text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-[#5C5752] focus:outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 transition-all resize-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  disabled={sending}
+                  className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold text-white bg-gradient-to-r from-brand-500 to-brand-600 hover:from-brand-600 hover:to-brand-700 shadow-lg shadow-brand-500/25 hover:shadow-brand-500/40 transition-all hover:-translate-y-0.5 disabled:opacity-60 disabled:hover:translate-y-0"
+                >
+                  {sending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Sending…
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Send message
+                    </>
+                  )}
+                </button>
+              </form>
             </div>
+
+            {/* Sidebar */}
+            <aside className="space-y-6">
+              <div className="rounded-2xl border border-slate-200/70 dark:border-white/[0.06] bg-slate-50/60 dark:bg-white/[0.02] p-6">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-[#78736D] mb-4">
+                  Reach us directly
+                </p>
+                <div className="space-y-5">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Mail className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                      <span className="text-[11.5px] font-semibold uppercase tracking-wider text-slate-500 dark:text-[#78736D]">
+                        Email
+                      </span>
+                    </div>
+                    <a
+                      href="mailto:hello@flowbooksai.com"
+                      className="text-sm font-semibold text-slate-900 dark:text-white hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                    >
+                      hello@flowbooksai.com
+                    </a>
+                    <p className="text-[12px] text-slate-500 dark:text-[#78736D] mt-1">
+                      Replies within 24 hours
+                    </p>
+                  </div>
+                  <div className="h-px bg-slate-200/70 dark:bg-white/[0.06]" />
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <Phone className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                      <span className="text-[11.5px] font-semibold uppercase tracking-wider text-slate-500 dark:text-[#78736D]">
+                        Phone
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white">
+                      +1 (415) 555-0132
+                    </p>
+                    <p className="text-[12px] text-slate-500 dark:text-[#78736D] mt-1">
+                      Mon–Fri, 9am–6pm PT
+                    </p>
+                  </div>
+                  <div className="h-px bg-slate-200/70 dark:bg-white/[0.06]" />
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <MapPin className="w-3.5 h-3.5 text-brand-600 dark:text-brand-400" />
+                      <span className="text-[11.5px] font-semibold uppercase tracking-wider text-slate-500 dark:text-[#78736D]">
+                        Office
+                      </span>
+                    </div>
+                    <p className="text-sm font-semibold text-slate-900 dark:text-white leading-snug">
+                      548 Market Street, Suite 36879
+                      <br />
+                      San Francisco, CA 94104
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200/70 dark:border-white/[0.06] bg-slate-50/60 dark:bg-white/[0.02] p-6">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-[#78736D] mb-4">
+                  Average response times
+                </p>
+                <ul className="space-y-3">
+                  {responseTimes.map((item) => (
+                    <li key={item.label} className="flex items-center justify-between text-sm">
+                      <span className="text-slate-600 dark:text-[#A8A29E]">{item.label}</span>
+                      <span className="font-semibold text-slate-900 dark:text-white">
+                        {item.time}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </aside>
           </div>
         </div>
       </section>
 
-      {/* FAQ Quick Links */}
-      <section className="relative z-10 py-16">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-8">
-            <h2 className="text-xl font-bold text-slate-900 dark:text-white mb-2">Looking for quick answers?</h2>
-            <p className="text-sm text-slate-600 dark:text-[#A8A29E]">Browse our most popular help topics before reaching out.</p>
+      {/* ============ HELP TOPICS ============ */}
+      <section className="relative z-10 pb-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="max-w-2xl mb-10">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-[#78736D] mb-3">
+              Looking for a quick answer?
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight">
+              Skim our most popular topics first.
+            </h2>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {faqLinks.map((faq, i) => (
               <Link
                 key={i}
                 href={faq.href}
-                className="flex items-center gap-4 liquid-glass rounded-xl p-4 hover:shadow-md hover:-translate-y-0.5 transition-all duration-300 group"
+                className="group flex items-start gap-4 rounded-2xl border border-slate-200/70 dark:border-white/[0.06] bg-white dark:bg-[#1F1E1B]/40 p-5 hover:border-slate-300 dark:hover:border-white/[0.12] hover:-translate-y-0.5 hover:shadow-lg hover:shadow-slate-900/5 dark:hover:shadow-black/20 transition-all duration-300"
               >
-                <div className="w-10 h-10 rounded-lg bg-brand-50 dark:bg-brand-900/20 flex items-center justify-center flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-brand-50 dark:bg-brand-500/10 border border-brand-200/40 dark:border-brand-500/15 flex items-center justify-center flex-shrink-0">
                   <faq.icon className="w-5 h-5 text-brand-600 dark:text-brand-400" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-sm font-bold text-slate-900 dark:text-white">{faq.title}</div>
-                  <div className="text-[12px] text-slate-500 dark:text-[#A8A29E]">{faq.description}</div>
+                  <div className="text-[15px] font-semibold text-slate-900 dark:text-white mb-0.5 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors">
+                    {faq.title}
+                  </div>
+                  <div className="text-[13px] text-slate-500 dark:text-[#A8A29E]">
+                    {faq.description}
+                  </div>
                 </div>
-                <ChevronRight className="w-4 h-4 text-slate-400 dark:text-[#5C5752] group-hover:text-brand-500 transition-colors flex-shrink-0" />
+                <ArrowUpRight className="w-4 h-4 text-slate-400 dark:text-[#5C5752] group-hover:text-brand-500 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all flex-shrink-0" />
               </Link>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ============ FOOTER ============ */}
       <footer className="relative z-10 py-8 border-t border-slate-200/60 dark:border-[#2D2B28]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-3">

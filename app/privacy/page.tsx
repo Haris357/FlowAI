@@ -6,81 +6,83 @@ import { useAuth } from '@/contexts/AuthContext';
 import Link from 'next/link';
 import FlowBooksLogo from '@/components/FlowBooksLogo';
 
+const LAST_UPDATED = 'February 20, 2026';
+
 const sections = [
   {
     id: 'information-we-collect',
     icon: Database,
-    title: '1. Information We Collect',
+    title: '1. Information we collect',
     content: `We collect information you provide directly to us when you create an account, use our services, or communicate with us. This includes:
 
-**Account Information:** Your name, email address, company name, and billing address when you register for a Flowbooks account.
+**Account information:** Your name, email address, company name, and billing address when you register for a Flowbooks account.
 
-**Financial Data:** Transaction records, invoices, expense entries, customer and vendor details, and other bookkeeping data you input or generate through our platform. This data is yours and is stored solely to provide you with our services.
+**Financial data:** Transaction records, invoices, expense entries, customer and vendor details, and other bookkeeping data you input or generate through our platform. This data is yours and is stored solely to provide you with our services.
 
-**Usage Data:** Information about how you interact with our platform, including features used, pages visited, AI queries made, and session duration. We collect this to improve our product experience.
+**Usage data:** Information about how you interact with our platform — features used, pages visited, AI queries made, and session duration. We collect this to improve product experience.
 
-**Device & Technical Data:** IP address, browser type, operating system, device identifiers, and log data. This is collected automatically when you access Flowbooks.
+**Device and technical data:** IP address, browser type, operating system, device identifiers, and log data. This is collected automatically when you access Flowbooks.
 
 **Communications:** Any messages, feedback, or support requests you send to us.`,
   },
   {
     id: 'how-we-use',
     icon: Eye,
-    title: '2. How We Use Your Information',
+    title: '2. How we use your information',
     content: `We use the information we collect for the following purposes:
 
-**Providing Services:** To operate, maintain, and improve Flowbooks, including processing your financial data through our AI engine, generating reports, and creating invoices on your behalf.
+**Providing services:** To operate, maintain, and improve Flowbooks — including processing your financial data through our AI engine, generating reports, and creating invoices on your behalf.
 
 **Personalization:** To tailor the AI experience to your business context, learn your categorization preferences, and provide more accurate suggestions over time.
 
-**Billing & Account Management:** To process subscription payments, manage your account, and send transactional communications such as receipts and renewal notices.
+**Billing and account management:** To process subscription payments, manage your account, and send transactional communications such as receipts and renewal notices.
 
-**Security & Fraud Prevention:** To detect, investigate, and prevent fraudulent transactions, unauthorized access, and other illegal activities.
+**Security and fraud prevention:** To detect, investigate, and prevent fraudulent transactions, unauthorized access, and other illegal activities.
 
-**Product Improvement:** To analyze usage patterns, diagnose technical issues, and develop new features. We may use aggregated, anonymized data for analytics and benchmarking.
+**Product improvement:** To analyze usage patterns, diagnose technical issues, and develop new features. We may use aggregated, anonymized data for analytics and benchmarking.
 
-**Legal Compliance:** To comply with applicable laws, regulations, and legal processes.`,
+**Legal compliance:** To comply with applicable laws, regulations, and legal processes.`,
   },
   {
     id: 'data-security',
     icon: Shield,
-    title: '3. Data Security',
+    title: '3. Data security',
     content: `We take the security of your data extremely seriously. Flowbooks implements industry-standard security measures to protect your information:
 
-**Encryption in Transit:** All data transmitted between your browser and our servers is encrypted using TLS 1.3 with 256-bit AES encryption.
+**Encryption in transit:** All data transmitted between your browser and our servers is encrypted using TLS 1.3 with 256-bit AES encryption.
 
-**Encryption at Rest:** Your financial data is encrypted at rest using AES-256 encryption. Encryption keys are managed through a dedicated key management service and rotated regularly.
+**Encryption at rest:** Your financial data is encrypted at rest using AES-256 encryption. Encryption keys are managed through a dedicated key management service and rotated regularly.
 
 **Infrastructure:** Our services are hosted on enterprise-grade cloud infrastructure with SOC 2 Type II certification. We employ network segmentation, firewalls, and intrusion detection systems.
 
-**Access Controls:** Access to production data is restricted to authorized personnel only, enforced through multi-factor authentication and role-based access controls. All access is logged and audited.
+**Access controls:** Access to production data is restricted to authorized personnel only, enforced through multi-factor authentication and role-based access controls. All access is logged and audited.
 
-**Regular Audits:** We conduct regular security assessments, penetration testing, and vulnerability scans to identify and address potential risks.
+**Regular audits:** We conduct regular security assessments, penetration testing, and vulnerability scans to identify and address potential risks.
 
 While no method of transmission or storage is 100% secure, we are committed to protecting your data using commercially reasonable measures.`,
   },
   {
     id: 'third-party',
     icon: Globe,
-    title: '4. Third-Party Services',
+    title: '4. Third-party services',
     content: `We may share your information with third-party service providers who assist us in operating our platform. These providers are contractually obligated to handle your data securely and only for the purposes we specify:
 
-**Payment Processors:** We use Stripe to process subscription payments. Stripe handles your payment card information directly; we do not store your full card details on our servers.
+**Payment processors:** We use Lemon Squeezy to process subscription payments. They handle your payment card information directly; we do not store your full card details on our servers.
 
-**Cloud Infrastructure:** Our platform is hosted on secure cloud infrastructure providers that maintain industry-leading security certifications.
+**Cloud infrastructure:** Our platform is hosted on secure cloud infrastructure providers that maintain industry-leading security certifications.
 
-**AI Services:** We use large language model providers to power our AI features. Your financial data sent to these services is processed in real time and is not used to train their models. We have data processing agreements in place with all AI providers.
+**AI services:** We use large language model providers to power our AI features. Your financial data sent to these services is processed in real time and is not used to train their models. We have data processing agreements in place with all AI providers.
 
 **Analytics:** We use privacy-respecting analytics tools to understand how our platform is used. Data is aggregated and anonymized where possible.
 
-**Email Services:** Transactional emails (invoices, notifications) are sent through third-party email providers.
+**Email services:** Transactional emails (invoices, notifications) are sent through third-party email providers.
 
 We do not sell, rent, or trade your personal information to third parties for their marketing purposes.`,
   },
   {
     id: 'your-rights',
     icon: UserCheck,
-    title: '5. Your Rights',
+    title: '5. Your rights',
     content: `Depending on your jurisdiction, you may have the following rights regarding your personal data:
 
 **Access:** You can request a copy of the personal data we hold about you at any time through your account settings or by contacting us.
@@ -89,9 +91,9 @@ We do not sell, rent, or trade your personal information to third parties for th
 
 **Deletion:** You can request deletion of your account and associated data. Upon request, we will delete your data within 30 days, except where we are required to retain it for legal or compliance purposes.
 
-**Data Portability:** You can export all your financial data from Flowbooks at any time in CSV, PDF, or Excel formats. We believe in data portability and will never hold your data hostage.
+**Data portability:** You can export all your financial data from Flowbooks at any time in CSV, PDF, or Excel formats. We believe in data portability and will never hold your data hostage.
 
-**Opt-Out:** You can opt out of non-essential communications at any time by updating your notification preferences or clicking the unsubscribe link in our emails.
+**Opt-out:** You can opt out of non-essential communications at any time by updating your notification preferences or clicking the unsubscribe link in our emails.
 
 **Restriction:** You can request that we restrict processing of your data in certain circumstances.
 
@@ -100,14 +102,14 @@ To exercise any of these rights, contact us at hello@flowbooksai.com.`,
   {
     id: 'cookies',
     icon: Cookie,
-    title: '6. Cookies & Tracking Technologies',
+    title: '6. Cookies and tracking',
     content: `Flowbooks uses cookies and similar technologies to provide, secure, and improve our services:
 
-**Essential Cookies:** Required for the platform to function. These handle authentication, session management, and security tokens. You cannot opt out of these.
+**Essential cookies:** Required for the platform to function. These handle authentication, session management, and security tokens. You cannot opt out of these.
 
-**Preference Cookies:** Store your settings such as theme preference (light/dark mode), language, and display options.
+**Preference cookies:** Store your settings such as theme preference (light/dark mode), language, and display options.
 
-**Analytics Cookies:** Help us understand how users interact with our platform so we can improve the experience. These cookies collect anonymized usage data.
+**Analytics cookies:** Help us understand how users interact with our platform so we can improve the experience. These cookies collect anonymized usage data.
 
 We do not use advertising or tracking cookies. We do not participate in cross-site tracking networks.
 
@@ -116,7 +118,7 @@ You can manage cookie preferences through your browser settings. Note that disab
   {
     id: 'changes',
     icon: Bell,
-    title: '7. Changes to This Policy',
+    title: '7. Changes to this policy',
     content: `We may update this Privacy Policy from time to time to reflect changes in our practices, technology, legal requirements, or other factors. When we make material changes, we will:
 
 - Notify you via email at least 30 days before the changes take effect
@@ -130,18 +132,70 @@ For significant changes that materially affect how we handle your data, we will 
   {
     id: 'contact',
     icon: Mail,
-    title: '8. Contact Us',
+    title: '8. Contact us',
     content: `If you have any questions, concerns, or requests regarding this Privacy Policy or our data practices, please contact us:
 
 **Email:** hello@flowbooksai.com
-**General Support:** hello@flowbooksai.com
-**Mailing Address:** Flowbooks Inc., 548 Market Street, Suite 36879, San Francisco, CA 94104, United States
+**General support:** hello@flowbooksai.com
+**Mailing address:** Flowbooks Inc., 548 Market Street, Suite 36879, San Francisco, CA 94104, United States
 
 We aim to respond to all privacy-related inquiries within 5 business days.
 
 If you are located in the European Economic Area and believe we have not adequately addressed your data protection concerns, you have the right to lodge a complaint with your local data protection authority.`,
   },
 ];
+
+// Renders **bold** + lists + paragraphs from a plain-text content blob.
+function RenderContent({ text }: { text: string }) {
+  const blocks = text.split('\n\n');
+  return (
+    <>
+      {blocks.map((block, bi) => {
+        // Bullet list
+        if (block.split('\n').every((l) => l.trim().startsWith('-'))) {
+          return (
+            <ul key={bi} className="my-5 space-y-2 pl-1">
+              {block.split('\n').map((l, li) => {
+                const item = l.replace(/^[-\s]+/, '');
+                return (
+                  <li
+                    key={li}
+                    className="relative pl-5 text-[15.5px] leading-[1.7] text-slate-700 dark:text-[#CCCCBB] before:content-[''] before:absolute before:left-0 before:top-[0.7em] before:w-1.5 before:h-1.5 before:rounded-full before:bg-brand-500"
+                  >
+                    {renderInline(item)}
+                  </li>
+                );
+              })}
+            </ul>
+          );
+        }
+        return (
+          <p
+            key={bi}
+            className="my-5 text-[15.5px] leading-[1.75] text-slate-700 dark:text-[#CCCCBB] whitespace-pre-line"
+          >
+            {renderInline(block)}
+          </p>
+        );
+      })}
+    </>
+  );
+}
+
+function renderInline(text: string): React.ReactNode {
+  // Split by **bold** segments, preserving inline structure.
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={i} className="font-semibold text-slate-900 dark:text-white">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <span key={i}>{part}</span>;
+  });
+}
 
 export default function PrivacyPage() {
   const { user } = useAuth();
@@ -158,31 +212,18 @@ export default function PrivacyPage() {
 
   return (
     <div className="min-h-screen w-full bg-white dark:bg-[#1A1915] font-sans text-slate-900 dark:text-[#EEECE8] selection:bg-brand-100 selection:text-brand-900 overflow-x-hidden text-[15px]">
-      {/* Dot Pattern + Gradient Blobs Background */}
+      {/* Single soft glow background */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         <div
-          className="absolute inset-0 opacity-[0.03] dark:opacity-[0.015]"
-          style={{
-            backgroundImage: `radial-gradient(circle at 1px 1px, currentColor 0.5px, transparent 0.5px)`,
-            backgroundSize: '32px 32px',
-          }}
-        />
-        <div
-          className="absolute top-0 right-0 w-[800px] h-[800px] rounded-full opacity-[0.04] dark:opacity-[0.03]"
-          style={{ background: 'var(--brand-500)', filter: 'blur(150px)', transform: 'translate(30%, -40%)' }}
-        />
-        <div
-          className="absolute bottom-0 left-0 w-[600px] h-[600px] rounded-full opacity-[0.03] dark:opacity-[0.02]"
-          style={{ background: 'var(--brand-500)', filter: 'blur(150px)', transform: 'translate(-30%, 40%)' }}
+          className="absolute -top-40 left-1/2 -translate-x-1/2 w-[900px] h-[600px] rounded-full opacity-[0.06] dark:opacity-[0.04]"
+          style={{ background: 'var(--brand-500)', filter: 'blur(160px)' }}
         />
       </div>
 
       {/* ============ NAVBAR ============ */}
       <nav
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-          scrolled
-            ? 'py-1.5 liquid-glass-strong'
-            : 'py-3 bg-transparent'
+          scrolled ? 'py-1.5 liquid-glass-strong' : 'py-3 bg-transparent'
         }`}
       >
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
@@ -216,7 +257,7 @@ export default function PrivacyPage() {
                 </button>
                 <div className={`absolute right-0 top-full mt-2 w-52 liquid-glass-strong rounded-2xl overflow-hidden transition-all duration-300 origin-top ${isMoreOpen ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}`}>
                   <div className="p-2">
-                    <Link href="/privacy" className="flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">
+                    <Link href="/privacy" className="flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium text-slate-900 dark:text-white rounded-xl bg-slate-50 dark:bg-white/[0.04]">
                       <Shield className="w-4 h-4" />Privacy Policy
                     </Link>
                     <Link href="/terms" className="flex items-center gap-2.5 px-3 py-2.5 text-[13px] font-medium text-slate-600 dark:text-[#A8A29E] hover:text-slate-900 dark:hover:text-white rounded-xl hover:bg-slate-50 dark:hover:bg-white/[0.04] transition-colors">
@@ -289,7 +330,7 @@ export default function PrivacyPage() {
             <Link href="/contact" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-xl hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><MessageCircle className="w-[18px] h-[18px]" />Contact</Link>
             <hr className="border-slate-200/60 dark:border-white/[0.06] my-2" />
             <p className="px-3 pt-1 pb-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-[#5C5752]">Legal</p>
-            <Link href="/privacy" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-xl hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><Shield className="w-[18px] h-[18px]" />Privacy Policy</Link>
+            <Link href="/privacy" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-900 dark:text-white rounded-xl bg-slate-100/60 dark:bg-white/[0.04]"><Shield className="w-[18px] h-[18px]" />Privacy Policy</Link>
             <Link href="/terms" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-xl hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><FileText className="w-[18px] h-[18px]" />Terms of Service</Link>
             <Link href="/security" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-600 dark:text-[#A8A29E] rounded-xl hover:bg-slate-100/60 dark:hover:bg-white/[0.04]"><Lock className="w-[18px] h-[18px]" />Security</Link>
             <hr className="border-slate-200/60 dark:border-white/[0.06] my-2" />
@@ -309,75 +350,95 @@ export default function PrivacyPage() {
         </div>
       </nav>
 
-      {/* Hero */}
-      <section className="relative pt-32 pb-10">
-        <div
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-[400px] h-[250px] rounded-full opacity-[0.08] blur-[100px] pointer-events-none"
-          style={{ background: 'var(--brand-500)' }}
-        />
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 relative z-10 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50/80 dark:bg-brand-500/10 border border-brand-200/60 dark:border-brand-500/20 text-brand-700 dark:text-brand-400 text-xs font-medium mb-5">
-            <Shield className="w-3 h-3" />
-            YOUR PRIVACY MATTERS
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-slate-900 dark:text-white leading-tight mb-4">
-            Privacy Policy
-          </h1>
-          <p className="text-base text-slate-600 dark:text-[#A8A29E] leading-relaxed">
-            Last updated: February 20, 2026. This policy describes how Flowbooks Inc. collects, uses, and protects your personal information.
-          </p>
-        </div>
-      </section>
-
-      {/* Table of Contents */}
-      <section className="relative z-10 pb-8">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6">
-          <div className="liquid-glass-subtle rounded-xl p-5">
-            <h2 className="text-sm font-bold text-slate-900 dark:text-white mb-3">Table of Contents</h2>
-            <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-              {sections.map((s) => (
-                <li key={s.id}>
-                  <a href={`#${s.id}`} className="flex items-center gap-2 text-[13px] text-slate-600 dark:text-[#A8A29E] hover:text-brand-600 dark:hover:text-brand-400 transition-colors">
-                    <s.icon className="w-3.5 h-3.5 flex-shrink-0" />
-                    {s.title}
-                  </a>
-                </li>
-              ))}
-            </ul>
+      {/* ============ HERO ============ */}
+      <section className="relative pt-32 pb-10 lg:pt-40 lg:pb-12">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
+          <div className="max-w-2xl">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-50/80 dark:bg-brand-500/10 border border-brand-200/60 dark:border-brand-500/20 text-brand-700 dark:text-brand-400 text-xs font-medium mb-5">
+              <Shield className="w-3 h-3" />
+              Privacy
+            </div>
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-slate-900 dark:text-white leading-[1.05] mb-5">
+              Privacy Policy
+            </h1>
+            <p className="text-base sm:text-lg text-slate-600 dark:text-[#A8A29E] leading-relaxed">
+              How Flowbooks Inc. collects, uses, and protects your personal information — written in plain English.
+            </p>
+            <div className="mt-6 inline-flex items-center gap-2 text-xs font-medium text-slate-500 dark:text-[#78736D]">
+              <span className="w-1.5 h-1.5 rounded-full bg-brand-500" />
+              Last updated: {LAST_UPDATED}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Content Sections */}
-      <section className="relative z-10 pb-20">
-        <div className="max-w-3xl mx-auto px-4 sm:px-6 space-y-10">
-          {sections.map((s) => (
-            <div key={s.id} id={s.id} className="scroll-mt-24">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-9 h-9 rounded-lg liquid-glass-subtle flex items-center justify-center flex-shrink-0">
-                  <s.icon className="w-4 h-4 text-brand-600 dark:text-brand-400" />
-                </div>
-                <h2 className="text-lg font-bold text-slate-900 dark:text-white">{s.title}</h2>
+      {/* ============ TWO-COLUMN: TOC + CONTENT ============ */}
+      <section className="relative z-10 pb-24">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-12 lg:gap-16">
+            {/* Sticky TOC */}
+            <aside className="hidden lg:block">
+              <div className="sticky top-24">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-[#78736D] mb-3">
+                  On this page
+                </p>
+                <nav className="space-y-1.5 border-l border-slate-200/70 dark:border-white/[0.06] pl-4">
+                  {sections.map((s) => (
+                    <a
+                      key={s.id}
+                      href={`#${s.id}`}
+                      className="block text-[13px] leading-snug text-slate-500 dark:text-[#A8A29E] hover:text-brand-600 dark:hover:text-brand-400 transition-colors"
+                    >
+                      {s.title}
+                    </a>
+                  ))}
+                </nav>
               </div>
-              <div className="prose-sm max-w-none">
-                {s.content.split('\n\n').map((paragraph, i) => (
-                  <p key={i} className="text-sm text-slate-600 dark:text-[#A8A29E] leading-relaxed mb-3 whitespace-pre-line">
-                    {paragraph.split('**').map((part, j) =>
-                      j % 2 === 1 ? (
-                        <strong key={j} className="text-slate-800 dark:text-[#EEECE8] font-semibold">{part}</strong>
-                      ) : (
-                        <span key={j}>{part}</span>
-                      )
+            </aside>
+
+            {/* Content */}
+            <div className="max-w-2xl">
+              {/* Mobile TOC */}
+              <details className="lg:hidden mb-10 rounded-xl border border-slate-200/70 dark:border-white/[0.06] bg-slate-50/60 dark:bg-white/[0.02] open:bg-white dark:open:bg-transparent">
+                <summary className="cursor-pointer list-none px-4 py-3 text-sm font-semibold text-slate-900 dark:text-white flex items-center justify-between">
+                  Table of contents
+                  <ChevronDown className="w-4 h-4" />
+                </summary>
+                <ul className="px-4 pb-4 space-y-2 border-t border-slate-200/70 dark:border-white/[0.06] pt-3">
+                  {sections.map((s) => (
+                    <li key={s.id}>
+                      <a href={`#${s.id}`} className="text-[13px] text-slate-600 dark:text-[#A8A29E] hover:text-brand-600 dark:hover:text-brand-400">
+                        {s.title}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+
+              <div className="space-y-14">
+                {sections.map((s, idx) => (
+                  <div key={s.id} id={s.id} className="scroll-mt-24">
+                    <div className="flex items-center gap-3 mb-5">
+                      <div className="w-9 h-9 rounded-lg bg-brand-50 dark:bg-brand-500/10 border border-brand-200/40 dark:border-brand-500/15 flex items-center justify-center flex-shrink-0">
+                        <s.icon className="w-4 h-4 text-brand-600 dark:text-brand-400" />
+                      </div>
+                      <h2 className="text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                        {s.title}
+                      </h2>
+                    </div>
+                    <RenderContent text={s.content} />
+                    {idx < sections.length - 1 && (
+                      <div className="mt-14 h-px bg-slate-200/70 dark:bg-white/[0.06]" />
                     )}
-                  </p>
+                  </div>
                 ))}
               </div>
             </div>
-          ))}
+          </div>
         </div>
       </section>
 
-      {/* Footer */}
+      {/* ============ FOOTER ============ */}
       <footer className="relative z-10 py-8 border-t border-slate-200/60 dark:border-[#2D2B28]">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-3">
