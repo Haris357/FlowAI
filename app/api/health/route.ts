@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server';
 import { getFirestore } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
 
+// Health checks must always run live — never let Next try to prerender at build.
+export const dynamic = 'force-dynamic';
+
 initAdmin();
 
 /**
@@ -13,9 +16,10 @@ initAdmin();
  */
 export async function GET() {
   try {
-    // Quick Firestore connectivity check
+    // Quick Firestore connectivity check.
+    // Note: Firestore reserves any collection id matching __.*__ — single underscore is fine.
     const db = getFirestore();
-    await db.collection('__health__').doc('ping').set(
+    await db.collection('_health').doc('ping').set(
       { ts: Date.now(), source: 'health-endpoint' },
       { merge: true },
     );

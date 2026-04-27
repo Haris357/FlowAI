@@ -5,6 +5,14 @@ import { initAdmin } from '@/lib/firebase-admin';
 import { sendEmail } from '@/lib/email';
 import { getEmailTemplate } from '@/lib/email-templates';
 import { canSendEmail } from '@/lib/email-preferences';
+import {
+  BLOG_SYSTEM_PROMPT,
+  buildBlogUserPrompt,
+  normaliseGenerated,
+  estimateReadTime as sharedEstimateReadTime,
+} from '@/lib/blog-ai';
+
+export const dynamic = 'force-dynamic';
 
 initAdmin();
 const db = getFirestore();
@@ -70,11 +78,8 @@ function slugify(title: string): string {
     .slice(0, 80);
 }
 
-function estimateReadTime(html: string): number {
-  const text = html.replace(/<[^>]*>/g, '');
-  const words = text.split(/\s+/).filter(Boolean).length;
-  return Math.max(1, Math.ceil(words / 200));
-}
+// Read-time estimator delegated to the shared lib so admin + cron stay in sync.
+const estimateReadTime = sharedEstimateReadTime;
 
 async function uniqueSlug(base: string): Promise<string> {
   let slug = base || `post-${Date.now()}`;
@@ -117,38 +122,24 @@ export async function GET(req: Request) {
         .join('\n');
     } catch { /* ignore */ }
 
-    // 2. Generate post via OpenAI
-    const systemPrompt = `You are a professional blog writer for Flowbooks, an AI-first accounting and invoicing platform for small businesses.
-
-Flowbooks helps small businesses manage invoices, bills, bank accounts, payroll, and financial reports — all powered by AI.
-
-Write engaging, useful blog content that provides value to small business owners. Use a professional yet approachable tone. Content should be educational and immediately actionable. Avoid fluff.`;
-
-    const userPrompt = `Write a blog post. The category is "${category}". Topic hint: ${topicHint}.
-
-Target length: 700–1000 words.
-
-AVOID repeating any of these recent titles:
-${recentTitles || '(no recent posts)'}
-
-Output as JSON with this exact structure:
-{
-  "title": "Catchy blog title (under 70 chars, NOT matching any recent title above)",
-  "excerpt": "Brief 1-2 sentence summary for the blog listing page and email preview",
-  "content": "Full HTML with <h2>, <h3>, <p>, <ul>/<li>, <blockquote>. Use semantic HTML. Do NOT include <h1> — the title renders separately.",
-  "tags": ["3-5 relevant tags"]
-}
-
-Only output valid JSON, no markdown code blocks.`;
-
+    // 2. Generate post via OpenAI using the shared editorial prompt
     const response = await openai.chat.completions.create({
       model: 'gpt-4.1-mini',
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
+        { role: 'system', content: BLOG_SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: buildBlogUserPrompt({
+            topic: topicHint,
+            category,
+            wordTarget: '700-1000',
+            recentTitles,
+          }),
+        },
       ],
-      temperature: 0.85,
+      temperature: 0.8,
       max_tokens: 4000,
+      response_format: { type: 'json_object' },
     });
 
     const raw = response.choices[0]?.message?.content?.trim() || '';
@@ -160,14 +151,14 @@ Only output valid JSON, no markdown code blocks.`;
       return NextResponse.json({ error: 'AI generated invalid content' }, { status: 500 });
     }
 
-    const title = (parsed.title || '').toString().trim();
-    const excerpt = (parsed.excerpt || '').toString().trim();
-    const content = (parsed.content || '').toString();
-    const tags = Array.isArray(parsed.tags) ? parsed.tags.slice(0, 6).map((t: any) => String(t)) : [];
-
-    if (!title || !excerpt || !content) {
-      return NextResponse.json({ error: 'AI output missing required fields' }, { status: 500 });
+    let post;
+    try {
+      post = normaliseGenerated(parsed);
+    } catch (err: any) {
+      console.error('[Cron Blog] AI output invalid:', err?.message);
+      return NextResponse.json({ error: err?.message || 'AI output invalid' }, { status: 500 });
     }
+    const { title, excerpt, content, tags } = post;
 
     // 3. Save to Firestore
     const slug = await uniqueSlug(slugify(title));

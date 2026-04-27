@@ -925,6 +925,20 @@ export default function LandingPage() {
 
       {/* ═══════════ FAQ ═══════════ */}
       <section className="relative z-10 py-20">
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'FAQPage',
+              mainEntity: faqs.map((f) => ({
+                '@type': 'Question',
+                name: f.q,
+                acceptedAnswer: { '@type': 'Answer', text: f.a },
+              })),
+            }),
+          }}
+        />
         <div className="max-w-2xl mx-auto px-4 sm:px-6">
           <FadeUp className="text-center mb-12">
             <p className="text-brand-600 dark:text-brand-400 text-xs font-semibold tracking-widest uppercase mb-3">Support</p>

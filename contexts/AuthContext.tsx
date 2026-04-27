@@ -2,7 +2,8 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import {
   User,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   onAuthStateChanged,
   createUserWithEmailAndPassword,
@@ -99,32 +100,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => unsubscribe();
   }, []);
 
-  const signInWithGoogle = useCallback(async () => {
-    try {
-      const result = await signInWithPopup(auth, googleProvider);
-
-      if (result.user) {
+  // ── Handle Google redirect-flow result on page load ──────────────────────
+  // We use signInWithRedirect (same-tab navigation) rather than signInWithPopup,
+  // so the OAuth result lands back on the page and must be picked up here.
+  // Returns null on normal page loads — only fires once after a redirect.
+  useEffect(() => {
+    let cancelled = false;
+    getRedirectResult(auth)
+      .then(async (result) => {
+        if (cancelled || !result || !result.user) return;
         analytics.userSignedIn('google');
         toast.success('Signed in successfully!');
 
-        // Check company in parallel
-        const companiesQuery = query(collection(db, 'companies'), where('ownerId', '==', result.user.uid));
-        const companiesSnapshot = await getDocs(companiesQuery);
-
-        if (companiesSnapshot.empty) {
-          router.push('/onboarding');
-        } else {
+        // Route to onboarding if the user has no companies, otherwise to /companies.
+        try {
+          const companiesQuery = query(
+            collection(db, 'companies'),
+            where('ownerId', '==', result.user.uid),
+          );
+          const companiesSnapshot = await getDocs(companiesQuery);
+          router.push(companiesSnapshot.empty ? '/onboarding' : '/companies');
+        } catch {
           router.push('/companies');
         }
-      }
+      })
+      .catch((error: any) => {
+        // Firebase emits no-auth-event when nothing was redirected — safe to ignore.
+        if (error?.code === 'auth/no-auth-event') return;
+        console.error('Google sign-in redirect error:', error);
+        toast.error('Failed to sign in with Google');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
+
+  const signInWithGoogle = useCallback(async () => {
+    try {
+      // Same-tab redirect — no popup window.
+      // The browser navigates away to Google here. The result is picked up by
+      // the getRedirectResult effect above when the user lands back on the app.
+      await signInWithRedirect(auth, googleProvider);
     } catch (error: any) {
       console.error('Google sign-in error:', error);
-      if (error.code !== 'auth/popup-closed-by-user') {
-        toast.error('Failed to sign in with Google');
-      }
+      toast.error('Failed to start Google sign-in');
       throw error;
     }
-  }, [router]);
+  }, []);
 
   const signUpWithEmail = useCallback(async (email: string, password: string, name: string) => {
     try {

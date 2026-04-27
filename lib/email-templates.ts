@@ -728,7 +728,7 @@ export const EMAIL_TEMPLATE_OPTIONS: EmailTemplateOption[] = [
     color: '#F59E0B',
     fields: [
       { key: 'userName', label: 'User Name', type: 'text', required: true, placeholder: 'John Doe' },
-      { key: 'resetLink', label: 'Reset Link', type: 'text', required: true, placeholder: 'https://flowbooks.app/reset?token=...' },
+      { key: 'resetLink', label: 'Reset Link', type: 'text', required: true, placeholder: 'https://flowbooksai.com/reset?token=...' },
     ],
   },
   {
@@ -1132,7 +1132,7 @@ ${pNumberedStep(2, 'Chat with your AI assistant', 'Ask questions about your fina
 ${pNumberedStep(3, 'Set up your company profile', 'Add your logo, address, and tax details for branded invoices.')}
               </table>
 ${pParagraph('If you need any help getting started, our support team is always here for you.')}
-${pButton('Get Started', 'https://flowbooks.app')}
+${pButton('Get Started', 'https://flowbooksai.com')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1171,7 +1171,7 @@ ${pParagraph('Your subscription plan has been updated. Here are the details:')}
               </table>
 ${pParagraph('Your new plan is effective immediately. All features included in your new plan are now available.')}
 ${pParagraph('If you have any questions about your plan change, feel free to reach out to our support team.')}
-${pButton('View My Plan', 'https://flowbooks.app/settings/billing')}
+${pButton('View My Plan', 'https://flowbooksai.com/settings/billing')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1188,7 +1188,7 @@ ${pParagraph('Great news! Bonus AI usage has been added to your Flowbooks accoun
 ${pInfoBox('Bonus Granted', `Extra weekly AI allowance`, C.brand)}
 ${pParagraph('This bonus is added to your weekly allowance and can be used for AI-powered features including the chat assistant, report generation, invoice analysis, and more.')}
 ${pParagraph('Your weekly balance has been updated and is available for use immediately.')}
-${pButton('Check My Balance', 'https://flowbooks.app/settings')}
+${pButton('Check My Balance', 'https://flowbooksai.com/settings')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1211,7 +1211,7 @@ ${pGreeting(d.userName)}
               </table>
 ${pParagraph('We want to make sure you have uninterrupted access to Flowbooks. Please take a moment to review your account and resolve any outstanding issues.')}
 ${pParagraph('If you believe this warning was sent in error, or if you need assistance, please contact our support team.')}
-${pButton('Review My Account', 'https://flowbooks.app/settings')}
+${pButton('Review My Account', 'https://flowbooksai.com/settings')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1234,7 +1234,7 @@ ${pParagraph(`Our support team has replied to your ticket: <strong>${esc(ticket)
                 </tr>
               </table>
 ${pParagraph('You can view the full conversation and reply directly from your Flowbooks dashboard.')}
-${pButton('View Ticket', 'https://flowbooks.app/settings?section=support')}
+${pButton('View Ticket', 'https://flowbooksai.com/settings?section=support')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1302,7 +1302,7 @@ ${pReceiptRow('Plan', esc(plan))}
                 </tr>
               </table>
 ${pParagraph('Your subscription is active. You can view your full billing history and manage your subscription from your account settings.')}
-${pButton('View Billing', 'https://flowbooks.app/settings/billing')}
+${pButton('View Billing', 'https://flowbooksai.com/settings/billing')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1322,14 +1322,14 @@ ${pIconBullet('info', 'Premium features are no longer available on the Free plan
 ${pIconBullet('refresh', 'You can resubscribe at any time to regain full access.', C.brand)}
               </table>
 ${pParagraph('We are sorry to see you go. If there is anything we can do to improve your experience, please let us know.')}
-${pButton('Resubscribe', 'https://flowbooks.app/settings/billing')}
+${pButton('Resubscribe', 'https://flowbooksai.com/settings/billing')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
 }
 
 function tplPasswordReset(d: EmailTemplateData): EmailTemplateResult {
-  const link = d.resetLink || 'https://flowbooks.app/login';
+  const link = d.resetLink || 'https://flowbooksai.com/login';
   const subject = 'Reset your Flowbooks password';
 
   const body = `
@@ -1402,11 +1402,11 @@ ${pParagraph('Here is your weekly update from Flowbooks — new features, tips, 
 ${pDivider()}
 ${sectionsHtml}
 ${footerNote}
-${pButton('Open Flowbooks', 'https://flowbooks.app')}
+${pButton('Open Flowbooks', 'https://flowbooksai.com')}
 ${pDivider()}
               <p style="margin:0;font-size:12px;color:${C.textLight};line-height:1.6;text-align:center;">
                 You are receiving this because you are subscribed to Flowbooks updates.<br/>
-                <a href="https://flowbooks.app/settings" style="color:${C.brand};text-decoration:underline;">Manage email preferences</a>
+                <a href="https://flowbooksai.com/settings" style="color:${C.brand};text-decoration:underline;">Manage email preferences</a>
               </p>`;
 
   return { subject, html: pShell(subject, body) };
@@ -1501,7 +1501,7 @@ ${response ? `
               </table>
 ` : ''}
 ${pParagraph('Your input helps us improve Flowbooks for everyone. We truly appreciate your contribution.')}
-${pButton('View Dashboard', 'https://flowbooks.app/companies')}
+${pButton('View Dashboard', 'https://flowbooksai.com/companies')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1523,7 +1523,7 @@ ${pParagraph(`Great news! Our support team has started working on your ticket: <
                 </tr>
               </table>
 ${pParagraph('We\'ll keep you updated as we make progress. You can check the status of your ticket anytime from your dashboard.')}
-${pButton('View Support', 'https://flowbooks.app/settings?section=support')}
+${pButton('View Support', 'https://flowbooksai.com/settings?section=support')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1568,7 +1568,7 @@ ${pIconBullet('crown', 'Higher company and team member allowances.', C.brand)}
 ${pIconBullet('mail', 'Priority support when you need a hand.', C.brandDark)}
               </table>
 
-${pButton('Manage Subscription', 'https://flowbooks.app/settings/billing')}
+${pButton('Manage Subscription', 'https://flowbooksai.com/settings/billing')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1602,7 +1602,7 @@ ${d.paymentMethod ? pReceiptRow('Payment Method', esc(d.paymentMethod)) : ''}
                 </tr>
               </table>
 
-${pButton('View Billing', 'https://flowbooks.app/settings/billing')}
+${pButton('View Billing', 'https://flowbooksai.com/settings/billing')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1623,7 +1623,7 @@ ${pIconInfoBox('calendar', 'Access ends on', esc(endDate), C.amber)}
 ${pSectionHeader('info', 'Changed your mind?', C.brand)}
 ${pParagraph('You can resume your subscription at any time before the end date — no re-payment needed, and your plan simply continues.')}
 
-${pButton('Resume Subscription', 'https://flowbooks.app/settings/billing')}
+${pButton('Resume Subscription', 'https://flowbooksai.com/settings/billing')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1644,7 +1644,7 @@ ${pIconBullet('info', 'Paid features are paused until you resubscribe.', C.slate
 ${pIconBullet('refresh', 'Resubscribe anytime to restore full access instantly.', C.brand)}
               </table>
 
-${pButton('Resubscribe', 'https://flowbooks.app/settings/billing')}
+${pButton('Resubscribe', 'https://flowbooksai.com/settings/billing')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1666,7 +1666,7 @@ ${pIconInfoBox('credit-card', 'Payment Method', esc(d.paymentMethod || 'Card on 
 ${pSectionHeader('info', 'Want to make changes?', C.brand)}
 ${pParagraph('You can update your payment method, change plans, or cancel at any time from your billing settings.')}
 
-${pButton('Manage Subscription', 'https://flowbooks.app/settings/billing')}
+${pButton('Manage Subscription', 'https://flowbooksai.com/settings/billing')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1682,7 +1682,7 @@ ${pGreeting(d.userName)}
 ${pHeroCallout('check-circle', 'Subscription Resumed', `Your <strong>${esc(plan)}</strong> plan is active again.`, C.green, C.greenBg)}
 ${pParagraph(`Your subscription has been reactivated. Full ${esc(plan)} features are back, and your next renewal is on <strong>${esc(renewal)}</strong>.`)}
 
-${pButton('Go to Flowbooks', 'https://flowbooks.app/companies')}
+${pButton('Go to Flowbooks', 'https://flowbooksai.com/companies')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1691,7 +1691,7 @@ ${pSignOff()}`;
 function tplSubscriptionPaymentFailed(d: EmailTemplateData): EmailTemplateResult {
   const plan = d.planName || 'your plan';
   const reason = d.failureReason || 'the card on file was declined';
-  const updateUrl = d.updatePaymentUrl || 'https://flowbooks.app/settings/billing';
+  const updateUrl = d.updatePaymentUrl || 'https://flowbooksai.com/settings/billing';
   const subject = 'Payment issue with your Flowbooks subscription';
 
   const body = `
@@ -1720,7 +1720,7 @@ ${pParagraph('The refund should appear on your statement within 3–5 business d
 ${pIconInfoBox('credit-card', 'Refund Amount', esc(refund), C.brand)}
 
 ${pParagraph('If you have any questions, reach out to our support team and we\'ll be happy to help.')}
-${pButton('Contact Support', 'https://flowbooks.app/settings?section=support')}
+${pButton('Contact Support', 'https://flowbooksai.com/settings?section=support')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1741,7 +1741,7 @@ ${pIconBullet('shield', 'All reports, payroll, and exports — unlocked.', C.gre
 ${pIconBullet('crown', 'Multiple companies and team members.', C.brandDark)}
               </table>
 
-${pButton('Subscribe Now', 'https://flowbooks.app/settings/billing')}
+${pButton('Subscribe Now', 'https://flowbooksai.com/settings/billing')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1755,7 +1755,7 @@ ${pGreeting(d.userName)}
 ${pHeroCallout('x-circle', 'Trial Expired', 'Your 3-day free trial has ended. To keep using Flowbooks, please subscribe to a plan.', C.redDark, C.redBg)}
 ${pParagraph('Your data is safe — everything you created during the trial is still there. Pick a plan to pick up right where you left off.')}
 
-${pButton('View Plans', 'https://flowbooks.app/settings/billing')}
+${pButton('View Plans', 'https://flowbooksai.com/settings/billing')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };
@@ -1779,7 +1779,7 @@ ${pParagraph('Your weekly AI usage has been reset! You\'re all set for another w
                 </tr>
               </table>
 ${pParagraph('Use your AI allowance to chat with the assistant, generate invoices, and get accounting insights.')}
-${pButton('Open Flowbooks', 'https://flowbooks.app/companies')}
+${pButton('Open Flowbooks', 'https://flowbooksai.com/companies')}
 ${pSignOff()}`;
 
   return { subject, html: pShell(subject, body) };

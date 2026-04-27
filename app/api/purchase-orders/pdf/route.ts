@@ -3,6 +3,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
 import { generatePurchaseOrderPDF } from '@/lib/po-pdf';
 
+export const dynamic = 'force-dynamic';
+
 initAdmin();
 const adminDb = getFirestore();
 

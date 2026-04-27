@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { verifyAdminRequest } from '@/lib/admin-server';
 
+export const dynamic = 'force-dynamic';
+
 const POSTHOG_HOST = process.env.POSTHOG_HOST || 'https://us.i.posthog.com';
 const POSTHOG_API_KEY = process.env.POSTHOG_PERSONAL_API_KEY;
 const POSTHOG_PROJECT_KEY = process.env.POSTHOG_KEY;

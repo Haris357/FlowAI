@@ -4,6 +4,8 @@ import { initAdmin } from '@/lib/firebase-admin';
 import { verifyAdminRequest } from '@/lib/admin-server';
 import { isAdminEmail } from '@/lib/admin';
 
+export const dynamic = 'force-dynamic';
+
 initAdmin();
 const db = getFirestore();
 

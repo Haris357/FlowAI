@@ -331,9 +331,9 @@ export default function StatusPage() {
       <header className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 sticky top-0 z-40">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Link href="/">
+            <a href="https://flowbooksai.com">
               <FlowBooksLogo size="sm" />
-            </Link>
+            </a>
             <span className="text-gray-300 dark:text-gray-700 select-none">/</span>
             <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">Status</span>
           </div>
@@ -534,9 +534,9 @@ export default function StatusPage() {
             <span>FlowBooks AI Status</span>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/" className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+            <a href="https://flowbooksai.com" className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
               flowbooksai.com
-            </Link>
+            </a>
             <a
               href="/api/status"
               target="_blank"
@@ -545,9 +545,9 @@ export default function StatusPage() {
             >
               JSON API
             </a>
-            <Link href="/contact" className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
+            <a href="https://flowbooksai.com/contact" className="hover:text-gray-600 dark:hover:text-gray-300 transition-colors">
               Contact
-            </Link>
+            </a>
           </div>
         </div>
       </footer>

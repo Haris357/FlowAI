@@ -6,6 +6,8 @@ import { sendEmail } from '@/lib/email';
 import { getEmailTemplate } from '@/lib/email-templates';
 import { canSendEmail } from '@/lib/email-preferences';
 
+export const dynamic = 'force-dynamic';
+
 initAdmin();
 const db = getFirestore();
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY || '' });

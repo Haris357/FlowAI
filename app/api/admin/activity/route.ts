@@ -3,6 +3,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
 import { verifyAdminRequest } from '@/lib/admin-server';
 
+export const dynamic = 'force-dynamic';
+
 initAdmin();
 const db = getFirestore();
 

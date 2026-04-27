@@ -14,6 +14,7 @@ export function initPostHog() {
     capture_pageview: false, // We handle this manually in the provider
     capture_pageleave: true,
     autocapture: true,
+    capture_exceptions: true, // Auto-report uncaught browser errors
   });
 
   initialized = true;

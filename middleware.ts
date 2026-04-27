@@ -90,12 +90,23 @@ function handleCORS(req: NextRequest, res: NextResponse): NextResponse {
 
 // ─── Middleware ──────────────────────────────────────────────────────────────
 
+/** Hosts that should never be indexed by search engines. */
+function shouldNoindexHost(hostname: string): boolean {
+  if (!hostname) return false;
+  if (hostname.startsWith('admin.') || hostname.startsWith('admin-')) return true;
+  if (hostname.startsWith('status.') || hostname.startsWith('status-')) return true;
+  // Any Vercel preview or branch deployment
+  if (/\.vercel\.app$/i.test(hostname)) return true;
+  return false;
+}
+
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hostname = request.headers.get('host') || '';
   const origin = request.headers.get('origin');
   const ua = request.headers.get('user-agent') || '';
   const ip = getIP(request);
+  const noindex = shouldNoindexHost(hostname);
 
   // ── 1. Block known-bad paths (path traversal / CMS probes) ──────────────
   if (BLOCKED_PATHS.some(re => re.test(pathname))) {
@@ -130,11 +141,14 @@ export function middleware(request: NextRequest) {
     if (pathname.startsWith('/api') || pathname.startsWith('/status')) {
       const res = NextResponse.next();
       if (pathname.startsWith('/api/')) handleCORS(request, res);
+      if (noindex) res.headers.set('X-Robots-Tag', 'noindex, nofollow');
       return res;
     }
     const url = request.nextUrl.clone();
     url.pathname = `/status${pathname === '/' ? '' : pathname}`;
-    return NextResponse.rewrite(url);
+    const res = NextResponse.rewrite(url);
+    if (noindex) res.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    return res;
   }
 
   // ── 5. Admin subdomain routing ───────────────────────────────────────────
@@ -146,11 +160,14 @@ export function middleware(request: NextRequest) {
     if (pathname.startsWith('/api') || pathname.startsWith('/admin')) {
       const res = NextResponse.next();
       if (pathname.startsWith('/api/')) handleCORS(request, res);
+      if (noindex) res.headers.set('X-Robots-Tag', 'noindex, nofollow');
       return res;
     }
     const url = request.nextUrl.clone();
     url.pathname = `/admin${pathname === '/' ? '' : pathname}`;
-    return NextResponse.rewrite(url);
+    const res = NextResponse.rewrite(url);
+    if (noindex) res.headers.set('X-Robots-Tag', 'noindex, nofollow');
+    return res;
   }
 
   // On main domain redirect /admin/* to admin subdomain (production only)
@@ -238,6 +255,9 @@ export function middleware(request: NextRequest) {
     handleCORS(request, res);
     // Prevent API responses from being cached by browsers / CDNs
     res.headers.set('Cache-Control', 'no-store');
+  }
+  if (noindex) {
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow');
   }
 
   return res;

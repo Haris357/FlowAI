@@ -8,25 +8,32 @@ import { Check, ArrowRight, X, Lock } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/contexts/SubscriptionContext';
 import { useColorScheme } from '@mui/joy/styles';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { PLANS } from '@/lib/plans';
 
 export default function PremiumModal() {
   const { user } = useAuth();
   const { isTrialExpired: trialExpired } = useSubscription();
   const router = useRouter();
+  const pathname = usePathname();
   const { mode } = useColorScheme();
   const [open, setOpen] = useState(false);
 
+  // Only show this modal on the companies list page — that's where the user
+  // lands after login and where blocking them with the paywall makes sense.
+  // On every other page (settings, billing, blog, etc.) it's just noise.
+  const isOnCompaniesPage = pathname === '/companies';
+
   useEffect(() => {
     if (!user?.uid) return;
+    if (!isOnCompaniesPage) return;
     if (trialExpired) {
       if (typeof window !== 'undefined' && !sessionStorage.getItem('trial_expired_modal_shown')) {
         setOpen(true);
         sessionStorage.setItem('trial_expired_modal_shown', 'true');
       }
     }
-  }, [user?.uid, trialExpired]);
+  }, [user?.uid, trialExpired, isOnCompaniesPage]);
 
   const handleUpgrade = () => {
     setOpen(false);

@@ -124,8 +124,8 @@ export default function SupportPage() {
           </Typography>
         </Box>
         <Button
-          component={Link}
-          href="/companies"
+          component="a"
+          href="https://flowbooksai.com/companies"
           size="sm" variant="plain" color="neutral"
           startDecorator={<Home size={14} />}
           sx={{ borderRadius: '10px' }}

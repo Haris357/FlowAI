@@ -1,11 +1,20 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Security',
-  description: 'Enterprise-grade security measures protecting your financial data at Flowbooks.',
+  title: 'Security — How Flowbooks protects your financial data',
+  description:
+    'Bank-grade security at Flowbooks: 256-bit AES encryption in transit and at rest, Google Cloud infrastructure, SOC 2-aligned controls, role-based access, and continuous monitoring.',
+  alternates: { canonical: '/security' },
   openGraph: {
-    title: 'Security - Flowbooks',
-    description: 'Enterprise-grade security measures protecting your financial data at Flowbooks.',
+    type: 'website',
+    url: '/security',
+    title: 'Flowbooks Security',
+    description:
+      'How Flowbooks protects your financial data — encryption, infrastructure, and controls.',
+  },
+  twitter: {
+    title: 'Flowbooks Security',
+    description: 'How Flowbooks protects your financial data.',
   },
 };
 

@@ -3,6 +3,9 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { initAdmin } from '@/lib/firebase-admin';
 import { generateInvoicePDF } from '@/lib/invoice-pdf';
 
+// Reads request.url query params + hits Firestore — never statically renderable.
+export const dynamic = 'force-dynamic';
+
 initAdmin();
 const adminDb = getFirestore();
 

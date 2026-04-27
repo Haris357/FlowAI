@@ -70,8 +70,24 @@ export async function POST(req: Request) {
         permissionsOverride,
       },
     });
-  } catch (error) {
-    console.error('[admin/auth] Login error:', error);
+  } catch (error: any) {
+    // Surface the underlying cause in logs so it's easy to diagnose in Vercel.
+    const message = error?.message || String(error);
+    console.error('[admin/auth] Login error:', message, error?.stack);
+
+    // Common configuration errors we can hint at without leaking secrets.
+    if (/ADMIN_JWT_SECRET/.test(message)) {
+      return NextResponse.json(
+        { error: 'Server is missing ADMIN_JWT_SECRET. Set it in your environment and redeploy.' },
+        { status: 500 }
+      );
+    }
+    if (/credential|service account|private_key|FIREBASE/i.test(message)) {
+      return NextResponse.json(
+        { error: 'Firebase Admin SDK is not configured on the server.' },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
